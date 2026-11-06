@@ -1,0 +1,157 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Outlet {
+  id             String          @id @default(cuid())
+  code           String          @unique // e.g. "OUT-01", "OUT-02"
+  name           String          // e.g. "Booth Indomaret Sudirman", "Booth Alfamart Diponegoro"
+  address        String?
+  active_status  Boolean         @default(true)
+  target_cups    Int             @default(100) // Target penjualan cup per hari (diatur oleh Admin)
+  stocks         BoothStock[]
+  transactions   Transaction[]
+  shiftClosings  ShiftClosing[]
+  outletProducts OutletProduct[]
+  expenses       Expense[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("outlets")
+}
+
+model Product {
+  id               String            @id @default(cuid())
+  name             String            @unique
+  price            Float
+  category         String            @default("fruity") // "original", "fruity", "milky", "topping"
+  active_status    Boolean           @default(true)
+  recipes          BOM_Recipe[]
+  transactionItems TransactionItem[]
+  outletProducts   OutletProduct[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@map("products")
+}
+
+model RawMaterial {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  unit        String         // "pcs", "ml", "gram"
+  recipes     BOM_Recipe[]
+  boothStocks BoothStock[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@map("raw_materials")
+}
+
+model BoothStock {
+  id              String      @id @default(cuid())
+  outlet_id       String
+  raw_material_id String
+  current_stock   Float       @default(0)
+  outlet          Outlet      @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+  raw_material    RawMaterial @relation(fields: [raw_material_id], references: [id], onDelete: Cascade)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([outlet_id, raw_material_id])
+  @@map("booth_stocks")
+}
+
+model BOM_Recipe {
+  id              String      @id @default(cuid())
+  product_id      String
+  raw_material_id String
+  quantity        Float       // e.g. 1 pcs Cup, 300 ml Liquid Premix
+  product         Product     @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  raw_material    RawMaterial @relation(fields: [raw_material_id], references: [id], onDelete: Cascade)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([product_id, raw_material_id])
+  @@map("bom_recipes")
+}
+
+model Transaction {
+  id             String            @id @default(cuid())
+  outlet_id      String
+  total_amount   Float
+  payment_method String            // "QRIS" or "Cash"
+  offline_id     String?           @unique
+  created_at     DateTime          @default(now())
+  outlet         Outlet            @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+  items          TransactionItem[]
+
+  @@map("transactions")
+}
+
+model TransactionItem {
+  id             String      @id @default(cuid())
+  transaction_id String
+  product_id     String
+  quantity       Int
+  unit_price     Float
+  transaction    Transaction @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
+  product        Product     @relation(fields: [product_id], references: [id])
+
+  @@map("transaction_items")
+}
+
+model ShiftClosing {
+  id                        String   @id @default(cuid())
+  outlet_id                 String
+  date                      DateTime @default(now())
+  actual_cup_reg            Int
+  actual_cup_jumbo          Int
+  actual_liquid_ml          Float
+  system_expected_cup_reg   Int
+  system_expected_cup_jumbo Int
+  system_expected_liquid_ml Float
+  discrepancy_cup           Int      // Total cup discrepancy (actual - expected)
+  discrepancy_cup_reg       Int      @default(0)
+  discrepancy_cup_jumbo     Int      @default(0)
+  discrepancy_liquid        Float    // actual_liquid_ml - expected_liquid_ml
+  employee_debt             Float    @default(0) // missing cups * retail price
+  theft_flag                Boolean  @default(false) // RED Flag: actual_cup < expected_cup
+  waste_flag                Boolean  @default(false) // YELLOW Flag: actual_liquid_ml < expected_liquid_ml by > 2%
+  notes                     String?
+  created_at                DateTime @default(now())
+  outlet                    Outlet   @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+
+  @@map("shift_closings")
+}
+
+model OutletProduct {
+  id           String   @id @default(cuid())
+  outlet_id    String
+  product_id   String
+  is_available Boolean  @default(true)
+  outlet       Outlet   @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+  product      Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([outlet_id, product_id])
+  @@map("outlet_products")
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  outlet_id   String?
+  category    String   @default("operasional") // "operasional", "bahan_es_batu", "logistik", "lainnya"
+  description String
+  amount      Float
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  outlet      Outlet?  @relation(fields: [outlet_id], references: [id], onDelete: SetNull)
+
+  @@map("expenses")
+}
