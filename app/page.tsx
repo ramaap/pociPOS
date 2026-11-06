@@ -1010,28 +1010,51 @@ export default function PosTerminalPage() {
               </button>
 
               <button
+                type="button"
+                disabled={currentOutletObj?.shift_status === "closed"}
                 onClick={() => {
                   setExpenseMessage(null);
                   setIsExpenseModalOpen(true);
                   loadTodayExpenses();
                 }}
-                className="flex items-center space-x-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 transition shadow-2xs"
-                title="Catat Pengeluaran (+ Beban)"
+                className={`flex items-center space-x-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition shadow-2xs ${
+                  currentOutletObj?.shift_status === "closed"
+                    ? "opacity-40 cursor-not-allowed bg-amber-950/40 text-amber-300/60 border border-amber-800/40 shadow-none"
+                    : "bg-amber-400 hover:bg-amber-300 text-slate-950 cursor-pointer"
+                }`}
+                title={
+                  currentOutletObj?.shift_status === "closed"
+                    ? "Buka shift terlebih dahulu untuk mencatat pengeluaran"
+                    : "Catat Pengeluaran (+ Beban)"
+                }
               >
                 <Receipt className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">+ Pengeluaran</span>
                 <span className="sm:hidden">Beban</span>
               </button>
 
-              <Link
-                href="/closing"
-                className="flex items-center space-x-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold bg-emerald-700 hover:bg-emerald-600 text-white transition shadow-2xs"
-                title="Tutup Shift (Blind Count)"
-              >
-                <ClipboardList className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Tutup Shift</span>
-                <span className="sm:hidden">Shift</span>
-              </Link>
+              {currentOutletObj?.shift_status === "closed" ? (
+                <button
+                  type="button"
+                  disabled
+                  className="opacity-40 cursor-not-allowed bg-emerald-950/40 text-emerald-300/60 border border-emerald-800/40 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold flex items-center space-x-1 shadow-none"
+                  title="Shift belum dibuka. Buka shift terlebih dahulu sebelum dapat menutup shift."
+                >
+                  <ClipboardList className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Tutup Shift</span>
+                  <span className="sm:hidden">Shift</span>
+                </button>
+              ) : (
+                <Link
+                  href="/closing"
+                  className="flex items-center space-x-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold bg-emerald-700 hover:bg-emerald-600 text-white transition shadow-2xs"
+                  title="Tutup Shift (Blind Count)"
+                >
+                  <ClipboardList className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Tutup Shift</span>
+                  <span className="sm:hidden">Shift</span>
+                </Link>
+              )}
 
               <Link
                 href="/admin"
@@ -1128,25 +1151,48 @@ export default function PosTerminalPage() {
               </button>
 
               <button
+                type="button"
+                disabled={currentOutletObj?.shift_status === "closed"}
                 onClick={() => {
                   setExpenseMessage(null);
                   setIsExpenseModalOpen(true);
                   loadTodayExpenses();
                 }}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 transition shadow-sm"
-                title="Catat Pengeluaran Kedai (Es Batu, Gas LPG, Sedotan, dll)"
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm ${
+                  currentOutletObj?.shift_status === "closed"
+                    ? "opacity-40 cursor-not-allowed bg-amber-950/40 text-amber-300/60 border border-amber-800/40 shadow-none"
+                    : "bg-amber-400 hover:bg-amber-300 text-slate-950 cursor-pointer"
+                }`}
+                title={
+                  currentOutletObj?.shift_status === "closed"
+                    ? "Buka shift terlebih dahulu untuk mencatat pengeluaran"
+                    : "Catat Pengeluaran Kedai (Es Batu, Gas LPG, Sedotan, dll)"
+                }
               >
                 <Receipt className="w-3.5 h-3.5" />
                 <span>+ Pengeluaran (Es, Gas)</span>
               </button>
 
-              <Link
-                href="/closing"
-                className="flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-600 text-white transition shadow-sm"
-              >
-                <ClipboardList className="w-3.5 h-3.5" />
-                <span>Tutup Shift</span>
-              </Link>
+              {currentOutletObj?.shift_status === "closed" ? (
+                <button
+                  type="button"
+                  disabled
+                  className="opacity-40 cursor-not-allowed bg-emerald-950/40 text-emerald-300/60 border border-emerald-800/40 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1 shadow-none"
+                  title="Shift belum dibuka. Buka shift terlebih dahulu sebelum dapat menutup shift."
+                >
+                  <ClipboardList className="w-3.5 h-3.5" />
+                  <span>Tutup Shift</span>
+                </button>
+              ) : (
+                <Link
+                  href="/closing"
+                  className="flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-600 text-white transition shadow-sm"
+                  title="Tutup Shift (Blind Count)"
+                >
+                  <ClipboardList className="w-3.5 h-3.5" />
+                  <span>Tutup Shift</span>
+                </Link>
+              )}
 
               <Link
                 href="/admin"

@@ -53,6 +53,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Nominal pengeluaran harus berupa angka positif" }, { status: 400 });
     }
 
+    if (outletId && outletId !== "all") {
+      const outlet = await prisma.outlet.findUnique({ where: { id: outletId } });
+      if (outlet?.shift_status === "closed") {
+        return NextResponse.json(
+          { error: "Shift kedai masih tutup. Silakan buka shift terlebih dahulu untuk mencatat pengeluaran." },
+          { status: 400 }
+        );
+      }
+    }
+
     const newExpense = await prisma.expense.create({
       data: {
         outlet_id: outletId && outletId !== "all" ? outletId : null,
