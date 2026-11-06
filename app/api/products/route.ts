@@ -124,7 +124,9 @@ export async function GET(req: Request) {
       },
     });
     const todayExpenseTotal = todayExpenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
-    const todayCashBalance = todayCashIn - todayExpenseTotal;
+    const selectedOutletObj = outlets.find((o) => o.id === selectedOutletId);
+    const initialCash = selectedOutletObj?.initial_cash || 0;
+    const todayCashBalance = initialCash + todayCashIn - todayExpenseTotal;
 
     return NextResponse.json({
       outlets,
@@ -132,6 +134,7 @@ export async function GET(req: Request) {
       products,
       rawMaterials,
       todayCupsSold,
+      initialCash,
       todayCashIn,
       todayExpenseTotal,
       todayCashBalance,

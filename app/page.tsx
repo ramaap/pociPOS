@@ -53,6 +53,7 @@ interface Outlet {
   name: string;
   address?: string;
   target_cups?: number;
+  initial_cash?: number;
 }
 
 interface BOMRecipe {
@@ -242,8 +243,6 @@ export default function PosTerminalPage() {
   const [expenseMessage, setExpenseMessage] = useState<string | null>(null);
   const [todayExpenses, setTodayExpenses] = useState<any[]>([]);
   const [todayExpenseTotal, setTodayExpenseTotal] = useState<number>(0);
-  // Total Uang Cash Tersedia di Laci Kedai (Transaksi Cash Masuk - Kas Keluar Operasional)
-  const currentCashBalance = todayCashIn - todayExpenseTotal;
 
   const loadTodayExpenses = async (outletId = selectedOutletId) => {
     if (!outletId) return;
@@ -876,6 +875,8 @@ export default function PosTerminalPage() {
   const liquidPremixMaterial = rawMaterials.find((m) => m.name === "Liquid Tea Premix");
   const currentOutletObj = outlets.find((o) => o.id === selectedOutletId) || outlets[0];
   const dailyTargetCups = currentOutletObj?.target_cups || 100;
+  const initialCash = currentOutletObj?.initial_cash || 0;
+  const currentCashBalance = initialCash + todayCashIn - todayExpenseTotal;
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
@@ -1076,9 +1077,9 @@ export default function PosTerminalPage() {
                 <strong>{todayCupsSold} cup</strong>
               </div>
 
-              {/* Uang Cash di Kedai (Bertambah saat Transaksi Cash, Berkurang saat Pengeluaran) */}
+              {/* Uang Cash di Kedai (Modal Cash Dibawa + Transaksi Cash - Kas Keluar) */}
               <div
-                title="Total Uang Cash Fisik di Laci Booth Kedai (Pemasukan Transaksi Tunai - Pengeluaran Kasir)"
+                title={`Total Uang Cash Fisik di Laci Booth: Modal Dibawa (Rp ${initialCash.toLocaleString("id-ID")}) + Transaksi Tunai (Rp ${todayCashIn.toLocaleString("id-ID")}) - Kas Keluar (Rp ${todayExpenseTotal.toLocaleString("id-ID")}) = Rp ${currentCashBalance.toLocaleString("id-ID")}`}
                 className="px-2 py-1 bg-teal-50 rounded-lg text-teal-950 font-bold border border-teal-300 flex items-center justify-between sm:justify-start gap-1 shadow-2xs"
               >
                 <span className="flex items-center gap-1 text-teal-700">

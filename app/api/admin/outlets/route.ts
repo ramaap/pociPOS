@@ -26,7 +26,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { action, id, code, name, address, active_status, target_cups } = body;
+    const { action, id, code, name, address, active_status, target_cups, initial_cash } = body;
 
     // 1. TAMBAH KEDAI BARU
     if (action === "create") {
@@ -48,6 +48,7 @@ export async function POST(req: Request) {
       }
 
       const targetCupsNum = target_cups !== undefined ? Number(target_cups) : 100;
+      const initialCashNum = initial_cash !== undefined ? Number(initial_cash) : 0;
 
       const newOutlet = await prisma.outlet.create({
         data: {
@@ -56,6 +57,7 @@ export async function POST(req: Request) {
           address: address?.trim() || null,
           active_status: active_status ?? true,
           target_cups: !isNaN(targetCupsNum) && targetCupsNum > 0 ? targetCupsNum : 100,
+          initial_cash: !isNaN(initialCashNum) && initialCashNum >= 0 ? initialCashNum : 0,
         },
       });
 
@@ -110,6 +112,7 @@ export async function POST(req: Request) {
       }
 
       const targetCupsNum = target_cups !== undefined ? Number(target_cups) : undefined;
+      const initialCashNum = initial_cash !== undefined ? Number(initial_cash) : undefined;
 
       const updated = await prisma.outlet.update({
         where: { id },
@@ -119,6 +122,7 @@ export async function POST(req: Request) {
           ...(address !== undefined && { address: address?.trim() || null }),
           ...(active_status !== undefined && { active_status: Boolean(active_status) }),
           ...(targetCupsNum !== undefined && !isNaN(targetCupsNum) && targetCupsNum > 0 && { target_cups: targetCupsNum }),
+          ...(initialCashNum !== undefined && !isNaN(initialCashNum) && initialCashNum >= 0 && { initial_cash: initialCashNum }),
         },
       });
 

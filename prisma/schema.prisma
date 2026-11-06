@@ -14,6 +14,7 @@ model Outlet {
   address        String?
   active_status  Boolean         @default(true)
   target_cups    Int             @default(100) // Target penjualan cup per hari (diatur oleh Admin)
+  initial_cash   Float           @default(0) // Uang cash yang dibawa (modal kas awal kedai)
   stocks         BoothStock[]
   transactions   Transaction[]
   shiftClosings  ShiftClosing[]
