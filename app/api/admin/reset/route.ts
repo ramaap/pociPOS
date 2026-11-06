@@ -155,17 +155,18 @@ export async function POST(req: Request) {
       ];
 
       for (const item of menuList) {
-        const prodReg = await prisma.product.create({
-          data: { name: `${item.name} (Reguler)`, price: item.priceReg, active_status: true },
-        });
-        const bomRegData = [
-          { product_id: prodReg.id, raw_material_id: cupReg.id, quantity: 1 },
-          { product_id: prodReg.id, raw_material_id: liquidPremix.id, quantity: 300 },
-        ];
-        if (item.flavorMaterialId) {
-          bomRegData.push({ product_id: prodReg.id, raw_material_id: item.flavorMaterialId, quantity: 1 });
+        // Varian rasa standar vendor hanya disajikan ukuran Jumbo (1 sachet rasa).
+        // Hanya Jasmine Tea original yang memiliki opsi Reguler & Jumbo.
+        if (!item.flavorMaterialId && item.priceReg) {
+          const prodReg = await prisma.product.create({
+            data: { name: `${item.name} (Reguler)`, price: item.priceReg, active_status: true },
+          });
+          const bomRegData = [
+            { product_id: prodReg.id, raw_material_id: cupReg.id, quantity: 1 },
+            { product_id: prodReg.id, raw_material_id: liquidPremix.id, quantity: 300 },
+          ];
+          await prisma.bOM_Recipe.createMany({ data: bomRegData });
         }
-        await prisma.bOM_Recipe.createMany({ data: bomRegData });
 
         const prodJumbo = await prisma.product.create({
           data: { name: `${item.name} (Jumbo)`, price: item.priceJumbo, active_status: true },

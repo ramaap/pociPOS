@@ -222,7 +222,7 @@ export default function AdminDashboardPage() {
     baseName: "",
     category: "fruity",
     flavorMaterialId: "",
-    enableReguler: true,
+    enableReguler: false,
     regulerPrice: "7000",
     regulerTeaMl: "300",
     regulerFlavorQty: "1",
@@ -964,14 +964,14 @@ export default function AdminDashboardPage() {
           baseName: "",
           category: "fruity",
           flavorMaterialId: "",
-          enableReguler: true,
+          enableReguler: false,
           regulerPrice: "7000",
           regulerTeaMl: "300",
-          regulerFlavorQty: "30",
+          regulerFlavorQty: "1",
           enableJumbo: true,
           jumboPrice: "9000",
-          jumboTeaMl: "400",
-          jumboFlavorQty: "40",
+          jumboTeaMl: "450",
+          jumboFlavorQty: "1",
         });
         loadMenus();
         setTimeout(() => {
