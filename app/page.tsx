@@ -829,67 +829,70 @@ export default function PosTerminalPage() {
     <div className="min-h-screen bg-slate-100 flex flex-col">
       {/* Top Navbar */}
       <header className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 text-white relative lg:sticky lg:top-0 z-30 shadow-md w-full">
-        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-2 sm:py-2.5 space-y-1.5 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-2 sm:py-2.5 space-y-2 lg:space-y-0 lg:flex lg:items-center lg:justify-between lg:gap-4">
           
-          {/* Row 1 di Mobile / Sisi Kiri di Desktop */}
-          <div className="flex items-center justify-between gap-1.5 min-w-0">
-            <div className="flex items-center space-x-2 min-w-0">
-              <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg sm:rounded-xl bg-white p-0.5 sm:p-1 flex items-center justify-center shadow-md shrink-0 border border-amber-300 overflow-hidden">
+          {/* Row 1 di Mobile & Tablet (<lg) / Sisi Kiri di Desktop (lg+) */}
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div className="flex items-center space-x-2 sm:space-x-2.5 min-w-0">
+              <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-white p-0.5 sm:p-1 flex items-center justify-center shadow-md shrink-0 border border-amber-300 overflow-hidden">
                 <img src="/logo.jpg" alt="Logo Teh Cap Poci" className="w-full h-full object-contain" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center space-x-1.5">
-                  <h1 className="font-black text-xs sm:text-lg md:text-xl tracking-tight text-white whitespace-nowrap">
+                  <h1 className="font-black text-xs sm:text-base md:text-lg lg:text-xl tracking-tight text-white whitespace-nowrap">
                     TEH CAP POCI
                   </h1>
                   <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-400 text-slate-950 uppercase shrink-0">
                     Multi-Kedai
                   </span>
                 </div>
-                <p className="text-[10px] text-emerald-200 font-mono truncate hidden sm:block">
+                <p className="text-[10px] text-emerald-200 font-mono truncate hidden md:block">
                   Central Kitchen Strict BOM POS Terminal
                 </p>
               </div>
             </div>
 
-            {/* Tombol Pengeluaran, Tutup Shift & Admin Cepat di Mobile (Baris Atas) */}
-            <div className="flex sm:hidden items-center space-x-1 shrink-0">
+            {/* Tombol Pengeluaran, Tutup Shift & Admin Cepat di Mobile & Tablet (<lg) */}
+            <div className="flex lg:hidden items-center space-x-1 sm:space-x-1.5 shrink-0">
               <button
                 onClick={() => {
                   setExpenseMessage(null);
                   setIsExpenseModalOpen(true);
                   loadTodayExpenses();
                 }}
-                className="flex items-center space-x-1 px-2 py-1 rounded-lg text-[11px] font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 transition shadow-2xs"
+                className="flex items-center space-x-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 transition shadow-2xs"
                 title="Catat Pengeluaran (+ Beban)"
               >
                 <Receipt className="w-3.5 h-3.5" />
-                <span>Beban</span>
+                <span className="hidden sm:inline">+ Pengeluaran</span>
+                <span className="sm:hidden">Beban</span>
               </button>
 
               <Link
                 href="/closing"
-                className="flex items-center space-x-1 px-2 py-1 rounded-lg text-[11px] font-bold bg-emerald-700 hover:bg-emerald-600 text-white transition shadow-2xs"
+                className="flex items-center space-x-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold bg-emerald-700 hover:bg-emerald-600 text-white transition shadow-2xs"
                 title="Tutup Shift (Blind Count)"
               >
                 <ClipboardList className="w-3.5 h-3.5" />
-                <span>Shift</span>
+                <span className="hidden sm:inline">Tutup Shift</span>
+                <span className="sm:hidden">Shift</span>
               </Link>
 
               <Link
                 href="/admin"
-                className="p-1 rounded-lg bg-slate-900/80 hover:bg-slate-900 text-amber-400 transition"
+                className="p-1 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl bg-slate-900/80 hover:bg-slate-900 text-amber-400 transition flex items-center space-x-1"
                 title="Admin Dashboard"
               >
                 <ShieldAlert className="w-4 h-4" />
+                <span className="hidden sm:inline text-xs font-semibold text-slate-200">Admin</span>
               </Link>
             </div>
           </div>
 
-          {/* Row 2 di Mobile / Sisi Kanan di Desktop */}
-          <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 flex-nowrap">
+          {/* Row 2 di Mobile & Tablet (<lg) / Sisi Kanan di Desktop (lg+) */}
+          <div className="flex items-center justify-between lg:justify-end gap-1.5 sm:gap-2 flex-nowrap min-w-0">
             {/* Selector Kedai / Outlet */}
-            <div className="flex-1 sm:flex-initial flex items-center bg-emerald-950/80 border border-emerald-600/50 rounded-lg sm:rounded-xl px-2 py-1 text-xs min-w-0 max-w-[170px] xs:max-w-[210px] sm:max-w-none">
+            <div className="flex-1 sm:flex-initial flex items-center bg-emerald-950/80 border border-emerald-600/50 rounded-lg sm:rounded-xl px-2 py-1 text-xs min-w-0 max-w-[170px] xs:max-w-[220px] sm:max-w-[280px] lg:max-w-none">
               <Store className="w-3.5 h-3.5 text-amber-400 mr-1.5 shrink-0" />
               <select
                 value={selectedOutletId || outlets[0]?.id || ""}
@@ -906,7 +909,7 @@ export default function PosTerminalPage() {
 
             {/* Status Online/Offline */}
             <div
-              className={`flex items-center space-x-1 px-2 py-1 rounded-lg sm:rounded-full text-[10px] sm:text-[11px] font-semibold shadow-2xs shrink-0 transition ${
+              className={`flex items-center space-x-1 px-2 sm:px-2.5 py-1 rounded-lg sm:rounded-full text-[10px] sm:text-[11px] font-semibold shadow-2xs shrink-0 transition ${
                 isOnline
                   ? "bg-emerald-950/70 text-emerald-200 border border-emerald-600/50"
                   : "bg-rose-950/90 text-rose-200 border border-rose-500 animate-pulse"
@@ -941,15 +944,15 @@ export default function PosTerminalPage() {
                 setResetPosMessage(null);
                 setIsResetPosModalOpen(true);
               }}
-              className="p-1 sm:px-2 sm:py-1 rounded-lg sm:rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 hover:bg-amber-400 hover:text-slate-950 transition border border-amber-400/40 shrink-0"
+              className="p-1 sm:px-2 sm:py-1 rounded-lg sm:rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 hover:bg-amber-400 hover:text-slate-950 transition border border-amber-400/40 shrink-0 flex items-center gap-1"
               title="Reset Data Operasional POS (Membutuhkan PIN Admin)"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden md:inline ml-1">Reset POS</span>
+              <span className="hidden sm:inline">Reset POS</span>
             </button>
 
-            {/* Desktop Only Links */}
-            <div className="hidden sm:flex items-center space-x-2 shrink-0">
+            {/* Desktop Only Links (lg+) */}
+            <div className="hidden lg:flex items-center space-x-2 shrink-0">
               <button
                 onClick={() => {
                   setExpenseMessage(null);
