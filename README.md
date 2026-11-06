@@ -131,3 +131,4 @@ Jika Anda menggunakan Windows, cukup jalankan skrip otomatis:
 ## 📄 Lisensi
 
 Hak Cipta (c) 2026. Dikembangkan untuk efisiensi operasional jaringan outlet Teh Cap Poci.
+

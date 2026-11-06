@@ -829,20 +829,20 @@ export default function PosTerminalPage() {
     <div className="min-h-screen bg-slate-100 flex flex-col">
       {/* Top Navbar */}
       <header className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 text-white relative lg:sticky lg:top-0 z-30 shadow-md w-full">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 space-y-2 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-2 sm:py-2.5 space-y-1.5 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
           
           {/* Row 1 di Mobile / Sisi Kiri di Desktop */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center space-x-2.5 min-w-0">
-              <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-white p-1 flex items-center justify-center shadow-md shrink-0 border border-amber-300 overflow-hidden">
+          <div className="flex items-center justify-between gap-1.5 min-w-0">
+            <div className="flex items-center space-x-2 min-w-0">
+              <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg sm:rounded-xl bg-white p-0.5 sm:p-1 flex items-center justify-center shadow-md shrink-0 border border-amber-300 overflow-hidden">
                 <img src="/logo.jpg" alt="Logo Teh Cap Poci" className="w-full h-full object-contain" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center space-x-1.5">
-                  <h1 className="font-black text-base sm:text-xl tracking-tight text-white truncate">
+                  <h1 className="font-black text-xs sm:text-lg md:text-xl tracking-tight text-white whitespace-nowrap">
                     TEH CAP POCI
                   </h1>
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-400 text-slate-950 uppercase shrink-0">
+                  <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-400 text-slate-950 uppercase shrink-0">
                     Multi-Kedai
                   </span>
                 </div>
@@ -853,43 +853,43 @@ export default function PosTerminalPage() {
             </div>
 
             {/* Tombol Pengeluaran, Tutup Shift & Admin Cepat di Mobile (Baris Atas) */}
-            <div className="flex sm:hidden items-center space-x-1.5 shrink-0">
+            <div className="flex sm:hidden items-center space-x-1 shrink-0">
               <button
                 onClick={() => {
                   setExpenseMessage(null);
                   setIsExpenseModalOpen(true);
                   loadTodayExpenses();
                 }}
-                className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 transition shadow-xs"
-                title="Catat Pengeluaran Kedai (Es, Gas, dll)"
+                className="flex items-center space-x-1 px-2 py-1 rounded-lg text-[11px] font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 transition shadow-2xs"
+                title="Catat Pengeluaran (+ Beban)"
               >
                 <Receipt className="w-3.5 h-3.5" />
-                <span>+ Beban</span>
+                <span>Beban</span>
               </button>
 
               <Link
                 href="/closing"
-                className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-600 text-white transition shadow-xs"
+                className="flex items-center space-x-1 px-2 py-1 rounded-lg text-[11px] font-bold bg-emerald-700 hover:bg-emerald-600 text-white transition shadow-2xs"
                 title="Tutup Shift (Blind Count)"
               >
                 <ClipboardList className="w-3.5 h-3.5" />
-                <span>Tutup Shift</span>
+                <span>Shift</span>
               </Link>
 
               <Link
                 href="/admin"
-                className="p-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-900 text-slate-200 transition"
+                className="p-1 rounded-lg bg-slate-900/80 hover:bg-slate-900 text-amber-400 transition"
                 title="Admin Dashboard"
               >
-                <ShieldAlert className="w-4 h-4 text-amber-400" />
+                <ShieldAlert className="w-4 h-4" />
               </Link>
             </div>
           </div>
 
           {/* Row 2 di Mobile / Sisi Kanan di Desktop */}
-          <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 flex-nowrap">
             {/* Selector Kedai / Outlet */}
-            <div className="flex-1 sm:flex-initial flex items-center bg-emerald-950/80 border border-emerald-600/50 rounded-xl px-2 py-1 text-xs min-w-0 max-w-[200px] sm:max-w-none">
+            <div className="flex-1 sm:flex-initial flex items-center bg-emerald-950/80 border border-emerald-600/50 rounded-lg sm:rounded-xl px-2 py-1 text-xs min-w-0 max-w-[170px] xs:max-w-[210px] sm:max-w-none">
               <Store className="w-3.5 h-3.5 text-amber-400 mr-1.5 shrink-0" />
               <select
                 value={selectedOutletId || outlets[0]?.id || ""}
@@ -906,7 +906,7 @@ export default function PosTerminalPage() {
 
             {/* Status Online/Offline */}
             <div
-              className={`flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-semibold shadow-xs shrink-0 transition ${
+              className={`flex items-center space-x-1 px-2 py-1 rounded-lg sm:rounded-full text-[10px] sm:text-[11px] font-semibold shadow-2xs shrink-0 transition ${
                 isOnline
                   ? "bg-emerald-950/70 text-emerald-200 border border-emerald-600/50"
                   : "bg-rose-950/90 text-rose-200 border border-rose-500 animate-pulse"
@@ -928,7 +928,7 @@ export default function PosTerminalPage() {
             {pendingSyncCount > 0 && (
               <button
                 onClick={handleSync}
-                className="flex items-center space-x-1 px-2 py-1 rounded-full text-[10px] font-bold bg-amber-400 hover:bg-amber-500 text-slate-950 transition shadow shrink-0"
+                className="flex items-center space-x-1 px-2 py-1 rounded-lg sm:rounded-full text-[10px] font-bold bg-amber-400 hover:bg-amber-500 text-slate-950 transition shadow shrink-0"
               >
                 <RefreshCw className="w-3 h-3 animate-spin" />
                 <span>Sync ({pendingSyncCount})</span>
@@ -941,7 +941,7 @@ export default function PosTerminalPage() {
                 setResetPosMessage(null);
                 setIsResetPosModalOpen(true);
               }}
-              className="p-1.5 sm:px-2 sm:py-1 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 hover:bg-amber-400 hover:text-slate-950 transition border border-amber-400/40 shrink-0"
+              className="p-1 sm:px-2 sm:py-1 rounded-lg sm:rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 hover:bg-amber-400 hover:text-slate-950 transition border border-amber-400/40 shrink-0"
               title="Reset Data Operasional POS (Membutuhkan PIN Admin)"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -984,47 +984,60 @@ export default function PosTerminalPage() {
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-6">
         {/* Left Column: Menu Catalog */}
-        <div className="lg:col-span-8 flex flex-col space-y-4">
+        <div className="lg:col-span-8 flex flex-col space-y-3 sm:space-y-4">
           {/* Quick Booth Live Stock Bar & Penjualan Hari Ini */}
-          <div className="bg-white rounded-2xl p-3 shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-              <Layers className="w-4 h-4 text-emerald-600" />
-              <span>Stok & Target ({currentOutletObj?.name}):</span>
+          <div className="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs border border-slate-200 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 min-w-0">
+                <Layers className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="truncate">Stok &amp; Target ({currentOutletObj?.name}):</span>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-              <span className="px-2.5 py-1 bg-slate-100 rounded-lg text-slate-700 font-semibold border border-slate-200">
-                Cup Reg:{" "}
+
+            {/* Grid 2 Kolom di Mobile 320px, Inline Flex di Tablet & Desktop */}
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-stretch sm:items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-mono">
+              <div className="px-2 py-1 bg-slate-100 rounded-lg text-slate-700 font-semibold border border-slate-200 flex items-center justify-between sm:justify-start gap-1">
+                <span className="text-slate-500">Cup Reg:</span>
                 <strong className={cupRegMaterial && cupRegMaterial.current_stock < 20 ? "text-rose-600" : "text-emerald-700"}>
                   {cupRegMaterial ? Math.max(0, Math.round(cupRegMaterial.current_stock)) : 0} pcs
                 </strong>
-              </span>
-              <span className="px-2.5 py-1 bg-slate-100 rounded-lg text-slate-700 font-semibold border border-slate-200">
-                Cup Jumbo:{" "}
+              </div>
+
+              <div className="px-2 py-1 bg-slate-100 rounded-lg text-slate-700 font-semibold border border-slate-200 flex items-center justify-between sm:justify-start gap-1">
+                <span className="text-slate-500">Cup Jumbo:</span>
                 <strong className={cupJumboMaterial && cupJumboMaterial.current_stock < 20 ? "text-rose-600" : "text-emerald-700"}>
                   {cupJumboMaterial ? Math.max(0, Math.round(cupJumboMaterial.current_stock)) : 0} pcs
                 </strong>
-              </span>
+              </div>
 
               {/* Cup Terjual Hari Ini */}
-              <span className="px-2.5 py-1 bg-emerald-50 rounded-lg text-emerald-850 font-bold border border-emerald-300 flex items-center gap-1.5 shadow-2xs">
-                <ShoppingBag className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Terjual: <strong>{todayCupsSold} cup</strong></span>
-              </span>
+              <div className="px-2 py-1 bg-emerald-50 rounded-lg text-emerald-900 font-bold border border-emerald-300 flex items-center justify-between sm:justify-start gap-1 shadow-2xs">
+                <span className="flex items-center gap-1 text-emerald-700">
+                  <ShoppingBag className="w-3 h-3 shrink-0" />
+                  <span>Terjual:</span>
+                </span>
+                <strong>{todayCupsSold} cup</strong>
+              </div>
 
               {/* Target Penjualan Cup Harian (Ditetapkan oleh Admin di Menu Cabang Kedai) */}
-              <span
+              <div
                 title="Target Penjualan Harian Resmi Kedai (Ditetapkan oleh Admin di Manage Kedai)"
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1.5 shadow-2xs ${
+                className={`px-2 py-1 rounded-lg text-[11px] sm:text-xs font-bold border flex items-center justify-between sm:justify-start gap-1 shadow-2xs ${
                   todayCupsSold >= dailyTargetCups
                     ? "bg-emerald-600 text-white border-emerald-700"
                     : "bg-sky-50 text-sky-900 border-sky-300"
                 }`}
               >
-                <Target className="w-3.5 h-3.5 text-sky-600" />
-                <span>Target: <strong>{todayCupsSold}/{dailyTargetCups} cup</strong> ({Math.min(100, Math.round((todayCupsSold / (dailyTargetCups || 1)) * 100))}%)</span>
-              </span>
+                <span className="flex items-center gap-1">
+                  <Target className="w-3 h-3 text-sky-600 shrink-0" />
+                  <span>Target:</span>
+                </span>
+                <strong className="truncate">
+                  {todayCupsSold}/{dailyTargetCups} ({Math.min(100, Math.round((todayCupsSold / (dailyTargetCups || 1)) * 100))}%)
+                </strong>
+              </div>
 
               <button
                 type="button"
@@ -1033,11 +1046,14 @@ export default function PosTerminalPage() {
                   setIsExpenseModalOpen(true);
                   loadTodayExpenses();
                 }}
-                className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg text-xs font-bold border border-amber-300 flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                className="col-span-2 sm:col-span-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg text-[11px] sm:text-xs font-bold border border-amber-300 flex items-center justify-between sm:justify-start gap-2 transition cursor-pointer shadow-2xs"
                 title="Catat pengeluaran tunai booth (Es, Gas, Galon, dll)"
               >
-                <Receipt className="w-3.5 h-3.5 text-amber-700" />
-                <span>Kas Keluar: <strong>Rp {todayExpenseTotal.toLocaleString("id-ID")}</strong></span>
+                <span className="flex items-center gap-1.5">
+                  <Receipt className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                  <span>Kas Keluar: <strong>Rp {todayExpenseTotal.toLocaleString("id-ID")}</strong></span>
+                </span>
+                <span className="text-[10px] text-amber-700 underline font-semibold sm:hidden">+ Beban</span>
               </button>
             </div>
           </div>
@@ -1049,30 +1065,30 @@ export default function PosTerminalPage() {
 
             return (
               <div
-                className={`rounded-2xl p-4 border transition-all ${
+                className={`rounded-2xl p-3 sm:p-4 border transition-all ${
                   isTargetReached
                     ? "bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white border-emerald-500 shadow-md shadow-emerald-600/20"
                     : "bg-gradient-to-r from-amber-50/95 via-orange-50/90 to-amber-100/90 border-amber-200 text-slate-800 shadow-xs"
                 }`}
               >
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 sm:gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1">
                       <span
                         className={`text-xs font-bold ${
                           isTargetReached ? "text-emerald-100 font-extrabold" : "text-amber-900"
                         }`}
                       >
                         {isTargetReached
-                          ? `🎉 Target Tercapai: ${todayCupsSold} / ${dailyTargetCups} Cup (Luar Biasa!)`
-                          : `Progress Target: ${todayCupsSold} / ${dailyTargetCups} Cup (${progressPercent}%)`}
+                          ? `🎉 Target: ${todayCupsSold}/${dailyTargetCups} Cup!`
+                          : `Progress: ${todayCupsSold}/${dailyTargetCups} Cup (${progressPercent}%)`}
                       </span>
                       <span className="text-[10px] text-slate-400 font-medium">
-                        &bull; Update tiap 15 mnt
+                        &bull; Update 15 mnt
                       </span>
                       {isPantunLoading && (
                         <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1 animate-pulse">
-                          <RefreshCw className="w-3 h-3 animate-spin" /> Merangkai pantun Gemini...
+                          <RefreshCw className="w-3 h-3 animate-spin" /> Gemini...
                         </span>
                       )}
                     </div>
@@ -1088,13 +1104,13 @@ export default function PosTerminalPage() {
                   </div>
 
                   {/* Tombol Acak Pantun */}
-                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center pt-1 sm:pt-0">
                     <button
                       type="button"
                       disabled={isPantunLoading}
                       onClick={() => fetchPantun(true)}
                       title="Acak pantun berima baru dari Gemini AI"
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs flex items-center gap-1.5 transition cursor-pointer active:scale-95 disabled:opacity-50"
+                      className="px-2.5 py-1 rounded-xl text-xs font-bold bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs flex items-center gap-1.5 transition cursor-pointer active:scale-95 disabled:opacity-50"
                     >
                       <Dices className={`w-3.5 h-3.5 text-amber-700 ${isPantunLoading ? "animate-spin" : ""}`} />
                       <span>{isPantunLoading ? "Menulis..." : "Acak Pantun"}</span>
@@ -1103,7 +1119,7 @@ export default function PosTerminalPage() {
                 </div>
 
                 {/* Progress Bar Visual */}
-                <div className="mt-3 w-full bg-black/10 rounded-full h-2 overflow-hidden">
+                <div className="mt-2.5 w-full bg-black/10 rounded-full h-1.5 sm:h-2 overflow-hidden">
                   <div
                     className={`h-full transition-all duration-500 rounded-full ${
                       isTargetReached ? "bg-white" : "bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600"

@@ -57,3 +57,4 @@ echo    2. Atau jalankan 'npm run dev' untuk mode developer
 echo ========================================================
 echo.
 pause
+
