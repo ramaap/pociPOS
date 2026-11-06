@@ -13,6 +13,9 @@ model Outlet {
   name           String          // e.g. "Booth Indomaret Sudirman", "Booth Alfamart Diponegoro"
   address        String?
   active_status  Boolean         @default(true)
+  shift_status   String          @default("open") // "open" | "closed"
+  last_opened_at DateTime?
+  last_closed_at DateTime?
   target_cups    Int             @default(100) // Target penjualan cup per hari (diatur oleh Admin)
   initial_cash   Float           @default(0) // Uang cash yang dibawa (modal kas awal kedai)
   stocks         BoothStock[]

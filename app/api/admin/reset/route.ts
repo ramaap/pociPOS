@@ -86,37 +86,37 @@ export async function POST(req: Request) {
       const cupJumbo = await prisma.rawMaterial.create({ data: { name: "Cup Jumbo", unit: "pcs" } });
       const liquidPremix = await prisma.rawMaterial.create({ data: { name: "Liquid Tea Premix", unit: "ml" } });
 
-      const rawVanilla = await prisma.rawMaterial.create({ data: { name: "Vanilla Syrup", unit: "ml" } });
-      const rawThai = await prisma.rawMaterial.create({ data: { name: "Thai Tea Mix", unit: "gram" } });
-      const rawMilkTea = await prisma.rawMaterial.create({ data: { name: "Milk Tea Mix", unit: "gram" } });
-      const rawChoco = await prisma.rawMaterial.create({ data: { name: "Chocolate Powder", unit: "gram" } });
-      const rawLychee = await prisma.rawMaterial.create({ data: { name: "Lychee Syrup", unit: "ml" } });
-      const rawCappuccino = await prisma.rawMaterial.create({ data: { name: "Cappuccino Mix", unit: "gram" } });
-      const rawGuava = await prisma.rawMaterial.create({ data: { name: "Guava Syrup", unit: "ml" } });
-      const rawMango = await prisma.rawMaterial.create({ data: { name: "Mango Syrup", unit: "ml" } });
-      const rawBlackcurrant = await prisma.rawMaterial.create({ data: { name: "Blackcurrant Syrup", unit: "ml" } });
-      const rawApple = await prisma.rawMaterial.create({ data: { name: "Apple Syrup", unit: "ml" } });
-      const rawOrange = await prisma.rawMaterial.create({ data: { name: "Orange Syrup", unit: "ml" } });
-      const rawLemonHoney = await prisma.rawMaterial.create({ data: { name: "Lemon Honey Syrup", unit: "ml" } });
-      const rawCreamyTopping = await prisma.rawMaterial.create({ data: { name: "Extra Creamy Foam", unit: "ml" } });
+      const rawVanilla = await prisma.rawMaterial.create({ data: { name: "Sachet Vanilla", unit: "sachet" } });
+      const rawThai = await prisma.rawMaterial.create({ data: { name: "Sachet Thai Tea", unit: "sachet" } });
+      const rawMilkTea = await prisma.rawMaterial.create({ data: { name: "Sachet Milk Tea", unit: "sachet" } });
+      const rawChoco = await prisma.rawMaterial.create({ data: { name: "Sachet Cokelat", unit: "sachet" } });
+      const rawLychee = await prisma.rawMaterial.create({ data: { name: "Sachet Lychee", unit: "sachet" } });
+      const rawCappuccino = await prisma.rawMaterial.create({ data: { name: "Sachet Cappuccino", unit: "sachet" } });
+      const rawGuava = await prisma.rawMaterial.create({ data: { name: "Sachet Guava", unit: "sachet" } });
+      const rawMango = await prisma.rawMaterial.create({ data: { name: "Sachet Mango", unit: "sachet" } });
+      const rawBlackcurrant = await prisma.rawMaterial.create({ data: { name: "Sachet Blackcurrant", unit: "sachet" } });
+      const rawApple = await prisma.rawMaterial.create({ data: { name: "Sachet Apple", unit: "sachet" } });
+      const rawOrange = await prisma.rawMaterial.create({ data: { name: "Sachet Orange", unit: "sachet" } });
+      const rawLemonHoney = await prisma.rawMaterial.create({ data: { name: "Sachet Lemon Honey", unit: "sachet" } });
+      const rawCreamyTopping = await prisma.rawMaterial.create({ data: { name: "Sachet Extra Creamy", unit: "sachet" } });
 
       const allRawMaterials = [
         { mat: cupReg, stockOut1: 300, stockOut2: 250 },
         { mat: cupJumbo, stockOut1: 250, stockOut2: 200 },
         { mat: liquidPremix, stockOut1: 45000, stockOut2: 40000 },
-        { mat: rawVanilla, stockOut1: 5000, stockOut2: 5000 },
-        { mat: rawThai, stockOut1: 4000, stockOut2: 4000 },
-        { mat: rawMilkTea, stockOut1: 4000, stockOut2: 4000 },
-        { mat: rawChoco, stockOut1: 4000, stockOut2: 4000 },
-        { mat: rawLychee, stockOut1: 5000, stockOut2: 5000 },
-        { mat: rawCappuccino, stockOut1: 4000, stockOut2: 4000 },
-        { mat: rawGuava, stockOut1: 5000, stockOut2: 5000 },
-        { mat: rawMango, stockOut1: 5000, stockOut2: 5000 },
-        { mat: rawBlackcurrant, stockOut1: 5000, stockOut2: 5000 },
-        { mat: rawApple, stockOut1: 5000, stockOut2: 5000 },
-        { mat: rawOrange, stockOut1: 5000, stockOut2: 5000 },
-        { mat: rawLemonHoney, stockOut1: 5000, stockOut2: 5000 },
-        { mat: rawCreamyTopping, stockOut1: 6000, stockOut2: 6000 },
+        { mat: rawVanilla, stockOut1: 50, stockOut2: 50 },
+        { mat: rawThai, stockOut1: 50, stockOut2: 50 },
+        { mat: rawMilkTea, stockOut1: 50, stockOut2: 50 },
+        { mat: rawChoco, stockOut1: 50, stockOut2: 50 },
+        { mat: rawLychee, stockOut1: 50, stockOut2: 50 },
+        { mat: rawCappuccino, stockOut1: 50, stockOut2: 50 },
+        { mat: rawGuava, stockOut1: 50, stockOut2: 50 },
+        { mat: rawMango, stockOut1: 50, stockOut2: 50 },
+        { mat: rawBlackcurrant, stockOut1: 50, stockOut2: 50 },
+        { mat: rawApple, stockOut1: 50, stockOut2: 50 },
+        { mat: rawOrange, stockOut1: 50, stockOut2: 50 },
+        { mat: rawLemonHoney, stockOut1: 50, stockOut2: 50 },
+        { mat: rawCreamyTopping, stockOut1: 50, stockOut2: 50 },
       ];
 
       for (const item of allRawMaterials) {
@@ -140,18 +140,18 @@ export async function POST(req: Request) {
       // Daftar 13 Menu
       const menuList = [
         { name: "Jasmine Poci Iced Tea", category: "original", priceReg: 5000, priceJumbo: 7000 },
-        { name: "Vanilla Poci Iced Tea", category: "original", priceReg: 6000, priceJumbo: 8000, flavorMaterialId: rawVanilla.id, flavorQtyReg: 20, flavorQtyJumbo: 30 },
-        { name: "Thai Iced Tea", category: "milky", priceReg: 8000, priceJumbo: 10000, flavorMaterialId: rawThai.id, flavorQtyReg: 25, flavorQtyJumbo: 35 },
-        { name: "Milk Iced Tea", category: "milky", priceReg: 8000, priceJumbo: 10000, flavorMaterialId: rawMilkTea.id, flavorQtyReg: 25, flavorQtyJumbo: 35 },
-        { name: "Chocolate Iced Tea", category: "milky", priceReg: 8000, priceJumbo: 10000, flavorMaterialId: rawChoco.id, flavorQtyReg: 25, flavorQtyJumbo: 35 },
-        { name: "Lychee Iced Tea", category: "fruity", priceReg: 7000, priceJumbo: 9000, flavorMaterialId: rawLychee.id, flavorQtyReg: 25, flavorQtyJumbo: 35 },
-        { name: "Cappuccino Iced Tea", category: "milky", priceReg: 8000, priceJumbo: 10000, flavorMaterialId: rawCappuccino.id, flavorQtyReg: 25, flavorQtyJumbo: 35 },
-        { name: "Guava Iced Tea", category: "fruity", priceReg: 7000, priceJumbo: 9000, flavorMaterialId: rawGuava.id, flavorQtyReg: 25, flavorQtyJumbo: 35 },
-        { name: "Mango Iced Tea", category: "fruity", priceReg: 7000, priceJumbo: 9000, flavorMaterialId: rawMango.id, flavorQtyReg: 25, flavorQtyJumbo: 35 },
-        { name: "Blackcurrant Iced Tea", category: "fruity", priceReg: 7000, priceJumbo: 9000, flavorMaterialId: rawBlackcurrant.id, flavorQtyReg: 25, flavorQtyJumbo: 35 },
-        { name: "Apple Iced Tea", category: "fruity", priceReg: 7000, priceJumbo: 9000, flavorMaterialId: rawApple.id, flavorQtyReg: 25, flavorQtyJumbo: 35 },
-        { name: "Orange Iced Tea", category: "fruity", priceReg: 7000, priceJumbo: 9000, flavorMaterialId: rawOrange.id, flavorQtyReg: 25, flavorQtyJumbo: 35 },
-        { name: "Lemon Honey Iced Tea", category: "fruity", priceReg: 8000, priceJumbo: 10000, flavorMaterialId: rawLemonHoney.id, flavorQtyReg: 25, flavorQtyJumbo: 35 },
+        { name: "Vanilla Poci Iced Tea", category: "original", priceReg: 6000, priceJumbo: 8000, flavorMaterialId: rawVanilla.id },
+        { name: "Thai Iced Tea", category: "milky", priceReg: 8000, priceJumbo: 10000, flavorMaterialId: rawThai.id },
+        { name: "Milk Iced Tea", category: "milky", priceReg: 8000, priceJumbo: 10000, flavorMaterialId: rawMilkTea.id },
+        { name: "Chocolate Iced Tea", category: "milky", priceReg: 8000, priceJumbo: 10000, flavorMaterialId: rawChoco.id },
+        { name: "Lychee Iced Tea", category: "fruity", priceReg: 7000, priceJumbo: 9000, flavorMaterialId: rawLychee.id },
+        { name: "Cappuccino Iced Tea", category: "milky", priceReg: 8000, priceJumbo: 10000, flavorMaterialId: rawCappuccino.id },
+        { name: "Guava Iced Tea", category: "fruity", priceReg: 7000, priceJumbo: 9000, flavorMaterialId: rawGuava.id },
+        { name: "Mango Iced Tea", category: "fruity", priceReg: 7000, priceJumbo: 9000, flavorMaterialId: rawMango.id },
+        { name: "Blackcurrant Iced Tea", category: "fruity", priceReg: 7000, priceJumbo: 9000, flavorMaterialId: rawBlackcurrant.id },
+        { name: "Apple Iced Tea", category: "fruity", priceReg: 7000, priceJumbo: 9000, flavorMaterialId: rawApple.id },
+        { name: "Orange Iced Tea", category: "fruity", priceReg: 7000, priceJumbo: 9000, flavorMaterialId: rawOrange.id },
+        { name: "Lemon Honey Iced Tea", category: "fruity", priceReg: 8000, priceJumbo: 10000, flavorMaterialId: rawLemonHoney.id },
       ];
 
       for (const item of menuList) {
@@ -162,8 +162,8 @@ export async function POST(req: Request) {
           { product_id: prodReg.id, raw_material_id: cupReg.id, quantity: 1 },
           { product_id: prodReg.id, raw_material_id: liquidPremix.id, quantity: 300 },
         ];
-        if (item.flavorMaterialId && item.flavorQtyReg) {
-          bomRegData.push({ product_id: prodReg.id, raw_material_id: item.flavorMaterialId, quantity: item.flavorQtyReg });
+        if (item.flavorMaterialId) {
+          bomRegData.push({ product_id: prodReg.id, raw_material_id: item.flavorMaterialId, quantity: 1 });
         }
         await prisma.bOM_Recipe.createMany({ data: bomRegData });
 
@@ -174,8 +174,8 @@ export async function POST(req: Request) {
           { product_id: prodJumbo.id, raw_material_id: cupJumbo.id, quantity: 1 },
           { product_id: prodJumbo.id, raw_material_id: liquidPremix.id, quantity: 450 },
         ];
-        if (item.flavorMaterialId && item.flavorQtyJumbo) {
-          bomJumboData.push({ product_id: prodJumbo.id, raw_material_id: item.flavorMaterialId, quantity: item.flavorQtyJumbo });
+        if (item.flavorMaterialId) {
+          bomJumboData.push({ product_id: prodJumbo.id, raw_material_id: item.flavorMaterialId, quantity: 1 });
         }
         await prisma.bOM_Recipe.createMany({ data: bomJumboData });
       }

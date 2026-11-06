@@ -225,11 +225,11 @@ export default function AdminDashboardPage() {
     enableReguler: true,
     regulerPrice: "7000",
     regulerTeaMl: "300",
-    regulerFlavorQty: "30",
+    regulerFlavorQty: "1",
     enableJumbo: true,
     jumboPrice: "9000",
-    jumboTeaMl: "400",
-    jumboFlavorQty: "40",
+    jumboTeaMl: "450",
+    jumboFlavorQty: "1",
   });
   const [menuLoading, setMenuLoading] = useState<boolean>(false);
   const [menuMessage, setMenuMessage] = useState<string | null>(null);
@@ -4494,7 +4494,7 @@ export default function AdminDashboardPage() {
                           </div>
 
                           <div>
-                            <label className="text-[10px] text-slate-500 block mb-0.5">Perasa (ml/g):</label>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">Sachet Rasa (sachet):</label>
                             <input
                               type="number"
                               disabled={!newMenuForm.flavorMaterialId}
@@ -4555,7 +4555,7 @@ export default function AdminDashboardPage() {
                           </div>
 
                           <div>
-                            <label className="text-[10px] text-slate-500 block mb-0.5">Perasa (ml/g):</label>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">Sachet Rasa (sachet):</label>
                             <input
                               type="number"
                               disabled={!newMenuForm.flavorMaterialId}

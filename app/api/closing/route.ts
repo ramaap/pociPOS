@@ -115,6 +115,35 @@ export async function POST(req: Request) {
       },
     });
 
+    // 6. Sinkronkan Stok Fisik Aktual ke BoothStock Kedai
+    if (cupRegStock) {
+      await prisma.boothStock.update({
+        where: { id: cupRegStock.id },
+        data: { current_stock: Math.round(actual_cup_reg) },
+      });
+    }
+    if (cupJumboStock) {
+      await prisma.boothStock.update({
+        where: { id: cupJumboStock.id },
+        data: { current_stock: Math.round(actual_cup_jumbo) },
+      });
+    }
+    if (liquidStock) {
+      await prisma.boothStock.update({
+        where: { id: liquidStock.id },
+        data: { current_stock: actual_liquid_ml },
+      });
+    }
+
+    // 7. Tandai Shift Kedai Selesai Ditutup (Closed)
+    await prisma.outlet.update({
+      where: { id: outlet_id },
+      data: {
+        shift_status: "closed",
+        last_closed_at: new Date(),
+      },
+    });
+
     return NextResponse.json(
       {
         success: true,

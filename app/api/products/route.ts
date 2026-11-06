@@ -83,48 +83,63 @@ export async function GET(req: Request) {
       current_stock: bs.current_stock,
     }));
 
-    // 4. Hitung total cup terjual hari ini untuk outlet terpilih
+    // 4. Tentukan Waktu Mulai Shift untuk Kedai Terpilih
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const todayItems = await prisma.transactionItem.findMany({
-      where: {
-        transaction: {
-          created_at: { gte: todayStart },
+    const selectedOutletObj = outlets.find((o) => o.id === selectedOutletId);
+    const isShiftClosed = selectedOutletObj?.shift_status === "closed";
+    
+    // Jika shift aktif, hitung dari waktu buka shift (last_opened_at) atau hari ini
+    const shiftStartTime = selectedOutletObj?.last_opened_at
+      ? new Date(selectedOutletObj.last_opened_at)
+      : todayStart;
+
+    let todayCupsSold = 0;
+    let todayCashIn = 0;
+    let todayExpenseTotal = 0;
+
+    if (!isShiftClosed) {
+      // Hitung total cup terjual pada shift aktif
+      const todayItems = await prisma.transactionItem.findMany({
+        where: {
+          transaction: {
+            created_at: { gte: shiftStartTime },
+            ...(selectedOutletId && { outlet_id: selectedOutletId }),
+          },
+        },
+        select: {
+          quantity: true,
+        },
+      });
+      todayCupsSold = todayItems.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
+
+      // Hitung Pemasukan Uang Cash (Tunai) pada shift aktif
+      const todayCashTransactions = await prisma.transaction.findMany({
+        where: {
+          created_at: { gte: shiftStartTime },
+          payment_method: { in: ["Cash", "cash", "tunai", "Tunai"] },
           ...(selectedOutletId && { outlet_id: selectedOutletId }),
         },
-      },
-      select: {
-        quantity: true,
-      },
-    });
+        select: {
+          total_amount: true,
+        },
+      });
+      todayCashIn = todayCashTransactions.reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
 
-    const todayCupsSold = todayItems.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
+      // Hitung Pengeluaran Kasir pada shift aktif
+      const todayExpenses = await prisma.expense.findMany({
+        where: {
+          date: { gte: shiftStartTime },
+          ...(selectedOutletId && { outlet_id: selectedOutletId }),
+        },
+        select: {
+          amount: true,
+        },
+      });
+      todayExpenseTotal = todayExpenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    }
 
-    // 5. Hitung Pemasukan Uang Cash (Tunai) & Pengeluaran Hari Ini untuk Kedai Terpilih
-    const todayCashTransactions = await prisma.transaction.findMany({
-      where: {
-        created_at: { gte: todayStart },
-        payment_method: { in: ["Cash", "cash", "tunai", "Tunai"] },
-        ...(selectedOutletId && { outlet_id: selectedOutletId }),
-      },
-      select: {
-        total_amount: true,
-      },
-    });
-    const todayCashIn = todayCashTransactions.reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
-
-    const todayExpenses = await prisma.expense.findMany({
-      where: {
-        date: { gte: todayStart },
-        ...(selectedOutletId && { outlet_id: selectedOutletId }),
-      },
-      select: {
-        amount: true,
-      },
-    });
-    const todayExpenseTotal = todayExpenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
-    const selectedOutletObj = outlets.find((o) => o.id === selectedOutletId);
     const initialCash = selectedOutletObj?.initial_cash || 0;
     const todayCashBalance = initialCash + todayCashIn - todayExpenseTotal;
 
@@ -138,6 +153,9 @@ export async function GET(req: Request) {
       todayCashIn,
       todayExpenseTotal,
       todayCashBalance,
+      shift_status: selectedOutletObj?.shift_status || "open",
+      last_opened_at: selectedOutletObj?.last_opened_at || null,
+      last_closed_at: selectedOutletObj?.last_closed_at || null,
     });
   } catch (error) {
     console.error("Failed to fetch products and outlet stock:", error);

@@ -9,19 +9,33 @@ const MATERIAL_COST_PER_UNIT: Record<string, number> = {
   "cup reguler": 450, // Rp 450 / pcs
   "cup jumbo": 650, // Rp 650 / pcs
   "liquid tea premix": 12, // Rp 12 / ml (Rp 12.000 / liter)
-  "vanilla syrup": 45, // Rp 45 / ml
-  "thai tea mix": 55, // Rp 55 / gram
-  "milk tea mix": 55, // Rp 55 / gram
-  "chocolate powder": 50, // Rp 50 / gram
-  "lychee syrup": 45, // Rp 45 / ml
-  "cappuccino mix": 50, // Rp 50 / gram
-  "guava syrup": 45, // Rp 45 / ml
-  "mango syrup": 45, // Rp 45 / ml
-  "blackcurrant syrup": 45, // Rp 45 / ml
-  "apple syrup": 45, // Rp 45 / ml
-  "orange syrup": 45, // Rp 45 / ml
-  "lemon honey syrup": 45, // Rp 45 / ml
-  "extra creamy foam": 35, // Rp 35 / ml
+  "sachet vanilla": 1200, // Rp 1.200 / sachet
+  "sachet thai tea": 1500, // Rp 1.500 / sachet
+  "sachet milk tea": 1500, // Rp 1.500 / sachet
+  "sachet cokelat": 1500, // Rp 1.500 / sachet
+  "sachet lychee": 1200, // Rp 1.200 / sachet
+  "sachet cappuccino": 1500, // Rp 1.500 / sachet
+  "sachet guava": 1200, // Rp 1.200 / sachet
+  "sachet mango": 1200, // Rp 1.200 / sachet
+  "sachet blackcurrant": 1200, // Rp 1.200 / sachet
+  "sachet apple": 1200, // Rp 1.200 / sachet
+  "sachet orange": 1200, // Rp 1.200 / sachet
+  "sachet lemon honey": 1200, // Rp 1.200 / sachet
+  "sachet extra creamy": 1000, // Rp 1.000 / sachet
+  // Backward compatibility
+  "vanilla syrup": 1200,
+  "thai tea mix": 1500,
+  "milk tea mix": 1500,
+  "chocolate powder": 1500,
+  "lychee syrup": 1200,
+  "cappuccino mix": 1500,
+  "guava syrup": 1200,
+  "mango syrup": 1200,
+  "blackcurrant syrup": 1200,
+  "apple syrup": 1200,
+  "orange syrup": 1200,
+  "lemon honey syrup": 1200,
+  "extra creamy foam": 1000,
 };
 
 export async function GET(req: Request) {

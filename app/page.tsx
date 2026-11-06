@@ -35,6 +35,7 @@ import {
   Dices,
   Smile,
   TrendingUp,
+  Sunrise,
 } from "lucide-react";
 import {
   getPendingTransactions,
@@ -54,6 +55,9 @@ interface Outlet {
   address?: string;
   target_cups?: number;
   initial_cash?: number;
+  shift_status?: "open" | "closed";
+  last_opened_at?: string;
+  last_closed_at?: string;
 }
 
 interface BOMRecipe {
@@ -233,6 +237,80 @@ export default function PosTerminalPage() {
   const [resetPosPin, setResetPosPin] = useState<string>("");
   const [resetPosLoading, setResetPosLoading] = useState<boolean>(false);
   const [resetPosMessage, setResetPosMessage] = useState<string | null>(null);
+
+  // ================= OPENING KEDAI / BUKA SHIFT STATE =================
+  const [isOpeningModalOpen, setIsOpeningModalOpen] = useState<boolean>(false);
+  const [openingCashFloat, setOpeningCashFloat] = useState<number>(0);
+  const [openingStockValues, setOpeningStockValues] = useState<Record<string, number>>({});
+  const [openingLoading, setOpeningLoading] = useState<boolean>(false);
+  const [openingMessage, setOpeningMessage] = useState<string | null>(null);
+
+  const openOpeningModal = (targetOutletId?: string) => {
+    const activeId = targetOutletId || selectedOutletId;
+    const currentOutlet = outlets.find((o) => o.id === activeId);
+    setOpeningCashFloat(currentOutlet?.initial_cash || 0);
+
+    const initialStocks: Record<string, number> = {};
+    rawMaterials.forEach((rm) => {
+      initialStocks[rm.id] = rm.current_stock || 0;
+    });
+    setOpeningStockValues(initialStocks);
+    setOpeningMessage(null);
+    setIsOpeningModalOpen(true);
+  };
+
+  const handleSaveOpening = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOutletId) return;
+
+    const cashNum = Number(openingCashFloat);
+    if (isNaN(cashNum) || cashNum < 0) {
+      setOpeningMessage("❌ Nominal uang cash yang dibawa harus berupa angka 0 atau lebih.");
+      return;
+    }
+
+    setOpeningLoading(true);
+    setOpeningMessage(null);
+
+    try {
+      const stocksPayload = Object.entries(openingStockValues).map(([raw_material_id, current_stock]) => ({
+        raw_material_id,
+        current_stock: Number(current_stock) || 0,
+      }));
+
+      const res = await fetch("/api/opening", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          outlet_id: selectedOutletId,
+          cash_float: cashNum,
+          stocks: stocksPayload,
+        }),
+      });
+
+      const resJson = await res.json();
+      if (res.ok) {
+        setOpeningMessage("✅ " + resJson.message);
+        loadData(selectedOutletId);
+        try {
+          localStorage.setItem("poci_sync_event", String(Date.now()));
+          const ch = new BroadcastChannel("poci_pos_sync");
+          ch.postMessage({ type: "SHIFT_OPENING_COMPLETED", timestamp: Date.now() });
+          ch.close();
+        } catch {}
+        setTimeout(() => {
+          setIsOpeningModalOpen(false);
+          setOpeningMessage(null);
+        }, 1200);
+      } else {
+        setOpeningMessage("❌ " + (resJson.error || "Gagal membuka shift kedai"));
+      }
+    } catch {
+      setOpeningMessage("❌ Terjadi gangguan jaringan.");
+    } finally {
+      setOpeningLoading(false);
+    }
+  };
 
   // ================= EXPENSE / PENGELUARAN KASIR STATE =================
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState<boolean>(false);
@@ -570,6 +648,10 @@ export default function PosTerminalPage() {
 
   // Validasi Stok Ketat Sesuai Kedai
   const checkCanAddProduct = (product: Product, delta: number = 1): { canAdd: boolean; reason?: string } => {
+    if (currentOutletObj?.shift_status === "closed") {
+      return { canAdd: false, reason: "Shift kedai masih tutup. Silakan klik 'Opening Shift' terlebih dahulu." };
+    }
+
     for (const recipe of product.recipes) {
       const matId = recipe.raw_material.id;
       const material = rawMaterials.find((m) => m.id === matId);
@@ -908,6 +990,21 @@ export default function PosTerminalPage() {
             {/* Tombol Pengeluaran, Tutup Shift & Admin Cepat di Mobile & Tablet (<lg) */}
             <div className="flex lg:hidden items-center space-x-1 sm:space-x-1.5 shrink-0">
               <button
+                type="button"
+                onClick={() => openOpeningModal()}
+                className={`flex items-center space-x-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition shadow-2xs ${
+                  currentOutletObj?.shift_status === "closed"
+                    ? "bg-amber-400 text-slate-950 ring-2 ring-amber-300 animate-pulse font-extrabold"
+                    : "bg-emerald-800/80 hover:bg-emerald-700 text-emerald-100"
+                }`}
+                title="Buka Shift / Opening Kedai"
+              >
+                <Sunrise className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Buka Shift</span>
+                <span className="sm:hidden">Buka</span>
+              </button>
+
+              <button
                 onClick={() => {
                   setExpenseMessage(null);
                   setIsExpenseModalOpen(true);
@@ -1007,6 +1104,20 @@ export default function PosTerminalPage() {
             {/* Desktop Only Links (lg+) */}
             <div className="hidden lg:flex items-center space-x-2 shrink-0">
               <button
+                type="button"
+                onClick={() => openOpeningModal()}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm ${
+                  currentOutletObj?.shift_status === "closed"
+                    ? "bg-amber-400 hover:bg-amber-300 text-slate-950 ring-2 ring-amber-300 animate-pulse font-extrabold"
+                    : "bg-emerald-800/80 hover:bg-emerald-700 text-emerald-100"
+                }`}
+                title="Buka Shift / Opening Kedai (Refresh Stok & Uang Cash Dibawa)"
+              >
+                <Sunrise className="w-3.5 h-3.5" />
+                <span>Buka Shift</span>
+              </button>
+
+              <button
                 onClick={() => {
                   setExpenseMessage(null);
                   setIsExpenseModalOpen(true);
@@ -1043,6 +1154,33 @@ export default function PosTerminalPage() {
       <main className="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-6">
         {/* Left Column: Menu Catalog */}
         <div className="lg:col-span-8 flex flex-col space-y-3 sm:space-y-4">
+          {/* Banner Peringatan jika Shift Kedai Masih Tutup */}
+          {currentOutletObj?.shift_status === "closed" && (
+            <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border-2 border-amber-400 rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm animate-in fade-in duration-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xl shrink-0 shadow-xs">
+                  🌅
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-xs sm:text-sm text-slate-900 flex items-center gap-1.5">
+                    <span>Shift Kedai Ini Belum Dibuka (Tutup Shift Selesai)</span>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black uppercase">Tutup</span>
+                  </h4>
+                  <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5">
+                    Silakan lakukan <strong>Opening Kedai</strong> untuk mengecek stok awal &amp; memasukkan modal uang cash yang dibawa kasir.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => openOpeningModal()}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition shrink-0 flex items-center justify-center gap-1.5"
+              >
+                <Sunrise className="w-4 h-4" />
+                <span>Buka Kedai / Opening Shift</span>
+              </button>
+            </div>
+          )}
           {/* Quick Booth Live Stock Bar & Penjualan Hari Ini */}
           <div className="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs border border-slate-200 space-y-2">
             <div className="flex items-center justify-between gap-2">
@@ -1470,11 +1608,6 @@ export default function PosTerminalPage() {
                         <span>⭐</span>
                         <span>Menu Utama</span>
                       </div>
-                    ) : item.totalSold > 0 ? (
-                      <div className="absolute top-2 right-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow flex items-center gap-1">
-                        <span>🔥</span>
-                        <span>{item.totalSold} Terjual</span>
-                      </div>
                     ) : meta.isNew ? (
                       <div className="absolute top-2 right-2 bg-gradient-to-r from-red-600 to-amber-500 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow">
                         Markicob Baru!
@@ -1500,11 +1633,6 @@ export default function PosTerminalPage() {
                             {baseName}
                           </h3>
                         </div>
-                      </div>
-
-                      <div className="text-[10px] text-slate-500 font-mono mb-3 bg-slate-50 p-1.5 rounded-lg border border-slate-100 flex items-center gap-1">
-                        <Droplets className="w-3 h-3 text-emerald-600 flex-shrink-0" />
-                        <span>Resep: Racikan Teh Asli Poci + Cup</span>
                       </div>
                     </div>
 
@@ -2314,6 +2442,176 @@ export default function PosTerminalPage() {
                     <RotateCcw className="w-4 h-4" />
                   )}
                   Reset Kasir
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: OPENING KEDAI / BUKA SHIFT BARU                         */}
+      {/* ============================================================== */}
+      {isOpeningModalOpen && currentOutletObj && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 my-8 animate-in fade-in zoom-in duration-150 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-400 text-slate-950 flex items-center justify-center font-black text-xl shadow-xs">
+                  🌅
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base text-slate-900">
+                    Opening Kedai (Buka Shift)
+                  </h3>
+                  <p className="text-xs text-emerald-700 font-bold">{currentOutletObj.name}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOpeningModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-1 rounded-lg hover:bg-slate-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveOpening} className="space-y-4 my-4 overflow-y-auto flex-1 pr-1">
+              {/* Panduan Ringkas */}
+              <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200 text-xs text-amber-900 space-y-1">
+                <p className="font-bold flex items-center gap-1.5">
+                  <span>✨</span> Buka Shift &amp; Segarkan Persediaan:
+                </p>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  Periksa uang kas kecil yang Anda bawa dan sesuaikan angka stok fisik kedai saat buka gerai (termasuk jika ada restock pagi).
+                </p>
+              </div>
+
+              {/* BAGIAN 1: Uang Cash yang Dibawa Kasir */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Coins className="w-4 h-4 text-amber-600" />
+                    1. Uang Cash yang Dibawa (Modal Kas Awal)
+                  </label>
+                </div>
+
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-xs font-extrabold text-slate-400">Rp</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1000"
+                    required
+                    value={openingCashFloat}
+                    onChange={(e) => setOpeningCashFloat(Number(e.target.value) || 0)}
+                    className="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl text-base font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    placeholder="Contoh: 100000"
+                  />
+                </div>
+
+                {/* Quick Nominal Buttons */}
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pilihan Cepat:</p>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                    {[0, 50000, 100000, 150000, 200000, 300000].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setOpeningCashFloat(amt)}
+                        className={`py-1.5 px-1 rounded-lg text-[10px] font-bold border transition ${
+                          openingCashFloat === amt
+                            ? "bg-amber-500 border-amber-600 text-white shadow-xs"
+                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        {amt === 0 ? "Rp 0" : `Rp ${(amt / 1000).toLocaleString("id-ID")}k`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* BAGIAN 2: Ketersediaan Stok Bahan Baku Fisik Kedai */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-emerald-600" />
+                    2. Verifikasi &amp; Refresh Ketersediaan Stok
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-semibold">Bisa diedit bila ada restock</span>
+                </div>
+
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {rawMaterials.map((rm) => {
+                    const currentVal = openingStockValues[rm.id] !== undefined
+                      ? openingStockValues[rm.id]
+                      : rm.current_stock || 0;
+
+                    const isCup = rm.name.toLowerCase().includes("cup");
+                    const isLiquid = rm.name.toLowerCase().includes("liquid") || rm.name.toLowerCase().includes("tea");
+
+                    return (
+                      <div
+                        key={rm.id}
+                        className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200 gap-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-slate-800 truncate">
+                            {rm.name}
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            {isCup ? "Gelas saji" : isLiquid ? "Teh cair premix" : "Sachet rasa"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <input
+                            type="number"
+                            min="0"
+                            step={isLiquid ? "100" : "1"}
+                            value={currentVal}
+                            onChange={(e) => {
+                              const val = Number(e.target.value) || 0;
+                              setOpeningStockValues({
+                                ...openingStockValues,
+                                [rm.id]: val,
+                              });
+                            }}
+                            className="w-20 px-2 py-1 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono font-bold text-right text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                          <span className="text-[10px] font-bold text-slate-500 w-10 text-left">
+                            {rm.unit}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {openingMessage && (
+                <p className="text-xs font-bold text-center text-rose-600">{openingMessage}</p>
+              )}
+
+              <div className="flex gap-2 pt-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsOpeningModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={openingLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold text-xs shadow-md transition flex items-center justify-center gap-1.5"
+                >
+                  {openingLoading ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sunrise className="w-4 h-4" />
+                  )}
+                  <span>{openingLoading ? "Membuka Shift..." : "Buka Kedai & Mulai Shift"}</span>
                 </button>
               </div>
             </form>
