@@ -168,11 +168,6 @@ export async function POST(req: Request) {
             data: { product_id: regProd.id, raw_material_id: regCupMat.id, quantity: 1 },
           });
         }
-        if (premixMat && Number(regulerTeaMl) > 0) {
-          await prisma.bOM_Recipe.create({
-            data: { product_id: regProd.id, raw_material_id: premixMat.id, quantity: Number(regulerTeaMl) },
-          });
-        }
         if (flavorMaterialId && Number(regulerFlavorQty) > 0) {
           await prisma.bOM_Recipe.create({
             data: { product_id: regProd.id, raw_material_id: flavorMaterialId, quantity: Number(regulerFlavorQty) },
@@ -210,11 +205,6 @@ export async function POST(req: Request) {
             data: { product_id: jumboProd.id, raw_material_id: jumboCupMat.id, quantity: 1 },
           });
         }
-        if (premixMat && Number(jumboTeaMl) > 0) {
-          await prisma.bOM_Recipe.create({
-            data: { product_id: jumboProd.id, raw_material_id: premixMat.id, quantity: Number(jumboTeaMl) },
-          });
-        }
         if (flavorMaterialId && Number(jumboFlavorQty) > 0) {
           await prisma.bOM_Recipe.create({
             data: { product_id: jumboProd.id, raw_material_id: flavorMaterialId, quantity: Number(jumboFlavorQty) },
@@ -229,6 +219,200 @@ export async function POST(req: Request) {
         success: true,
         message: `Menu '${cleanBaseName}' berhasil disimpan (Reguler & Jumbo terhubung ke semua kedai).`,
         products: createdProducts,
+      });
+    }
+
+    // 2. EDIT / UPDATE MENU MASTER PUSAT
+    if (action === "update_menu") {
+      const {
+        oldBaseName,
+        baseName,
+        category = "fruity",
+        enableReguler = false,
+        regulerPrice,
+        enableJumbo = true,
+        jumboPrice,
+        flavorMaterialId,
+        price,
+      } = body;
+
+      const cleanOldBase = (oldBaseName || "").replace(/\s*[\(\[]?(reguler|regular|jumbo)[\)\]]?/gi, "").trim();
+      const cleanNewBase = (baseName || cleanOldBase).replace(/\s*[\(\[]?(reguler|regular|jumbo)[\)\]]?/gi, "").trim();
+
+      if (!cleanNewBase) {
+        return NextResponse.json({ error: "Nama menu tidak boleh kosong" }, { status: 400 });
+      }
+
+      // Ambil bahan baku cup standar
+      const regCupMat = await prisma.rawMaterial.findFirst({
+        where: { name: { contains: "Cup Reguler" } },
+      });
+      const jumboCupMat = await prisma.rawMaterial.findFirst({
+        where: { name: { contains: "Cup Jumbo" } },
+      });
+
+      const allOutlets = await prisma.outlet.findMany({ where: { active_status: true } });
+      const linkOutlets = async (prodId: string) => {
+        if (allOutlets.length > 0) {
+          for (const o of allOutlets) {
+            await prisma.outletProduct.upsert({
+              where: { outlet_id_product_id: { outlet_id: o.id, product_id: prodId } },
+              update: { is_available: true },
+              create: { outlet_id: o.id, product_id: prodId, is_available: true },
+            });
+          }
+        }
+      };
+
+      // Cari produk-produk lama yang berhubungan dengan cleanOldBase
+      const existingProducts = await prisma.product.findMany({
+        where: {
+          OR: [
+            { name: cleanOldBase },
+            { name: `${cleanOldBase} (Reguler)` },
+            { name: `${cleanOldBase} (Jumbo)` },
+            { name: { startsWith: `${cleanOldBase} (` } },
+          ],
+        },
+      });
+
+      const updatedProducts = [];
+
+      // KASUS A: Kategori Topping
+      if (category === "topping") {
+        const topPrice = Number(price || regulerPrice || 3000);
+        let topProd =
+          existingProducts.find((p) => !/\((reguler|regular|jumbo)\)/i.test(p.name)) ||
+          (await prisma.product.findUnique({ where: { name: cleanNewBase } }));
+
+        if (topProd) {
+          topProd = await prisma.product.update({
+            where: { id: topProd.id },
+            data: { name: cleanNewBase, price: topPrice, category: "topping", active_status: true },
+          });
+        } else {
+          topProd = await prisma.product.create({
+            data: { name: cleanNewBase, price: topPrice, category: "topping", active_status: true },
+          });
+        }
+
+        // BOM Recipe
+        await prisma.bOM_Recipe.deleteMany({ where: { product_id: topProd.id } });
+        if (flavorMaterialId) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: topProd.id, raw_material_id: flavorMaterialId, quantity: 1 },
+          });
+        }
+        await linkOutlets(topProd.id);
+        updatedProducts.push(topProd);
+
+        // Nonaktifkan varian reguler/jumbo lama jika sebelumnya minuman
+        for (const ep of existingProducts) {
+          if (ep.id !== topProd.id) {
+            await prisma.product.update({ where: { id: ep.id }, data: { active_status: false } });
+          }
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: `Menu Topping '${cleanNewBase}' berhasil diperbarui.`,
+          products: updatedProducts,
+        });
+      }
+
+      // KASUS B: Minuman Reguler & Jumbo
+      // 1. Handle Varian Reguler
+      const regName = `${cleanNewBase} (Reguler)`;
+      let regProd =
+        existingProducts.find((p) => /\((reguler|regular)\)/i.test(p.name)) ||
+        (await prisma.product.findUnique({ where: { name: regName } }));
+
+      if (enableReguler) {
+        const pRegPrice = Number(regulerPrice);
+        if (!pRegPrice || isNaN(pRegPrice)) {
+          return NextResponse.json({ error: "Harga Reguler wajib diisi angka yang valid." }, { status: 400 });
+        }
+
+        if (regProd) {
+          regProd = await prisma.product.update({
+            where: { id: regProd.id },
+            data: { name: regName, price: pRegPrice, category, active_status: true },
+          });
+        } else {
+          regProd = await prisma.product.create({
+            data: { name: regName, price: pRegPrice, category, active_status: true },
+          });
+        }
+
+        // Update BOM Reguler (Cup Reguler + Flavor Sachet)
+        await prisma.bOM_Recipe.deleteMany({ where: { product_id: regProd.id } });
+        if (regCupMat) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: regProd.id, raw_material_id: regCupMat.id, quantity: 1 },
+          });
+        }
+        if (flavorMaterialId) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: regProd.id, raw_material_id: flavorMaterialId, quantity: 1 },
+          });
+        }
+        await linkOutlets(regProd.id);
+        updatedProducts.push(regProd);
+      } else if (regProd) {
+        await prisma.product.update({
+          where: { id: regProd.id },
+          data: { active_status: false },
+        });
+      }
+
+      // 2. Handle Varian Jumbo
+      const jumboName = `${cleanNewBase} (Jumbo)`;
+      let jumboProd =
+        existingProducts.find((p) => /\(jumbo\)/i.test(p.name)) ||
+        (await prisma.product.findUnique({ where: { name: jumboName } }));
+
+      if (enableJumbo) {
+        const pJumboPrice = Number(jumboPrice);
+        if (!pJumboPrice || isNaN(pJumboPrice)) {
+          return NextResponse.json({ error: "Harga Jumbo wajib diisi angka yang valid." }, { status: 400 });
+        }
+
+        if (jumboProd) {
+          jumboProd = await prisma.product.update({
+            where: { id: jumboProd.id },
+            data: { name: jumboName, price: pJumboPrice, category, active_status: true },
+          });
+        } else {
+          jumboProd = await prisma.product.create({
+            data: { name: jumboName, price: pJumboPrice, category, active_status: true },
+          });
+        }
+
+        // Update BOM Jumbo (Cup Jumbo + Flavor Sachet)
+        await prisma.bOM_Recipe.deleteMany({ where: { product_id: jumboProd.id } });
+        if (jumboCupMat) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: jumboProd.id, raw_material_id: jumboCupMat.id, quantity: 1 },
+          });
+        }
+        if (flavorMaterialId) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: jumboProd.id, raw_material_id: flavorMaterialId, quantity: 1 },
+          });
+        }
+        await linkOutlets(jumboProd.id);
+        updatedProducts.push(jumboProd);
+      } else if (jumboProd) {
+        await prisma.product.update({
+          where: { id: jumboProd.id },
+          data: { active_status: false },
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Menu '${cleanNewBase}' berhasil diperbarui!`,
+        products: updatedProducts,
       });
     }
 

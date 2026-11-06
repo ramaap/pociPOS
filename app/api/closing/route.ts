@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       where: {
         outlet_id,
         raw_material: {
-          name: { in: ["Cup Reguler", "Cup Jumbo", "Liquid Tea Premix"] },
+          name: { in: ["Cup Reguler", "Cup Jumbo", "Liquid Tea Premix", "Kantong Teh"] },
         },
       },
       include: { raw_material: true },
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
 
     const cupRegStock = boothStocks.find((s) => s.raw_material.name === "Cup Reguler");
     const cupJumboStock = boothStocks.find((s) => s.raw_material.name === "Cup Jumbo");
-    const liquidStock = boothStocks.find((s) => s.raw_material.name === "Liquid Tea Premix");
+    const liquidStock = boothStocks.find((s) => s.raw_material.name === "Kantong Teh" || s.raw_material.name === "Liquid Tea Premix");
 
     const systemExpectedCupReg = cupRegStock ? Math.round(cupRegStock.current_stock) : 0;
     const systemExpectedCupJumbo = cupJumboStock ? Math.round(cupJumboStock.current_stock) : 0;

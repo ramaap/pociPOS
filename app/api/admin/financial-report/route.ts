@@ -8,6 +8,7 @@ export const revalidate = 0;
 const MATERIAL_COST_PER_UNIT: Record<string, number> = {
   "cup reguler": 450, // Rp 450 / pcs
   "cup jumbo": 650, // Rp 650 / pcs
+  "kantong teh": 15000, // Rp 15.000 / kantong (bisa menyeduh ~30 porsi es teh)
   "liquid tea premix": 12, // Rp 12 / ml (Rp 12.000 / liter)
   "sachet vanilla": 1200, // Rp 1.200 / sachet
   "sachet thai tea": 1500, // Rp 1.500 / sachet

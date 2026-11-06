@@ -39,7 +39,7 @@ async function main() {
   // 3. Raw Materials Katalog Pusat (Central Kitchen)
   const cupReg = await prisma.rawMaterial.create({ data: { name: "Cup Reguler", unit: "pcs" } });
   const cupJumbo = await prisma.rawMaterial.create({ data: { name: "Cup Jumbo", unit: "pcs" } });
-  const liquidPremix = await prisma.rawMaterial.create({ data: { name: "Liquid Tea Premix", unit: "ml" } });
+  const kantongTeh = await prisma.rawMaterial.create({ data: { name: "Kantong Teh", unit: "pcs" } });
 
   const rawVanilla = await prisma.rawMaterial.create({ data: { name: "Sachet Vanilla", unit: "sachet" } });
   const rawThai = await prisma.rawMaterial.create({ data: { name: "Sachet Thai Tea", unit: "sachet" } });
@@ -58,7 +58,7 @@ async function main() {
   const allRawMaterials = [
     { mat: cupReg, stockOut1: 300, stockOut2: 250 },
     { mat: cupJumbo, stockOut1: 250, stockOut2: 200 },
-    { mat: liquidPremix, stockOut1: 45000, stockOut2: 40000 }, // 45L & 40L
+    { mat: kantongTeh, stockOut1: 50, stockOut2: 40 }, // 50 pcs & 40 pcs kantong teh
     { mat: rawVanilla, stockOut1: 50, stockOut2: 50 },
     { mat: rawThai, stockOut1: 50, stockOut2: 50 },
     { mat: rawMilkTea, stockOut1: 50, stockOut2: 50 },
@@ -121,7 +121,6 @@ async function main() {
       });
       const bomRegData = [
         { product_id: prodReg.id, raw_material_id: cupReg.id, quantity: 1 },
-        { product_id: prodReg.id, raw_material_id: liquidPremix.id, quantity: 300 },
       ];
       await prisma.bOM_Recipe.createMany({ data: bomRegData });
     }
@@ -131,7 +130,6 @@ async function main() {
     });
     const bomJumboData = [
       { product_id: prodJumbo.id, raw_material_id: cupJumbo.id, quantity: 1 },
-      { product_id: prodJumbo.id, raw_material_id: liquidPremix.id, quantity: 450 },
     ];
     if (item.flavorMaterialId) {
       bomJumboData.push({ product_id: prodJumbo.id, raw_material_id: item.flavorMaterialId, quantity: 1 });

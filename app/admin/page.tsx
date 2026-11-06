@@ -233,6 +233,20 @@ export default function AdminDashboardPage() {
   });
   const [menuLoading, setMenuLoading] = useState<boolean>(false);
   const [menuMessage, setMenuMessage] = useState<string | null>(null);
+  const [isEditMenuOpen, setIsEditMenuOpen] = useState<boolean>(false);
+  const [editMenuForm, setEditMenuForm] = useState({
+    oldBaseName: "",
+    baseName: "",
+    category: "fruity",
+    flavorMaterialId: "",
+    enableReguler: false,
+    regulerPrice: "7000",
+    enableJumbo: true,
+    jumboPrice: "9000",
+    price: "3000",
+  });
+  const [editMenuLoading, setEditMenuLoading] = useState<boolean>(false);
+  const [editMenuMessage, setEditMenuMessage] = useState<string | null>(null);
 
   // ================= STOCK / RESTOCK / OPNAME MODALS =================
   const [isRestockOpen, setIsRestockOpen] = useState<boolean>(false);
@@ -985,6 +999,83 @@ export default function AdminDashboardPage() {
       setMenuMessage("❌ Gagal menambahkan menu baru.");
     } finally {
       setMenuLoading(false);
+    }
+  };
+
+  const handleOpenEditMenu = (item: any) => {
+    const allRecipes = [
+      ...(item.jumbo?.recipes || []),
+      ...(item.reguler?.recipes || []),
+      ...(item.single?.recipes || []),
+    ];
+    const flavorRecipe = allRecipes.find((r: any) => {
+      const n = (r.raw_material?.name || "").toLowerCase();
+      return !n.includes("cup") && !n.includes("kantong teh") && !n.includes("tea premix");
+    });
+
+    setEditMenuForm({
+      oldBaseName: item.baseName,
+      baseName: item.baseName,
+      category: item.category || "fruity",
+      flavorMaterialId: flavorRecipe ? flavorRecipe.raw_material_id : "",
+      enableReguler: Boolean(item.reguler && item.reguler.active_status !== false),
+      regulerPrice: item.reguler ? String(item.reguler.price) : "7000",
+      enableJumbo: Boolean(item.jumbo && item.jumbo.active_status !== false),
+      jumboPrice: item.jumbo ? String(item.jumbo.price) : "9000",
+      price: item.single ? String(item.single.price) : item.reguler ? String(item.reguler.price) : "3000",
+    });
+    setEditMenuMessage(null);
+    setIsEditMenuOpen(true);
+  };
+
+  const handleUpdateMenu = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editMenuForm.baseName.trim()) {
+      setEditMenuMessage("Nama varian menu wajib diisi.");
+      return;
+    }
+
+    if (editMenuForm.category !== "topping" && !editMenuForm.enableReguler && !editMenuForm.enableJumbo) {
+      setEditMenuMessage("Pilih minimal salah satu ukuran (Reguler atau Jumbo).");
+      return;
+    }
+
+    setEditMenuLoading(true);
+    setEditMenuMessage(null);
+
+    try {
+      const res = await fetch("/api/admin/menus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_menu",
+          oldBaseName: editMenuForm.oldBaseName,
+          baseName: editMenuForm.baseName,
+          category: editMenuForm.category,
+          flavorMaterialId: editMenuForm.flavorMaterialId || undefined,
+          enableReguler: editMenuForm.enableReguler,
+          regulerPrice: editMenuForm.regulerPrice,
+          enableJumbo: editMenuForm.enableJumbo,
+          jumboPrice: editMenuForm.jumboPrice,
+          price: editMenuForm.price,
+        }),
+      });
+
+      const resJson = await res.json();
+      if (res.ok) {
+        setEditMenuMessage("✅ " + resJson.message);
+        loadMenus();
+        setTimeout(() => {
+          setIsEditMenuOpen(false);
+          setEditMenuMessage(null);
+        }, 1200);
+      } else {
+        setEditMenuMessage("❌ " + resJson.error);
+      }
+    } catch {
+      setEditMenuMessage("❌ Gagal memperbarui menu.");
+    } finally {
+      setEditMenuLoading(false);
     }
   };
 
@@ -3569,13 +3660,22 @@ export default function AdminDashboardPage() {
                               : "Fruit Tea"}
                           </span>
 
-                          <button
-                            onClick={() => handleDeleteMenuGroup(baseName, allProductIds)}
-                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 transition"
-                            title={`Hapus / Nonaktifkan menu "${baseName}" dari seluruh sistem`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleOpenEditMenu(item)}
+                              className="p-1 rounded-lg text-slate-400 hover:text-emerald-600 transition"
+                              title={`Edit menu "${baseName}"`}
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteMenuGroup(baseName, allProductIds)}
+                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 transition"
+                              title={`Hapus / Nonaktifkan menu "${baseName}" dari seluruh sistem`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
 
                         <div>
@@ -4435,7 +4535,7 @@ export default function AdminDashboardPage() {
                 >
                   <option value="">Tanpa Sirup/Bubuk (Hanya Teh Poci Murni)</option>
                   {menuMaterials
-                    .filter((m) => !m.name.toLowerCase().includes("cup") && !m.name.toLowerCase().includes("tea premix"))
+                    .filter((m) => !m.name.toLowerCase().includes("cup") && !m.name.toLowerCase().includes("tea premix") && !m.name.toLowerCase().includes("kantong teh"))
                     .map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.name} ({m.unit})
@@ -4613,6 +4713,198 @@ export default function AdminDashboardPage() {
                   className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition"
                 >
                   {menuLoading ? "Menyimpan..." : "Simpan Menu (Reguler & Jumbo)"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: EDIT MENU PUSAT                                          */}
+      {/* ============================================================== */}
+      {isEditMenuOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-150 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <h3 className="font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                <Edit3 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-700" />
+                Edit Menu: {editMenuForm.oldBaseName}
+              </h3>
+              <button
+                onClick={() => setIsEditMenuOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateMenu} className="flex-1 overflow-y-auto py-3 space-y-4 pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Nama Varian Menu <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editMenuForm.baseName}
+                    onChange={(e) => setEditMenuForm({ ...editMenuForm, baseName: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    Tidak perlu ketik (Reguler) / (Jumbo).
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Kategori</label>
+                  <select
+                    value={editMenuForm.category}
+                    onChange={(e) => setEditMenuForm({ ...editMenuForm, category: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                  >
+                    <option value="fruity">Fruit Series</option>
+                    <option value="original">Original &amp; Aroma</option>
+                    <option value="milky">Milky &amp; Choco</option>
+                    <option value="topping">Topping Tambahan</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Pilihan Sachet / Perasa Rasa */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Bahan Sachet / Bubuk Perasa (BOM):
+                </label>
+                <select
+                  value={editMenuForm.flavorMaterialId}
+                  onChange={(e) => setEditMenuForm({ ...editMenuForm, flavorMaterialId: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none"
+                >
+                  <option value="">Tanpa Sachet Perasa (Hanya Teh Poci Murni)</option>
+                  {menuMaterials
+                    .filter((m) => !m.name.toLowerCase().includes("cup") && !m.name.toLowerCase().includes("tea premix") && !m.name.toLowerCase().includes("kantong teh"))
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.unit})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Ukuran Reguler & Jumbo atau Topping */}
+              {editMenuForm.category !== "topping" ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                  {/* Panel Reguler */}
+                  <div className={`p-3.5 rounded-2xl border transition ${
+                    editMenuForm.enableReguler ? "bg-emerald-50/50 border-emerald-300" : "bg-slate-50 border-slate-200 opacity-60"
+                  }`}>
+                    <div className="flex items-center justify-between pb-2 border-b border-emerald-200/60 mb-2.5">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editMenuForm.enableReguler}
+                          onChange={(e) => setEditMenuForm({ ...editMenuForm, enableReguler: e.target.checked })}
+                          className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                        />
+                        <span className="font-extrabold text-xs text-slate-900">🌿 Porsi Reguler</span>
+                      </label>
+                      <span className="text-[10px] font-mono text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-bold">
+                        Cup Reguler (1 pcs)
+                      </span>
+                    </div>
+
+                    {editMenuForm.enableReguler && (
+                      <div className="space-y-2.5 text-xs">
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-600 block mb-0.5">
+                            Harga Jual Reguler (Rp) <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            required={editMenuForm.enableReguler}
+                            placeholder="7000"
+                            value={editMenuForm.regulerPrice}
+                            onChange={(e) => setEditMenuForm({ ...editMenuForm, regulerPrice: e.target.value })}
+                            className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Panel Jumbo */}
+                  <div className={`p-3.5 rounded-2xl border transition ${
+                    editMenuForm.enableJumbo ? "bg-emerald-50/50 border-emerald-300" : "bg-slate-50 border-slate-200 opacity-60"
+                  }`}>
+                    <div className="flex items-center justify-between pb-2 border-b border-emerald-200/60 mb-2.5">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editMenuForm.enableJumbo}
+                          onChange={(e) => setEditMenuForm({ ...editMenuForm, enableJumbo: e.target.checked })}
+                          className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                        />
+                        <span className="font-extrabold text-xs text-slate-900">🥤 Porsi Jumbo</span>
+                      </label>
+                      <span className="text-[10px] font-mono text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-bold">
+                        Cup Jumbo (1 pcs)
+                      </span>
+                    </div>
+
+                    {editMenuForm.enableJumbo && (
+                      <div className="space-y-2.5 text-xs">
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-600 block mb-0.5">
+                            Harga Jual Jumbo (Rp) <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            required={editMenuForm.enableJumbo}
+                            placeholder="9000"
+                            value={editMenuForm.jumboPrice}
+                            onChange={(e) => setEditMenuForm({ ...editMenuForm, jumboPrice: e.target.value })}
+                            className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* Topping Single Box */
+                <div className="p-3.5 bg-purple-50/50 rounded-2xl border border-purple-200 space-y-3">
+                  <h4 className="font-extrabold text-xs text-purple-900">Porsi Topping</h4>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Harga Jual (Rp):</label>
+                    <input
+                      type="number"
+                      required
+                      value={editMenuForm.price}
+                      onChange={(e) => setEditMenuForm({ ...editMenuForm, price: e.target.value })}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {editMenuMessage && <p className="text-xs font-bold text-center">{editMenuMessage}</p>}
+
+              <div className="flex gap-2 pt-2 border-t border-slate-100 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsEditMenuOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={editMenuLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition"
+                >
+                  {editMenuLoading ? "Menyimpan..." : "Simpan Perubahan Menu"}
                 </button>
               </div>
             </form>

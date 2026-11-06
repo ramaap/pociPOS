@@ -143,6 +143,12 @@ export async function POST(req: Request) {
           throw new Error(`Data stok ${deduction.name} belum terdaftar di kedai ini.`);
         }
 
+        const dedNameLower = deduction.name.toLowerCase();
+        if (dedNameLower.includes("kantong teh") || dedNameLower.includes("tea premix") || dedNameLower.includes("cair")) {
+          // Kantong teh / premix diseduh teko besar dan bukan acuan penghambat checkout kasir
+          continue;
+        }
+
         // Strict Check: Larang jika stok tidak mencukupi / menjadi minus
         if (boothStock.current_stock < deduction.deductQuantity) {
           throw new Error(

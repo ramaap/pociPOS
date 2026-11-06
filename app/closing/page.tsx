@@ -268,31 +268,31 @@ export default function ShiftClosingPage() {
                 </div>
               </div>
 
-              {/* Field 3: Liquid Tea Premix */}
+              {/* Field 3: Kantong Teh */}
               <div>
                 <label
                   htmlFor="liquid-ml"
                   className="block text-sm font-semibold text-slate-800 mb-1"
                 >
-                  3. Sisa Cairan Teh di Tea Barrel <span className="text-amber-600 font-bold">(ml)</span>
+                  3. Sisa Kantong Teh <span className="text-amber-600 font-bold">(pcs)</span>
                 </label>
                 <p className="text-xs text-slate-500 mb-2">
-                  Ukur sisa cairan menggunakan jug ukur 1 Liter (1.000 ml) di booth.
+                  Hitung fisik sisa persediaan kantong teh di booth / kedai.
                 </p>
                 <div className="relative">
                   <input
                     id="liquid-ml"
                     type="number"
                     min="0"
-                    step="50"
-                    placeholder="Contoh: 8500 (untuk 8,5 Liter)"
+                    step="1"
+                    placeholder="Contoh: 28 (pcs kantong teh)"
                     value={actualLiquidMl}
                     onChange={(e) => setActualLiquidMl(e.target.value)}
                     required
                     className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-lg font-mono font-medium text-slate-900"
                   />
                   <span className="absolute right-4 top-3.5 text-xs font-semibold text-slate-400 uppercase">
-                    Mililiter (ml)
+                    Pcs
                   </span>
                 </div>
               </div>

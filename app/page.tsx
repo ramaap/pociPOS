@@ -661,12 +661,21 @@ export default function PosTerminalPage() {
       const additionalNeeded = recipe.quantity * delta;
       const totalWillBeUsed = currentUsedInCart + additionalNeeded;
 
+      // Jangan jadikan Kantong Teh / Premix Teh sebagai acuan disable pada kasir
+      const matNameLower = material.name.toLowerCase();
+      if (
+        matNameLower.includes("kantong teh") ||
+        matNameLower.includes("tea premix") ||
+        matNameLower.includes("cair") ||
+        matNameLower.includes("teh seduh")
+      ) {
+        continue;
+      }
+
       if (material.current_stock - totalWillBeUsed < 0) {
         const sisaTersedia = Math.max(0, Math.round(material.current_stock - currentUsedInCart));
         if (material.name.toLowerCase().includes("cup")) {
           return { canAdd: false, reason: `Stok ${material.name} di kedai ini habis! Sisa: ${sisaTersedia} pcs.` };
-        } else if (material.name.toLowerCase().includes("tea premix") || material.name.toLowerCase().includes("cairan")) {
-          return { canAdd: false, reason: `Sisa persediaan teh seduh kedai ini habis! Sisa: ${sisaTersedia} ml.` };
         } else {
           return { canAdd: false, reason: `Stok ${material.name} kedai ini tidak cukup! Sisa: ${sisaTersedia} ${material.unit}.` };
         }
@@ -745,7 +754,7 @@ export default function PosTerminalPage() {
       outletCode: currentOutlet?.code || "OUT-01",
       outletAddress: currentOutlet?.address || "Booth Minimarket",
       items: cart.map((i) => ({
-        name: i.product.name,
+        name: formatProductName(i.product.name),
         quantity: i.quantity,
         price: i.product.price,
         subtotal: i.quantity * i.product.price,
@@ -768,7 +777,7 @@ export default function PosTerminalPage() {
           outletId: selectedOutletId,
           items: cart.map((i) => ({
             productId: i.product.id,
-            productName: i.product.name,
+            productName: formatProductName(i.product.name),
             quantity: i.quantity,
             price: i.product.price,
           })),
@@ -833,7 +842,7 @@ export default function PosTerminalPage() {
           outletId: selectedOutletId,
           items: cart.map((i) => ({
             productId: i.product.id,
-            productName: i.product.name,
+            productName: formatProductName(i.product.name),
             quantity: i.quantity,
             price: i.product.price,
           })),
@@ -952,9 +961,16 @@ export default function PosTerminalPage() {
     }).format(val);
   };
 
+  // Helper untuk menghilangkan label (JUMBO) pada varian rasa di kasir FE
+  const formatProductName = (name: string) => {
+    if (!name) return "";
+    if (name.toLowerCase().includes("jasmine")) return name;
+    return name.replace(/\s*[\(\[]?(jumbo|reguler|regular)[\)\]]?/gi, "").trim();
+  };
+
   const cupRegMaterial = rawMaterials.find((m) => m.name === "Cup Reguler");
   const cupJumboMaterial = rawMaterials.find((m) => m.name === "Cup Jumbo");
-  const liquidPremixMaterial = rawMaterials.find((m) => m.name === "Liquid Tea Premix");
+  const teaPremixMaterial = rawMaterials.find((m) => m.name === "Kantong Teh" || m.name === "Liquid Tea Premix");
   const currentOutletObj = outlets.find((o) => o.id === selectedOutletId) || outlets[0];
   const dailyTargetCups = currentOutletObj?.target_cups || 100;
   const initialCash = currentOutletObj?.initial_cash || 0;
@@ -1487,7 +1503,7 @@ export default function PosTerminalPage() {
                       >
                         <div className="flex-1 mr-2 min-w-0">
                           <h4 className="font-bold text-xs text-slate-900 truncate">
-                            {item.product.name}
+                            {formatProductName(item.product.name)}
                           </h4>
                           <p className="text-[11px] font-mono text-emerald-700 font-semibold">
                             {formatRupiah(item.product.price)}
@@ -1739,7 +1755,7 @@ export default function PosTerminalPage() {
                             }`}
                           >
                             <span className="text-[10px]">
-                              {isDisabled ? "Stok Habis" : reguler ? "Jumbo" : "Pesan (Jumbo)"}
+                              {isDisabled ? "Stok Habis" : reguler ? "Jumbo" : baseName.toLowerCase().includes("jasmine") ? "Pesan (Jumbo)" : "Pesan"}
                             </span>
                             <span className={`text-xs font-mono font-black ${isDisabled ? "text-slate-400 line-through" : "text-emerald-900 group-hover:text-white"}`}>
                               {formatRupiah(jumbo.price)}
@@ -1821,7 +1837,7 @@ export default function PosTerminalPage() {
                     >
                       <div className="flex-1 mr-2">
                         <h4 className="font-bold text-xs text-slate-900 leading-tight">
-                          {item.product.name}
+                          {formatProductName(item.product.name)}
                         </h4>
                         <p className="text-xs font-mono text-emerald-700 font-semibold mt-0.5">
                           {formatRupiah(item.product.price)}
@@ -1989,7 +2005,7 @@ export default function PosTerminalPage() {
                   <div className="py-2 border-b border-dashed border-slate-300 space-y-1.5">
                     {completedReceipt?.items.map((item, idx) => (
                       <div key={idx} className="space-y-0.5">
-                        <div className="font-bold text-slate-900">{item.name}</div>
+                        <div className="font-bold text-slate-900">{formatProductName(item.name)}</div>
                         <div className="flex justify-between text-slate-600 text-[10px]">
                           <span>
                             {item.quantity} x {formatRupiah(item.price)}
@@ -2700,7 +2716,7 @@ export default function PosTerminalPage() {
           <div style={{ fontSize: "10px", lineHeight: "1.3", marginTop: "4px" }}>
             {completedReceipt.items.map((item, idx) => (
               <div key={idx} style={{ marginBottom: "3px" }}>
-                <div>{item.name}</div>
+                <div>{formatProductName(item.name)}</div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span>{item.quantity}x @{item.price.toLocaleString("id-ID")}</span>
                   <span style={{ fontWeight: "bold" }}>Rp {item.subtotal.toLocaleString("id-ID")}</span>
