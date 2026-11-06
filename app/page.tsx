@@ -991,13 +991,18 @@ export default function PosTerminalPage() {
             <div className="flex lg:hidden items-center space-x-1 sm:space-x-1.5 shrink-0">
               <button
                 type="button"
+                disabled={currentOutletObj?.shift_status !== "closed"}
                 onClick={() => openOpeningModal()}
                 className={`flex items-center space-x-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition shadow-2xs ${
                   currentOutletObj?.shift_status === "closed"
-                    ? "bg-amber-400 text-slate-950 ring-2 ring-amber-300 animate-pulse font-extrabold"
-                    : "bg-emerald-800/80 hover:bg-emerald-700 text-emerald-100"
+                    ? "bg-amber-400 hover:bg-amber-300 text-slate-950 ring-2 ring-amber-300 animate-pulse font-extrabold cursor-pointer"
+                    : "opacity-40 cursor-not-allowed bg-emerald-950/40 text-emerald-300/70 border border-emerald-800/40 shadow-none"
                 }`}
-                title="Buka Shift / Opening Kedai"
+                title={
+                  currentOutletObj?.shift_status === "closed"
+                    ? "Shift tutup. Klik untuk Buka Shift / Opening Kedai"
+                    : "Shift sudah dibuka (Sedang Aktif)"
+                }
               >
                 <Sunrise className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Buka Shift</span>
@@ -1105,13 +1110,18 @@ export default function PosTerminalPage() {
             <div className="hidden lg:flex items-center space-x-2 shrink-0">
               <button
                 type="button"
+                disabled={currentOutletObj?.shift_status !== "closed"}
                 onClick={() => openOpeningModal()}
                 className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm ${
                   currentOutletObj?.shift_status === "closed"
-                    ? "bg-amber-400 hover:bg-amber-300 text-slate-950 ring-2 ring-amber-300 animate-pulse font-extrabold"
-                    : "bg-emerald-800/80 hover:bg-emerald-700 text-emerald-100"
+                    ? "bg-amber-400 hover:bg-amber-300 text-slate-950 ring-2 ring-amber-300 animate-pulse font-extrabold cursor-pointer"
+                    : "opacity-40 cursor-not-allowed bg-emerald-950/40 text-emerald-300/70 border border-emerald-800/40 shadow-none"
                 }`}
-                title="Buka Shift / Opening Kedai (Refresh Stok & Uang Cash Dibawa)"
+                title={
+                  currentOutletObj?.shift_status === "closed"
+                    ? "Shift tutup. Klik untuk Buka Shift / Opening Kedai (Refresh Stok & Uang Cash Dibawa)"
+                    : "Shift sudah dibuka (Sedang Aktif)"
+                }
               >
                 <Sunrise className="w-3.5 h-3.5" />
                 <span>Buka Shift</span>

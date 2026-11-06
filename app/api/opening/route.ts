@@ -100,3 +100,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Gagal memproses opening kedai" }, { status: 500 });
   }
 }
+
