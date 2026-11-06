@@ -124,6 +124,8 @@ export default function PosTerminalPage() {
 
   // Target & Realisasi Penjualan Cup Harian
   const [todayCupsSold, setTodayCupsSold] = useState<number>(0);
+  // Uang Cash (Tunai) Masuk dari Penjualan Hari Ini
+  const [todayCashIn, setTodayCashIn] = useState<number>(0);
 
   // Pantun Semangat Gemini AI (Update Otomatis Tiap 15 Menit)
   const [pantunText, setPantunText] = useState<string>("");
@@ -240,6 +242,8 @@ export default function PosTerminalPage() {
   const [expenseMessage, setExpenseMessage] = useState<string | null>(null);
   const [todayExpenses, setTodayExpenses] = useState<any[]>([]);
   const [todayExpenseTotal, setTodayExpenseTotal] = useState<number>(0);
+  // Total Uang Cash Tersedia di Laci Kedai (Transaksi Cash Masuk - Kas Keluar Operasional)
+  const currentCashBalance = todayCashIn - todayExpenseTotal;
 
   const loadTodayExpenses = async (outletId = selectedOutletId) => {
     if (!outletId) return;
@@ -248,10 +252,14 @@ export default function PosTerminalPage() {
       if (res.ok) {
         const json = await res.json();
         setTodayExpenses(json.expenses || []);
-        setTodayExpenseTotal(json.totalAmount || 0);
+        const total = json.totalAmount || 0;
+        setTodayExpenseTotal(total);
+        localStorage.setItem("cached_poci_today_expense_" + outletId, String(total));
       }
     } catch (err) {
       console.error("Gagal memuat pengeluaran hari ini", err);
+      const cached = localStorage.getItem("cached_poci_today_expense_" + outletId);
+      if (cached) setTodayExpenseTotal(Number(cached) || 0);
     }
   };
 
@@ -284,7 +292,9 @@ export default function PosTerminalPage() {
       if (res.ok) {
         setExpenseAmount("");
         setExpenseMessage(`✅ ${json.message}`);
+        setTodayExpenseTotal((prev) => prev + amountNum);
         loadTodayExpenses(selectedOutletId);
+        loadData(selectedOutletId);
         try {
           localStorage.setItem("poci_sync_event", String(Date.now()));
           const ch = new BroadcastChannel("poci_pos_sync");
@@ -310,6 +320,7 @@ export default function PosTerminalPage() {
       const res = await fetch(`/api/expenses?id=${expenseId}`, { method: "DELETE" });
       if (res.ok) {
         loadTodayExpenses(selectedOutletId);
+        loadData(selectedOutletId);
         try {
           localStorage.setItem("poci_sync_event", String(Date.now()));
           const ch = new BroadcastChannel("poci_pos_sync");
@@ -352,6 +363,11 @@ export default function PosTerminalPage() {
           localStorage.setItem("cached_poci_today_cups_" + finalOutletId, String(data.todayCupsSold));
         }
 
+        if (typeof data.todayCashIn === "number") {
+          setTodayCashIn(data.todayCashIn);
+          localStorage.setItem("cached_poci_today_cash_in_" + finalOutletId, String(data.todayCashIn));
+        }
+
         localStorage.setItem("cached_poci_products", JSON.stringify(data.products));
         localStorage.setItem("cached_poci_materials_" + finalOutletId, JSON.stringify(data.rawMaterials));
         localStorage.setItem("cached_poci_outlets", JSON.stringify(data.outlets));
@@ -362,11 +378,13 @@ export default function PosTerminalPage() {
       const savedOutletId = localStorage.getItem("poci_selected_outlet_id") || "";
       const cachedMats = localStorage.getItem("cached_poci_materials_" + savedOutletId);
       const cachedCups = localStorage.getItem("cached_poci_today_cups_" + savedOutletId);
+      const cachedCashIn = localStorage.getItem("cached_poci_today_cash_in_" + savedOutletId);
 
       if (cachedOutlets) setOutlets(JSON.parse(cachedOutlets));
       if (cachedProds) setProducts(JSON.parse(cachedProds));
       if (cachedMats) setRawMaterials(JSON.parse(cachedMats));
       if (cachedCups) setTodayCupsSold(Number(cachedCups) || 0);
+      if (cachedCashIn) setTodayCashIn(Number(cachedCashIn) || 0);
       if (savedOutletId) {
         setSelectedOutletId(savedOutletId);
         loadTodayExpenses(savedOutletId);
@@ -410,9 +428,29 @@ export default function PosTerminalPage() {
     window.addEventListener("offline", updateOnline);
     setIsOnline(navigator.onLine);
 
+    // Sinkronisasi data real-time antar-tab/jendela browser (POS & Admin)
+    let ch: BroadcastChannel | null = null;
+    try {
+      ch = new BroadcastChannel("poci_pos_sync");
+      ch.onmessage = () => {
+        loadData();
+        loadTodayExpenses();
+      };
+    } catch {}
+
+    const handleStorageSync = (e: StorageEvent) => {
+      if (e.key === "poci_sync_event") {
+        loadData();
+        loadTodayExpenses();
+      }
+    };
+    window.addEventListener("storage", handleStorageSync);
+
     return () => {
       window.removeEventListener("online", updateOnline);
       window.removeEventListener("offline", updateOnline);
+      window.removeEventListener("storage", handleStorageSync);
+      ch?.close();
     };
   }, []);
 
@@ -657,6 +695,13 @@ export default function PosTerminalPage() {
           totalAmount,
         });
 
+        if (paymentMethod === "Cash") {
+          setTodayCashIn((prev) => {
+            const updated = prev + totalAmount;
+            localStorage.setItem("cached_poci_today_cash_in_" + selectedOutletId, String(updated));
+            return updated;
+          });
+        }
         setTodayCupsSold((prev) => prev + totalCartCups);
         setPendingSyncCount(getPendingTransactions().length);
         setCompletedReceipt(receiptToPrint);
@@ -679,6 +724,13 @@ export default function PosTerminalPage() {
 
         const data = await res.json();
         if (res.ok) {
+          if (paymentMethod === "Cash") {
+            setTodayCashIn((prev) => {
+              const updated = prev + totalAmount;
+              localStorage.setItem("cached_poci_today_cash_in_" + selectedOutletId, String(updated));
+              return updated;
+            });
+          }
           setTodayCupsSold((prev) => prev + totalCartCups);
           setLastDeductions(data.inventoryDeductions || []);
           setCompletedReceipt(receiptToPrint);
@@ -995,7 +1047,7 @@ export default function PosTerminalPage() {
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 min-w-0">
                 <Layers className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span className="truncate">Stok &amp; Target ({currentOutletObj?.name}):</span>
+                <span className="truncate">Stok &amp; Kas ({currentOutletObj?.name}):</span>
               </div>
             </div>
 
@@ -1024,21 +1076,17 @@ export default function PosTerminalPage() {
                 <strong>{todayCupsSold} cup</strong>
               </div>
 
-              {/* Target Penjualan Cup Harian (Ditetapkan oleh Admin di Menu Cabang Kedai) */}
+              {/* Uang Cash di Kedai (Bertambah saat Transaksi Cash, Berkurang saat Pengeluaran) */}
               <div
-                title="Target Penjualan Harian Resmi Kedai (Ditetapkan oleh Admin di Manage Kedai)"
-                className={`px-2 py-1 rounded-lg text-[11px] sm:text-xs font-bold border flex items-center justify-between sm:justify-start gap-1 shadow-2xs ${
-                  todayCupsSold >= dailyTargetCups
-                    ? "bg-emerald-600 text-white border-emerald-700"
-                    : "bg-sky-50 text-sky-900 border-sky-300"
-                }`}
+                title="Total Uang Cash Fisik di Laci Booth Kedai (Pemasukan Transaksi Tunai - Pengeluaran Kasir)"
+                className="px-2 py-1 bg-teal-50 rounded-lg text-teal-950 font-bold border border-teal-300 flex items-center justify-between sm:justify-start gap-1 shadow-2xs"
               >
-                <span className="flex items-center gap-1">
-                  <Target className="w-3 h-3 text-sky-600 shrink-0" />
-                  <span>Target:</span>
+                <span className="flex items-center gap-1 text-teal-700">
+                  <Banknote className="w-3.5 h-3.5 shrink-0" />
+                  <span>Uang Cash:</span>
                 </span>
-                <strong className="truncate">
-                  {todayCupsSold}/{dailyTargetCups} ({Math.min(100, Math.round((todayCupsSold / (dailyTargetCups || 1)) * 100))}%)
+                <strong className={currentCashBalance < 0 ? "text-rose-600" : "text-teal-950"}>
+                  Rp {currentCashBalance.toLocaleString("id-ID")}
                 </strong>
               </div>
 

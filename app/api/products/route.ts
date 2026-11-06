@@ -101,12 +101,40 @@ export async function GET(req: Request) {
 
     const todayCupsSold = todayItems.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
 
+    // 5. Hitung Pemasukan Uang Cash (Tunai) & Pengeluaran Hari Ini untuk Kedai Terpilih
+    const todayCashTransactions = await prisma.transaction.findMany({
+      where: {
+        created_at: { gte: todayStart },
+        payment_method: { in: ["Cash", "cash", "tunai", "Tunai"] },
+        ...(selectedOutletId && { outlet_id: selectedOutletId }),
+      },
+      select: {
+        total_amount: true,
+      },
+    });
+    const todayCashIn = todayCashTransactions.reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
+
+    const todayExpenses = await prisma.expense.findMany({
+      where: {
+        date: { gte: todayStart },
+        ...(selectedOutletId && { outlet_id: selectedOutletId }),
+      },
+      select: {
+        amount: true,
+      },
+    });
+    const todayExpenseTotal = todayExpenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    const todayCashBalance = todayCashIn - todayExpenseTotal;
+
     return NextResponse.json({
       outlets,
       selectedOutletId,
       products,
       rawMaterials,
       todayCupsSold,
+      todayCashIn,
+      todayExpenseTotal,
+      todayCashBalance,
     });
   } catch (error) {
     console.error("Failed to fetch products and outlet stock:", error);
