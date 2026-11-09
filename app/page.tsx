@@ -104,7 +104,7 @@ const FLAVOR_METAS: Record<string, FlavorMeta> = {
   "Jasmine Poci Iced Tea": { baseName: "Jasmine Poci Iced Tea", category: "original", circleBg: "bg-emerald-600", badgeBg: "bg-emerald-100", badgeText: "text-emerald-800", icon: "🍃" },
   "Vanilla Poci Iced Tea": { baseName: "Vanilla Poci Iced Tea", category: "original", circleBg: "bg-pink-700", badgeBg: "bg-pink-100", badgeText: "text-pink-800", icon: "🌼" },
   "Thai Iced Tea": { baseName: "Thai Iced Tea", category: "milky", circleBg: "bg-orange-600", badgeBg: "bg-orange-100", badgeText: "text-orange-800", icon: "🧋" },
-  "Milk Iced Tea": { baseName: "Milk Iced Tea", category: "milky", circleBg: "bg-amber-500", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "🥛", isNew: true },
+  "Milk Iced Tea": { baseName: "Milk Iced Tea", category: "milky", circleBg: "bg-amber-500", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "🥛" },
   "Chocolate Iced Tea": { baseName: "Chocolate Iced Tea", category: "milky", circleBg: "bg-amber-950", badgeBg: "bg-stone-200", badgeText: "text-stone-900", icon: "🍫" },
   "Lychee Iced Tea": { baseName: "Lychee Iced Tea", category: "fruity", circleBg: "bg-pink-500", badgeBg: "bg-pink-100", badgeText: "text-pink-800", icon: "🍒" },
   "Cappuccino Iced Tea": { baseName: "Cappuccino Iced Tea", category: "milky", circleBg: "bg-amber-800", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "☕" },
@@ -114,6 +114,12 @@ const FLAVOR_METAS: Record<string, FlavorMeta> = {
   "Apple Iced Tea": { baseName: "Apple Iced Tea", category: "fruity", circleBg: "bg-red-600", badgeBg: "bg-red-100", badgeText: "text-red-900", icon: "🍎" },
   "Orange Iced Tea": { baseName: "Orange Iced Tea", category: "fruity", circleBg: "bg-orange-500", badgeBg: "bg-orange-100", badgeText: "text-orange-900", icon: "🍊" },
   "Lemon Honey Iced Tea": { baseName: "Lemon Honey Iced Tea", category: "fruity", circleBg: "bg-yellow-500", badgeBg: "bg-yellow-100", badgeText: "text-yellow-900", icon: "🍋" },
+  // 5 Varian Baru Vendor Resmi Es Teh Poci
+  "Matcha Iced Tea": { baseName: "Matcha Iced Tea", category: "milky", circleBg: "bg-emerald-700", badgeBg: "bg-emerald-100", badgeText: "text-emerald-900", icon: "🍵", isNew: true },
+  "Aren Latte Iced Tea": { baseName: "Aren Latte Iced Tea", category: "milky", circleBg: "bg-amber-800", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "☕", isNew: true },
+  "Coconut Latte Iced Tea": { baseName: "Coconut Latte Iced Tea", category: "milky", circleBg: "bg-teal-700", badgeBg: "bg-teal-100", badgeText: "text-teal-900", icon: "🥥", isNew: true },
+  "Teh Tarik Gula Aren": { baseName: "Teh Tarik Gula Aren", category: "milky", circleBg: "bg-amber-900", badgeBg: "bg-amber-100", badgeText: "text-amber-950", icon: "🧋", isNew: true },
+  "Teh Krampul Selasih": { baseName: "Teh Krampul Selasih", category: "fruity", circleBg: "bg-lime-600", badgeBg: "bg-lime-100", badgeText: "text-lime-900", icon: "🍹", isNew: true },
 };
 
 export default function PosTerminalPage() {

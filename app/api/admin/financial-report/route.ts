@@ -10,20 +10,61 @@ const MATERIAL_COST_PER_UNIT: Record<string, number> = {
   "cup jumbo": 650, // Rp 650 / pcs
   "kantong teh": 15000, // Rp 15.000 / kantong (bisa menyeduh ~30 porsi es teh)
   "liquid tea premix": 12, // Rp 12 / ml (Rp 12.000 / liter)
-  "sachet vanilla": 1200, // Rp 1.200 / sachet
-  "sachet thai tea": 1500, // Rp 1.500 / sachet
-  "sachet milk tea": 1500, // Rp 1.500 / sachet
-  "sachet cokelat": 1500, // Rp 1.500 / sachet
-  "sachet lychee": 1200, // Rp 1.200 / sachet
-  "sachet cappuccino": 1500, // Rp 1.500 / sachet
-  "sachet guava": 1200, // Rp 1.200 / sachet
-  "sachet mango": 1200, // Rp 1.200 / sachet
-  "sachet blackcurrant": 1200, // Rp 1.200 / sachet
-  "sachet apple": 1200, // Rp 1.200 / sachet
-  "sachet orange": 1200, // Rp 1.200 / sachet
-  "sachet lemon honey": 1200, // Rp 1.200 / sachet
   "sachet extra creamy": 1000, // Rp 1.000 / sachet
-  // Backward compatibility
+  "extra creamy foam": 1000,
+
+  // 15 Varian Sachet Resmi Vendor Teh Poci
+  "poci mix thai tea 12g": 1500,
+  "poci mix cappuccino 10g": 1500,
+  "poci mix lemon honey 3g": 1200,
+  "poci mix lychee 3g": 1200,
+  "poci mix chocolate": 1500,
+  "poci mix apple 3g": 1200,
+  "poci mix orange 3g": 1200,
+  "poci mix blackcurrant 3g": 1200,
+  "poci mix mango 3g": 1200,
+  "poci mix milk tea 15g": 1500,
+  "poci mix matcha 12g": 1500,
+  "poci mix aren latte 25g": 1800,
+  "poci mix coconut latte 25g": 1800,
+  "poci teh tarik gula aren": 1800,
+  "poci teh krampul selasih": 1500,
+
+  // Variasi spasi/huruf besar-kecil & format alternatif
+  "poci mix thai tea 12 g": 1500,
+  "poci mix cappuccino 10 g": 1500,
+  "poci mix lemon honey 3 g": 1200,
+  "poci mix lychee 3 g": 1200,
+  "poci mix apple 3 g": 1200,
+  "poci mix orange 3 g": 1200,
+  "poci mix blackcurrant 3 g": 1200,
+  "poci mix mango 3 g": 1200,
+  "poci mix milk tea 15 g": 1500,
+  "poci mix matcha 12 g": 1500,
+  "poci mix aren latte 25 g": 1800,
+  "poci mix coconut latte 25 g": 1800,
+  "es teh poci teh tarik gula aren": 1800,
+  "es teh poci teh krampul selasih": 1500,
+
+  // Backward compatibility (Nama sachet & syrup lama)
+  "sachet vanilla": 1200,
+  "sachet thai tea": 1500,
+  "sachet milk tea": 1500,
+  "sachet cokelat": 1500,
+  "sachet chocolate": 1500,
+  "sachet lychee": 1200,
+  "sachet cappuccino": 1500,
+  "sachet guava": 1200,
+  "sachet mango": 1200,
+  "sachet blackcurrant": 1200,
+  "sachet apple": 1200,
+  "sachet orange": 1200,
+  "sachet lemon honey": 1200,
+  "sachet matcha": 1500,
+  "sachet aren latte": 1800,
+  "sachet coconut latte": 1800,
+  "sachet teh tarik gula aren": 1800,
+  "sachet teh krampul selasih": 1500,
   "vanilla syrup": 1200,
   "thai tea mix": 1500,
   "milk tea mix": 1500,
@@ -36,7 +77,6 @@ const MATERIAL_COST_PER_UNIT: Record<string, number> = {
   "apple syrup": 1200,
   "orange syrup": 1200,
   "lemon honey syrup": 1200,
-  "extra creamy foam": 1000,
 };
 
 export async function GET(req: Request) {
@@ -208,8 +248,11 @@ export async function GET(req: Request) {
         let itemUnitHPP = 0;
         if (item.product?.recipes) {
           for (const r of item.product.recipes) {
-            const matName = (r.raw_material?.name || "").toLowerCase();
-            const unitCost = MATERIAL_COST_PER_UNIT[matName] || 20;
+            const matName = (r.raw_material?.name || "").toLowerCase().trim();
+            const unitCost =
+              MATERIAL_COST_PER_UNIT[matName] ??
+              MATERIAL_COST_PER_UNIT[matName.replace(/\s+/g, " ")] ??
+              1500;
             itemUnitHPP += r.quantity * unitCost;
           }
         } else {
