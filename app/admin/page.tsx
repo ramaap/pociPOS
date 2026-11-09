@@ -78,6 +78,9 @@ interface ShiftClosingRecord {
   discrepancy_cup_jumbo: number;
   discrepancy_liquid: number;
   discrepancy_sugar_ml?: number;
+  actual_cash?: number;
+  system_expected_cash?: number;
+  discrepancy_cash?: number;
   employee_debt: number;
   theft_flag: boolean;
   waste_flag: boolean;
@@ -3350,6 +3353,22 @@ export default function AdminDashboardPage() {
                   .filter((o) => selectedOutletFilter === "all" || o.id === selectedOutletFilter)
                   .map((outlet) => {
                     const outletStocks = (data?.boothStocks || []).filter((bs) => bs.outlet.id === outlet.id);
+                    const fullOutlet = outletsList.find((o) => o.id === outlet.id) || outlet;
+                    const cashBalance = outlet.currentCashBalance !== undefined
+                      ? outlet.currentCashBalance
+                      : fullOutlet.currentCashBalance !== undefined
+                      ? fullOutlet.currentCashBalance
+                      : (outlet.initial_cash || 0);
+                    const cashIn = outlet.todayCashIn !== undefined
+                      ? outlet.todayCashIn
+                      : fullOutlet.todayCashIn !== undefined
+                      ? fullOutlet.todayCashIn
+                      : 0;
+                    const expenseTotal = outlet.todayExpenseTotal !== undefined
+                      ? outlet.todayExpenseTotal
+                      : fullOutlet.todayExpenseTotal !== undefined
+                      ? fullOutlet.todayExpenseTotal
+                      : 0;
 
                     return (
                       <div key={outlet.id} className="border border-slate-200 rounded-2xl p-4 bg-slate-50/60">
@@ -3366,10 +3385,10 @@ export default function AdminDashboardPage() {
                             {/* Total Uang Cash Fisik di Laci Saat Ini (Real-time di Booth) */}
                             <div
                               className="px-2.5 py-1 bg-teal-50 text-teal-950 border border-teal-300 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs"
-                              title={`Total Uang Cash Fisik di Laci Booth saat ini: Modal Awal (Rp ${(outlet.initial_cash || 0).toLocaleString("id-ID")}) + Penjualan Tunai (Rp ${(outlet.todayCashIn || 0).toLocaleString("id-ID")}) - Beban Kasir (Rp ${(outlet.todayExpenseTotal || 0).toLocaleString("id-ID")}) = Rp ${(outlet.currentCashBalance !== undefined ? outlet.currentCashBalance : (outlet.initial_cash || 0)).toLocaleString("id-ID")}`}
+                              title={`Total Uang Cash Fisik di Laci Booth saat ini: Modal Awal (Rp ${(outlet.initial_cash || 0).toLocaleString("id-ID")}) + Penjualan Tunai (Rp ${cashIn.toLocaleString("id-ID")}) - Beban Kasir (Rp ${expenseTotal.toLocaleString("id-ID")}) = Rp ${cashBalance.toLocaleString("id-ID")}`}
                             >
                               <Banknote className="w-3.5 h-3.5 text-teal-700 shrink-0" />
-                              <span>Kas di Laci: <strong className="text-teal-900">Rp {(outlet.currentCashBalance !== undefined ? outlet.currentCashBalance : (outlet.initial_cash || 0)).toLocaleString("id-ID")}</strong></span>
+                              <span>Kas di Laci: <strong className="text-teal-900">Rp {cashBalance.toLocaleString("id-ID")}</strong></span>
                             </div>
 
                             {/* Tombol Uang Cash yang Dibawa (Modal Kas Awal) */}
@@ -3453,6 +3472,7 @@ export default function AdminDashboardPage() {
                       <th className="py-2.5 px-3">Sistem (Reg / Jumbo)</th>
                       <th className="py-2.5 px-3">Sisa Teh (Fisik / Sist)</th>
                       <th className="py-2.5 px-3">Sisa Gula Cair (Fisik / Sist)</th>
+                      <th className="py-2.5 px-3">Kas di Laci (Fisik / Sist)</th>
                       <th className="py-2.5 px-3">Selisih Cup</th>
                       <th className="py-2.5 px-3">Potongan Gaji</th>
                       <th className="py-2.5 px-3">Status</th>
@@ -3461,7 +3481,7 @@ export default function AdminDashboardPage() {
                   <tbody className="divide-y divide-slate-100">
                     {!data?.closings || data.closings.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="py-8 text-center text-slate-400">
+                        <td colSpan={10} className="py-8 text-center text-slate-400">
                           Belum ada data rekonsiliasi closing
                         </td>
                       </tr>
@@ -3499,6 +3519,15 @@ export default function AdminDashboardPage() {
                                 </span>
                               )}
                             </td>
+                            <td className="py-2.5 px-3 font-mono">
+                              <strong>Rp {Math.round(c.actual_cash ?? 0).toLocaleString("id-ID")}</strong>{" "}
+                              <span className="text-slate-400">/ Rp {Math.round(c.system_expected_cash ?? 0).toLocaleString("id-ID")}</span>
+                              {c.discrepancy_cash !== undefined && c.discrepancy_cash !== 0 && (
+                                <span className={`block text-[10px] font-bold ${c.discrepancy_cash < 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                                  {c.discrepancy_cash > 0 ? `+Rp ${Math.round(c.discrepancy_cash).toLocaleString("id-ID")}` : `-Rp ${Math.abs(Math.round(c.discrepancy_cash)).toLocaleString("id-ID")}`}
+                                </span>
+                              )}
+                            </td>
                             <td className="py-2.5 px-3">
                               <span className={c.discrepancy_cup < 0 ? "text-rose-600 font-bold" : "text-emerald-700 font-bold"}>
                                 {c.discrepancy_cup > 0 ? `+${c.discrepancy_cup}` : c.discrepancy_cup}
@@ -3508,19 +3537,24 @@ export default function AdminDashboardPage() {
                               {c.employee_debt > 0 ? formatRupiah(c.employee_debt) : "-"}
                             </td>
                             <td className="py-2.5 px-3 font-sans">
+                              {c.discrepancy_cash !== undefined && c.discrepancy_cash < 0 && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white block text-center mb-1">
+                                  KAS MINUS
+                                </span>
+                              )}
                               {isRed ? (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white block text-center">
                                   HUTANG CUP
                                 </span>
                               ) : isYellow ? (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-950">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-950 block text-center">
                                   BOROS CAIRAN
                                 </span>
-                              ) : (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              ) : !c.discrepancy_cash || c.discrepancy_cash >= 0 ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 block text-center">
                                   MATCHED
                                 </span>
-                              )}
+                              ) : null}
                             </td>
                           </tr>
                         );

@@ -22,6 +22,7 @@ export async function POST(req: Request) {
       actual_cup_jumbo,
       actual_liquid_ml,
       actual_sugar_ml = 0,
+      actual_cash = 0,
       notes = "",
     } = body;
 
@@ -36,7 +37,8 @@ export async function POST(req: Request) {
       actual_cup_reg < 0 ||
       actual_cup_jumbo < 0 ||
       actual_liquid_ml < 0 ||
-      (typeof actual_sugar_ml === "number" && actual_sugar_ml < 0)
+      (typeof actual_sugar_ml === "number" && actual_sugar_ml < 0) ||
+      (typeof actual_cash === "number" && actual_cash < 0)
     ) {
       return NextResponse.json(
         { error: "Isian hitungan fisik tidak valid. Harus berupa angka 0 atau lebih." },
@@ -45,6 +47,7 @@ export async function POST(req: Request) {
     }
 
     const sugarMl = typeof actual_sugar_ml === "number" ? actual_sugar_ml : 0;
+    const cashActualNum = typeof actual_cash === "number" ? actual_cash : parseFloat(actual_cash) || 0;
 
     // 1. Ambil Stok Bahan Baku Aktual Sistem untuk Kedai Ini
     const boothStocks = await prisma.boothStock.findMany({
@@ -67,7 +70,36 @@ export async function POST(req: Request) {
     const systemExpectedLiquid = liquidStock ? liquidStock.current_stock : 0;
     const systemExpectedSugar = sugarStock ? sugarStock.current_stock : 0;
 
-    // 2. Ambil Harga Retail untuk Perhitungan Denda Kehilangan Cup
+    // 2. Ambil Data Keuangan Shift untuk Validasi Ekspektasi Kas di Laci
+    const targetOutlet = await prisma.outlet.findUnique({ where: { id: outlet_id } });
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const shiftStartTime = targetOutlet?.last_opened_at ? new Date(targetOutlet.last_opened_at) : todayStart;
+
+    const cashTransactions = await prisma.transaction.findMany({
+      where: {
+        outlet_id,
+        created_at: { gte: shiftStartTime },
+        payment_method: { in: ["Cash", "cash", "tunai", "Tunai"] },
+      },
+      select: { total_amount: true },
+    });
+    const totalCashSales = cashTransactions.reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
+
+    const expenses = await prisma.expense.findMany({
+      where: {
+        outlet_id,
+        date: { gte: shiftStartTime },
+      },
+      select: { amount: true },
+    });
+    const totalExpenses = expenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+
+    const initialCash = targetOutlet?.initial_cash || 0;
+    const systemExpectedCash = initialCash + totalCashSales - totalExpenses;
+    const discrepancyCash = cashActualNum - systemExpectedCash;
+
+    // 3. Ambil Harga Retail untuk Perhitungan Denda Kehilangan Cup
     const regProduct = await prisma.product.findFirst({
       where: { name: { contains: "Reguler" } },
       orderBy: { price: "asc" },
@@ -80,17 +112,17 @@ export async function POST(req: Request) {
     const regRetailPrice = regProduct ? regProduct.price : 5000;
     const jumboRetailPrice = jumboProduct ? jumboProduct.price : 7000;
 
-    // 3. Hitung Selisih (Fisik - Sistem)
+    // 4. Hitung Selisih (Fisik - Sistem)
     const discrepancyCupReg = actual_cup_reg - systemExpectedCupReg;
     const discrepancyCupJumbo = actual_cup_jumbo - systemExpectedCupJumbo;
     const totalDiscrepancyCup = discrepancyCupReg + discrepancyCupJumbo;
     const discrepancyLiquid = actual_liquid_ml - systemExpectedLiquid;
     const discrepancySugar = sugarMl - systemExpectedSugar;
 
-    // 4. Logika Flagging & Denda
+    // 5. Logika Flagging & Denda
     const missingRegCups = discrepancyCupReg < 0 ? Math.abs(discrepancyCupReg) : 0;
     const missingJumboCups = discrepancyCupJumbo < 0 ? Math.abs(discrepancyCupJumbo) : 0;
-    const isTheftFlag = missingRegCups > 0 || missingJumboCups > 0;
+    const isTheftFlag = missingRegCups > 0 || missingJumboCups > 0 || discrepancyCash < 0;
 
     const liquidDeficit = systemExpectedLiquid - actual_liquid_ml;
     const isWasteFlag =
@@ -98,10 +130,12 @@ export async function POST(req: Request) {
       liquidDeficit > 0 &&
       liquidDeficit / systemExpectedLiquid > 0.02;
 
-    const employeeDebt =
+    const cupShortageDebt =
       missingRegCups * regRetailPrice + missingJumboCups * jumboRetailPrice;
+    const cashShortageDebt = discrepancyCash < 0 ? Math.abs(discrepancyCash) : 0;
+    const employeeDebt = cupShortageDebt + cashShortageDebt;
 
-    // 5. Simpan Catatan Shift Closing Spesifik Outlet
+    // 6. Simpan Catatan Shift Closing Spesifik Outlet
     const closingRecord = await prisma.shiftClosing.create({
       data: {
         outlet_id,
@@ -109,15 +143,18 @@ export async function POST(req: Request) {
         actual_cup_jumbo: Math.round(actual_cup_jumbo),
         actual_liquid_ml: actual_liquid_ml,
         actual_sugar_ml: sugarMl,
+        actual_cash: cashActualNum,
         system_expected_cup_reg: systemExpectedCupReg,
         system_expected_cup_jumbo: systemExpectedCupJumbo,
         system_expected_liquid_ml: systemExpectedLiquid,
         system_expected_sugar_ml: systemExpectedSugar,
+        system_expected_cash: systemExpectedCash,
         discrepancy_cup: totalDiscrepancyCup,
         discrepancy_cup_reg: discrepancyCupReg,
         discrepancy_cup_jumbo: discrepancyCupJumbo,
         discrepancy_liquid: discrepancyLiquid,
         discrepancy_sugar_ml: discrepancySugar,
+        discrepancy_cash: discrepancyCash,
         theft_flag: isTheftFlag,
         waste_flag: isWasteFlag,
         employee_debt: employeeDebt,

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { CheckCircle2, AlertTriangle, ShieldCheck, ArrowLeft, Send, Store } from "lucide-react";
+import { CheckCircle2, AlertTriangle, ShieldCheck, ArrowLeft, Send, Store, Banknote } from "lucide-react";
 import Link from "next/link";
 
 interface Outlet {
@@ -18,6 +18,7 @@ export default function ShiftClosingPage() {
   const [actualCupJumbo, setActualCupJumbo] = useState<string>("");
   const [actualLiquidMl, setActualLiquidMl] = useState<string>("");
   const [actualSugarMl, setActualSugarMl] = useState<string>("");
+  const [actualCash, setActualCash] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -51,8 +52,14 @@ export default function ShiftClosingPage() {
       return;
     }
 
-    if (actualCupReg === "" || actualCupJumbo === "" || actualLiquidMl === "" || actualSugarMl === "") {
-      setErrorMessage("Mohon lengkapi semua isian hitungan fisik sebelum submit.");
+    if (
+      actualCupReg === "" ||
+      actualCupJumbo === "" ||
+      actualLiquidMl === "" ||
+      actualSugarMl === "" ||
+      actualCash === ""
+    ) {
+      setErrorMessage("Mohon lengkapi semua isian hitungan fisik (termasuk uang cash di laci) sebelum submit.");
       return;
     }
 
@@ -60,12 +67,14 @@ export default function ShiftClosingPage() {
     const jumboNum = parseInt(actualCupJumbo, 10);
     const liquidNum = parseFloat(actualLiquidMl);
     const sugarNum = parseFloat(actualSugarMl);
+    const cashNum = parseFloat(actualCash);
 
     if (
       isNaN(regNum) || regNum < 0 ||
       isNaN(jumboNum) || jumboNum < 0 ||
       isNaN(liquidNum) || liquidNum < 0 ||
-      isNaN(sugarNum) || sugarNum < 0
+      isNaN(sugarNum) || sugarNum < 0 ||
+      isNaN(cashNum) || cashNum < 0
     ) {
       setErrorMessage("Angka tidak valid. Pastikan semua angka bernilai 0 atau lebih.");
       return;
@@ -83,6 +92,7 @@ export default function ShiftClosingPage() {
           actual_cup_jumbo: jumboNum,
           actual_liquid_ml: liquidNum,
           actual_sugar_ml: sugarNum,
+          actual_cash: cashNum,
           notes: notes.trim(),
         }),
       });
@@ -110,6 +120,7 @@ export default function ShiftClosingPage() {
           actual_cup_jumbo: jumboNum,
           actual_liquid_ml: liquidNum,
           actual_sugar_ml: sugarNum,
+          actual_cash: cashNum,
           notes: notes.trim(),
           timestamp: new Date().toISOString(),
         });
@@ -332,6 +343,35 @@ export default function ShiftClosingPage() {
                   <span className="absolute right-4 top-3.5 text-xs font-semibold text-slate-400 uppercase">
                     ml
                   </span>
+                </div>
+              </div>
+
+              {/* Field 5: Total Uang Cash Fisik di Laci (Blind Count) */}
+              <div>
+                <label
+                  htmlFor="cash-drawer"
+                  className="block text-sm font-semibold text-slate-800 mb-1"
+                >
+                  5. Total Uang Cash Fisik di Laci Kasir <span className="text-teal-700 font-bold">(Rp)</span>
+                </label>
+                <p className="text-xs text-slate-500 mb-2">
+                  Hitung seluruh uang kertas &amp; koin fisik di laci kasir saat tutup shift (termasuk modal kas awal).
+                </p>
+                <div className="relative">
+                  <span className="absolute left-4 top-3.5 text-base font-extrabold text-slate-400">
+                    Rp
+                  </span>
+                  <input
+                    id="cash-drawer"
+                    type="number"
+                    min="0"
+                    step="500"
+                    placeholder="Contoh: 546000"
+                    value={actualCash}
+                    onChange={(e) => setActualCash(e.target.value)}
+                    required
+                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 text-lg font-mono font-bold text-slate-900"
+                  />
                 </div>
               </div>
 

@@ -16,10 +16,67 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Akses ditolak: PIN Admin tidak valid." }, { status: 401 });
     }
 
-    // 1. Ambil Semua Outlet untuk Filter Dropdown
-    const outlets = await prisma.outlet.findMany({
+    // 1. Ambil Semua Outlet untuk Filter Dropdown & Hitung Saldo Kas Real-time
+    const rawOutlets = await prisma.outlet.findMany({
       orderBy: { code: "asc" },
     });
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const outlets = await Promise.all(
+      rawOutlets.map(async (outlet) => {
+        const isShiftClosed = outlet.shift_status === "closed";
+        const shiftStartTime = outlet.last_opened_at ? new Date(outlet.last_opened_at) : todayStart;
+
+        let todayCupsSold = 0;
+        let todayCashIn = 0;
+        let todayExpenseTotal = 0;
+
+        if (!isShiftClosed) {
+          const todayItems = await prisma.transactionItem.findMany({
+            where: {
+              transaction: {
+                outlet_id: outlet.id,
+                created_at: { gte: shiftStartTime },
+              },
+            },
+            select: { quantity: true },
+          });
+          todayCupsSold = todayItems.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
+
+          const cashTxs = await prisma.transaction.findMany({
+            where: {
+              outlet_id: outlet.id,
+              created_at: { gte: shiftStartTime },
+              payment_method: { in: ["Cash", "cash", "tunai", "Tunai"] },
+            },
+            select: { total_amount: true },
+          });
+          todayCashIn = cashTxs.reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
+
+          const expenses = await prisma.expense.findMany({
+            where: {
+              outlet_id: outlet.id,
+              date: { gte: shiftStartTime },
+            },
+            select: { amount: true },
+          });
+          todayExpenseTotal = expenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+        }
+
+        const initialCash = outlet.initial_cash || 0;
+        const currentCashBalance = initialCash + todayCashIn - todayExpenseTotal;
+
+        return {
+          ...outlet,
+          todayCupsSold,
+          todayCashIn,
+          todayExpenseTotal,
+          currentCashBalance,
+        };
+      })
+    );
 
     const outletFilter = outletId && outletId !== "all" ? { outlet_id: outletId } : {};
 
