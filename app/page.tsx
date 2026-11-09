@@ -36,6 +36,7 @@ import {
   Smile,
   TrendingUp,
   Sunrise,
+  AlertTriangle,
 } from "lucide-react";
 import {
   getPendingTransactions,
@@ -168,6 +169,78 @@ export default function PosTerminalPage() {
     type: "success" | "warning" | "error";
   } | null>(null);
 
+  // ================= RE-BREWING & DISPENSER TEH (WATER BARREL 8L) STATE =================
+  const [brewLiquidMl, setBrewLiquidMl] = useState<number>(8000);
+  const [isBrewAlertDismissed, setIsBrewAlertDismissed] = useState<boolean>(false);
+  const [isBrewModalOpen, setIsBrewModalOpen] = useState<boolean>(false);
+  const [customBrewInput, setCustomBrewInput] = useState<string>("8000");
+  const [brewSuccessToast, setBrewSuccessToast] = useState<string | null>(null);
+
+  // Notifikasi nada lembut (chime) menggunakan Web Audio API tanpa perlu file eksternal
+  const playBrewAlertChime = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12); // A5
+
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.45);
+    } catch {}
+  };
+
+  // Helper kalkulasi penggunaan cairan teh per cup: Reguler = 180 ml, Jumbo = 250 ml, Topping = 0 ml
+  const calculateCartTeaLiquid = (items: CartItem[]) => {
+    return items.reduce((sum, item) => {
+      const pName = item.product.name.toLowerCase();
+      if (pName.includes("topping")) return sum;
+      const mlPerCup = pName.includes("reguler") ? 180 : 250;
+      return sum + mlPerCup * item.quantity;
+    }, 0);
+  };
+
+  // Handler pemotongan cairan teh di dispenser barrel saat transaksi selesai
+  const deductBrewLiquidForCart = (cartItems: CartItem[]) => {
+    const teaLiquidUsed = calculateCartTeaLiquid(cartItems);
+    if (teaLiquidUsed > 0 && selectedOutletId) {
+      setBrewLiquidMl((prev) => {
+        const nextVal = Math.max(0, prev - teaLiquidUsed);
+        localStorage.setItem("poci_brew_barrel_ml_" + selectedOutletId, String(nextVal));
+        if (prev > 3000 && nextVal <= 3000) {
+          playBrewAlertChime();
+          setIsBrewAlertDismissed(false); // Munculkan kembali banner alert jika sebelumnya disembunyikan
+        }
+        return nextVal;
+      });
+    }
+  };
+
+  // Handler isi ulang / reset batch seduhan (default 8.000 ml = 8 Liter)
+  const handleRefillBrewBatch = (amount = 8000) => {
+    const val = Math.max(0, amount);
+    setBrewLiquidMl(val);
+    setCustomBrewInput(String(val));
+    if (selectedOutletId) {
+      localStorage.setItem("poci_brew_barrel_ml_" + selectedOutletId, String(val));
+    }
+    setIsBrewAlertDismissed(false);
+    setIsBrewModalOpen(false);
+    setBrewSuccessToast(
+      `✅ Dispenser teh berhasil diisi ulang: ${(val / 1000).toFixed(1)}L (${val.toLocaleString("id-ID")} ml) siap disajikan!`
+    );
+    setTimeout(() => setBrewSuccessToast(null), 4500);
+  };
+
   // Mobile Cart Accordion & Sticky-on-Scroll State
   const [isMobileCartOpen, setIsMobileCartOpen] = useState<boolean>(false);
   const [isStickyMobileCart, setIsStickyMobileCart] = useState<boolean>(false);
@@ -236,6 +309,19 @@ export default function PosTerminalPage() {
       const cached = localStorage.getItem("cached_poci_pantun_" + selectedOutletId);
       if (cached) setPantunText(cached);
       fetchPantun();
+
+      // Muat sisa cairan teh di dispenser barrel untuk outlet ini
+      const savedBrew = localStorage.getItem("poci_brew_barrel_ml_" + selectedOutletId);
+      if (savedBrew !== null && !isNaN(Number(savedBrew))) {
+        const num = Number(savedBrew);
+        setBrewLiquidMl(num);
+        setCustomBrewInput(String(num));
+      } else {
+        setBrewLiquidMl(8000);
+        setCustomBrewInput("8000");
+        localStorage.setItem("poci_brew_barrel_ml_" + selectedOutletId, "8000");
+      }
+      setIsBrewAlertDismissed(false);
     }
 
     // Auto-update pantun berima setiap 15 menit sekali (15 * 60 * 1000 ms)
@@ -971,6 +1057,8 @@ export default function PosTerminalPage() {
             return updated;
           });
         }
+        deductBrewLiquidForCart(cart);
+        deductBrewLiquidForCart(cart);
         setTodayCupsSold((prev) => prev + totalCartCups);
         setPendingSyncCount(getPendingTransactions().length);
         setCompletedReceipt(receiptToPrint);
@@ -1002,6 +1090,7 @@ export default function PosTerminalPage() {
               return updated;
             });
           }
+          deductBrewLiquidForCart(cart);
           setTodayCupsSold((prev) => prev + totalCartCups);
           setLastDeductions(data.inventoryDeductions || []);
           setCompletedReceipt(receiptToPrint);
@@ -1046,6 +1135,7 @@ export default function PosTerminalPage() {
           paymentMethod,
           totalAmount,
         });
+        deductBrewLiquidForCart(cart);
         setTodayCupsSold((prev) => prev + totalCartCups);
         setPendingSyncCount(getPendingTransactions().length);
         setCompletedReceipt(receiptToPrint);
@@ -1136,6 +1226,11 @@ export default function PosTerminalPage() {
         // Bersihkan antrean offline
         localStorage.removeItem("teh_poci_offline_tx_queue");
         setPendingSyncCount(0);
+        if (selectedOutletId) {
+          localStorage.setItem("poci_brew_barrel_ml_" + selectedOutletId, "8000");
+          setBrewLiquidMl(8000);
+          setCustomBrewInput("8000");
+        }
         setTimeout(() => {
           setIsResetPosModalOpen(false);
           setResetPosPin("");
@@ -1476,6 +1571,35 @@ export default function PosTerminalPage() {
                   {cupJumboMaterial ? Math.max(0, Math.round(cupJumboMaterial.current_stock)) : 0} pcs
                 </strong>
               </div>
+
+              {/* Sisa Teh Dispenser (Batch 8L) */}
+              <button
+                type="button"
+                onClick={() => setIsBrewModalOpen(true)}
+                title={`Sisa Teh Dispenser: ${(brewLiquidMl / 1000).toFixed(1)}L / 8L (${Math.round(brewLiquidMl)} ml) - Klik untuk kelola seduhan`}
+                className={`col-span-2 sm:col-span-1 px-2 py-1 rounded-lg text-xs font-mono font-semibold border flex items-center justify-between sm:justify-start gap-1.5 transition cursor-pointer shadow-2xs ${
+                  brewLiquidMl <= 1500
+                    ? "bg-rose-100 text-rose-800 border-rose-300 font-black animate-pulse"
+                    : brewLiquidMl <= 3000
+                    ? "bg-amber-100 text-amber-900 border-amber-300 font-bold"
+                    : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+                }`}
+              >
+                <span className="flex items-center gap-1">
+                  <span className="text-xs">🫖</span>
+                  <span className="text-slate-500">Dispenser:</span>
+                </span>
+                <strong className={brewLiquidMl <= 1500 ? "text-rose-700" : brewLiquidMl <= 3000 ? "text-amber-800" : "text-emerald-700"}>
+                  {(brewLiquidMl / 1000).toFixed(1)}L
+                </strong>
+                {brewLiquidMl <= 3000 && (
+                  <span className={`text-[9px] px-1 py-0.2 rounded font-black uppercase text-white ${
+                    brewLiquidMl <= 1500 ? "bg-rose-600 animate-bounce" : "bg-amber-600"
+                  }`}>
+                    Re-Brew!
+                  </span>
+                )}
+              </button>
 
               {/* Cup Terjual Hari Ini */}
               <div className="px-2 py-1 bg-emerald-50 rounded-lg text-emerald-900 font-bold border border-emerald-300 flex items-center justify-between sm:justify-start gap-1 shadow-2xs">
@@ -1913,6 +2037,104 @@ export default function PosTerminalPage() {
               >
                 ✕
               </button>
+            </div>
+          )}
+
+          {/* Toast Sukses Re-Brewing / Isi Ulang Teh */}
+          {brewSuccessToast && (
+            <div className="p-3 bg-emerald-50 border-2 border-emerald-500 rounded-xl flex items-center justify-between gap-3 text-emerald-950 text-xs font-bold shadow-md animate-in fade-in duration-200">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🫖</span>
+                <span>{brewSuccessToast}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBrewSuccessToast(null)}
+                className="text-emerald-700 hover:text-emerald-950 font-black text-sm px-2 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Banner Notifikasi Re-Brewing (Peringatan saat Sisa Teh Dispenser <= 3.000 ml / 2-3 Liter) */}
+          {brewLiquidMl <= 3000 && !isBrewAlertDismissed && (
+            <div
+              className={`rounded-2xl p-3.5 sm:p-4 border transition-all animate-in fade-in slide-in-from-top-2 ${
+                brewLiquidMl <= 1500
+                  ? "bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white border-rose-500 shadow-lg shadow-rose-600/30 ring-2 ring-rose-400"
+                  : "bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white border-amber-400 shadow-md shadow-amber-500/25"
+              }`}
+            >
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl shrink-0 border border-white/30 shadow-inner">
+                    🫖
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white text-slate-900 shadow-xs">
+                        {brewLiquidMl <= 1500 ? "🚨 SANGAT KRITIS" : "⚠️ PERINGATAN RE-BREWING"}
+                      </span>
+                      <span className="text-xs font-mono font-bold text-white/95">
+                        Sisa {(brewLiquidMl / 1000).toFixed(1)} Liter ({Math.round(brewLiquidMl)} ml / 8.000 ml)
+                      </span>
+                    </div>
+
+                    <h3 className="text-sm sm:text-base font-black tracking-tight text-white mt-1">
+                      {brewLiquidMl <= 1500
+                        ? "Teh di Dispenser Barrel Hampir Habis! Segera Isi Ulang"
+                        : "Waktunya Re-Brewing! Mulai Rebus Air 8L Sekarang"}
+                    </h3>
+
+                    <p className="text-xs text-white/95 mt-1 leading-snug">
+                      Sisa teh cukup untuk{" "}
+                      <strong>~{Math.floor(brewLiquidMl / 250)} cup Jumbo</strong> (250 ml) atau{" "}
+                      <strong>~{Math.floor(brewLiquidMl / 180)} cup Reguler</strong> (180 ml).
+                      Estimasi waktu merebus &amp; mendinginkan 8L teh adalah <strong>~50–60 menit</strong>. Masak air sekarang agar tidak kehabisan stok saat antrean!
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tombol Aksi di Banner */}
+                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 flex-wrap sm:flex-nowrap pt-1 sm:pt-0">
+                  <button
+                    type="button"
+                    onClick={() => handleRefillBrewBatch(8000)}
+                    className="flex-1 sm:flex-initial px-3.5 py-2 bg-white hover:bg-emerald-50 text-emerald-950 rounded-xl text-xs font-black shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                    title="Klik jika batch teh 8L baru sudah selesai diseduh dan dituang ke dispenser"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Selesai Brew (Isi 8L)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsBrewModalOpen(true)}
+                    className="px-2.5 py-2 bg-black/20 hover:bg-black/30 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                    title="Buka panduan & sesuaikan volume teh"
+                  >
+                    <span>Atur</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsBrewAlertDismissed(true)}
+                    className="p-2 bg-black/10 hover:bg-black/20 text-white/80 hover:text-white rounded-xl transition cursor-pointer"
+                    title="Sembunyikan sementara (air sedang direbus)"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Visual Mini Progress Bar */}
+              <div className="mt-2.5 w-full bg-black/25 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="h-full bg-white rounded-full transition-all duration-300"
+                  style={{ width: `${Math.min(100, Math.max(0, (brewLiquidMl / 8000) * 100))}%` }}
+                />
+              </div>
             </div>
           )}
 
@@ -3144,6 +3366,169 @@ export default function PosTerminalPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Kelola Dispenser & Re-Brewing Teh 8L */}
+      {isBrewModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 space-y-4 my-auto">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center text-xl shadow-xs">
+                  🫖
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">
+                    Dispenser &amp; Re-Brewing Teh
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Kapasitas Standar: 1 Batch = 8.000 ml (8 Liter)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBrewModalOpen(false)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Status Dispenser Saat Ini */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-600">Sisa Teh di Dispenser:</span>
+                <span className={`text-xs font-black px-2 py-0.5 rounded-full uppercase ${
+                  brewLiquidMl <= 1500
+                    ? "bg-rose-100 text-rose-700"
+                    : brewLiquidMl <= 3000
+                    ? "bg-amber-100 text-amber-800"
+                    : "bg-emerald-100 text-emerald-800"
+                }`}>
+                  {brewLiquidMl <= 1500 ? "Kritis" : brewLiquidMl <= 3000 ? "Perlu Re-Brew" : "Stok Aman"}
+                </span>
+              </div>
+
+              <div className="flex items-baseline justify-between">
+                <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900">
+                  {(brewLiquidMl / 1000).toFixed(2)}{" "}
+                  <span className="text-sm font-bold text-slate-500">Liter</span>
+                </div>
+                <div className="text-xs font-mono font-bold text-slate-500">
+                  {Math.round(brewLiquidMl).toLocaleString("id-ID")} / 8.000 ml ({Math.round((brewLiquidMl / 8000) * 100)}%)
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    brewLiquidMl <= 1500
+                      ? "bg-rose-600"
+                      : brewLiquidMl <= 3000
+                      ? "bg-amber-500"
+                      : "bg-emerald-600"
+                  }`}
+                  style={{ width: `${Math.min(100, Math.max(0, (brewLiquidMl / 8000) * 100))}%` }}
+                />
+              </div>
+
+              {/* Kalkulasi Per Cup */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <div className="p-2.5 bg-white rounded-xl border border-slate-200 text-center">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Cup Jumbo (250 ml)</span>
+                  <span className="text-base font-black font-mono text-emerald-800">
+                    ~{Math.floor(brewLiquidMl / 250)} Cup
+                  </span>
+                </div>
+                <div className="p-2.5 bg-white rounded-xl border border-slate-200 text-center">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Cup Reguler (180 ml)</span>
+                  <span className="text-base font-black font-mono text-slate-800">
+                    ~{Math.floor(brewLiquidMl / 180)} Cup
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Ringkasan SOP Re-Brewing 8L */}
+            <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200/80 text-[11px] text-amber-950 space-y-1.5">
+              <div className="font-extrabold flex items-center gap-1.5 text-amber-900">
+                <span>⏱️</span>
+                <span>SOP Standar Pembuatan 1 Batch (8 Liter): ~50–60 Menit</span>
+              </div>
+              <ul className="list-disc list-inside space-y-0.5 text-amber-900/90 pl-1">
+                <li><strong>1. Rebus Air (8L)</strong>: 20–30 menit sampai mendidih (100°C).</li>
+                <li><strong>2. Ekstraksi / Seduh Teh</strong>: 15 menit, panci tertutup rapat.</li>
+                <li><strong>3. Angkat &amp; Tiriskan</strong>: Angkat kantong teh (jangan diperas keras).</li>
+                <li><strong>4. Pendinginan Siap Saji</strong>: 15–25 menit (bisa gunakan rendaman ice bath agar cepat suam-suam kuku).</li>
+              </ul>
+            </div>
+
+            {/* Tombol Aksi Isi Ulang Cepat */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => handleRefillBrewBatch(8000)}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+              >
+                <CheckCircle2 className="w-5 h-5 text-amber-300" />
+                <span>Selesai Seduh Baru (Isi Penuh 8.000 ml / 8L)</span>
+              </button>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleRefillBrewBatch(Math.min(8000, brewLiquidMl + 4000))}
+                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold border border-slate-200 transition cursor-pointer"
+                >
+                  + 4.000 ml (Setengah)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRefillBrewBatch(Math.min(8000, brewLiquidMl + 8000))}
+                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold border border-slate-200 transition cursor-pointer"
+                >
+                  + 8.000 ml (Tambah 8L)
+                </button>
+              </div>
+            </div>
+
+            {/* Form Penyesuaian Manual (ml) */}
+            <div className="pt-2 border-t border-slate-100">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Atur Manual Volume Cairan Teh (ml):
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="16000"
+                  step="100"
+                  value={customBrewInput}
+                  onChange={(e) => setCustomBrewInput(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                  placeholder="Contoh: 8000"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const num = Number(customBrewInput);
+                    if (isNaN(num) || num < 0) {
+                      alert("Masukkan angka volume teh yang valid (minimal 0 ml).");
+                      return;
+                    }
+                    handleRefillBrewBatch(num);
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition cursor-pointer"
+                >
+                  Simpan
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
