@@ -119,11 +119,11 @@ const FLAVOR_METAS: Record<string, FlavorMeta> = {
   "Orange Iced Tea": { baseName: "Orange Iced Tea", category: "fruity", circleBg: "bg-orange-500", badgeBg: "bg-orange-100", badgeText: "text-orange-900", icon: "🍊" },
   "Lemon Honey Iced Tea": { baseName: "Lemon Honey Iced Tea", category: "fruity", circleBg: "bg-yellow-500", badgeBg: "bg-yellow-100", badgeText: "text-yellow-900", icon: "🍋" },
   // 5 Varian Baru Vendor Resmi Es Teh Poci
-  "Matcha Iced Tea": { baseName: "Matcha Iced Tea", category: "milky", circleBg: "bg-emerald-700", badgeBg: "bg-emerald-100", badgeText: "text-emerald-900", icon: "🍵", isNew: true },
-  "Aren Latte Iced Tea": { baseName: "Aren Latte Iced Tea", category: "milky", circleBg: "bg-amber-800", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "☕", isNew: true },
-  "Coconut Latte Iced Tea": { baseName: "Coconut Latte Iced Tea", category: "milky", circleBg: "bg-teal-700", badgeBg: "bg-teal-100", badgeText: "text-teal-900", icon: "🥥", isNew: true },
-  "Teh Tarik Gula Aren": { baseName: "Teh Tarik Gula Aren", category: "milky", circleBg: "bg-amber-900", badgeBg: "bg-amber-100", badgeText: "text-amber-950", icon: "🧋", isNew: true },
-  "Teh Krampul Selasih": { baseName: "Teh Krampul Selasih", category: "fruity", circleBg: "bg-lime-600", badgeBg: "bg-lime-100", badgeText: "text-lime-900", icon: "🍹", isNew: true },
+  "Matcha Iced Tea": { baseName: "Matcha Iced Tea", category: "milky", circleBg: "bg-emerald-700", badgeBg: "bg-emerald-100", badgeText: "text-emerald-900", icon: "🍵" },
+  "Aren Latte Iced Tea": { baseName: "Aren Latte Iced Tea", category: "milky", circleBg: "bg-amber-800", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "☕" },
+  "Coconut Latte Iced Tea": { baseName: "Coconut Latte Iced Tea", category: "milky", circleBg: "bg-teal-700", badgeBg: "bg-teal-100", badgeText: "text-teal-900", icon: "🥥" },
+  "Teh Tarik Gula Aren": { baseName: "Teh Tarik Gula Aren", category: "milky", circleBg: "bg-amber-900", badgeBg: "bg-amber-100", badgeText: "text-amber-950", icon: "🧋" },
+  "Teh Krampul Selasih": { baseName: "Teh Krampul Selasih", category: "fruity", circleBg: "bg-lime-600", badgeBg: "bg-lime-100", badgeText: "text-lime-900", icon: "🍹" },
 };
 
 export default function PosTerminalPage() {
@@ -2238,10 +2238,6 @@ export default function PosTerminalPage() {
                       <div className="absolute top-2 right-2 bg-gradient-to-r from-emerald-600 to-teal-700 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow flex items-center gap-1">
                         <span>⭐</span>
                         <span>Menu Utama</span>
-                      </div>
-                    ) : meta.isNew ? (
-                      <div className="absolute top-2 right-2 bg-gradient-to-r from-red-600 to-amber-500 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow">
-                        Markicob Baru!
                       </div>
                     ) : null}
 
