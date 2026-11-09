@@ -216,7 +216,22 @@ export default function AdminDashboardPage() {
   // ================= TAB 4: MENU MANAGEMENT STATE =================
   const [menuProducts, setMenuProducts] = useState<any[]>([]);
   const [menuMaterials, setMenuMaterials] = useState<any[]>([]);
-  const [menuTargetOutlet, setMenuTargetOutlet] = useState<string>("");
+  const [menuTargetOutlet, setMenuTargetOutlet] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("poci_admin_menu_outlet") || "";
+    }
+    return "";
+  });
+  const menuTargetOutletRef = React.useRef(menuTargetOutlet);
+
+  useEffect(() => {
+    menuTargetOutletRef.current = menuTargetOutlet;
+    if (menuTargetOutlet && typeof window !== "undefined") {
+      try {
+        localStorage.setItem("poci_admin_menu_outlet", menuTargetOutlet);
+      } catch {}
+    }
+  }, [menuTargetOutlet]);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState<boolean>(false);
   const [newMenuForm, setNewMenuForm] = useState({
     baseName: "",
@@ -424,9 +439,24 @@ export default function AdminDashboardPage() {
         const json = await res.json();
         setMenuProducts(json.products || []);
         setMenuMaterials(json.rawMaterials || []);
-        if (!menuTargetOutlet && json.outlets && json.outlets.length > 0) {
-          setMenuTargetOutlet(json.outlets[0].id);
-        }
+        setMenuTargetOutlet((prev) => {
+          if (prev && json.outlets?.some((o: any) => o.id === prev)) {
+            return prev;
+          }
+          if (menuTargetOutletRef.current && json.outlets?.some((o: any) => o.id === menuTargetOutletRef.current)) {
+            return menuTargetOutletRef.current;
+          }
+          if (typeof window !== "undefined") {
+            const saved = localStorage.getItem("poci_admin_menu_outlet");
+            if (saved && json.outlets?.some((o: any) => o.id === saved)) {
+              menuTargetOutletRef.current = saved;
+              return saved;
+            }
+          }
+          const defaultOutlet = json.outlets?.[0]?.id || "";
+          menuTargetOutletRef.current = defaultOutlet;
+          return defaultOutlet;
+        });
       }
     } catch (e) {
       console.error("Failed to load menus", e);
@@ -3809,7 +3839,13 @@ export default function AdminDashboardPage() {
                       <button
                         key={o.id}
                         type="button"
-                        onClick={() => setMenuTargetOutlet(o.id)}
+                        onClick={() => {
+                          menuTargetOutletRef.current = o.id;
+                          setMenuTargetOutlet(o.id);
+                          try {
+                            localStorage.setItem("poci_admin_menu_outlet", o.id);
+                          } catch {}
+                        }}
                         className={`px-4 py-2.5 rounded-2xl font-bold text-xs flex items-center gap-2.5 transition shadow-xs cursor-pointer ${
                           isSelected
                             ? "bg-emerald-700 text-white shadow-md ring-2 ring-emerald-500/40"
