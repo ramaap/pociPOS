@@ -15,8 +15,15 @@ export async function GET(req: Request) {
     if (period === "today") {
       const now = new Date();
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-      whereClause.date = { gte: startOfDay, lte: endOfDay };
+
+      let filterStart = startOfDay;
+      if (outletId && outletId !== "all") {
+        const outlet = await prisma.outlet.findUnique({ where: { id: outletId } });
+        if (outlet?.shift_status !== "closed" && outlet?.last_opened_at) {
+          filterStart = new Date(outlet.last_opened_at);
+        }
+      }
+      whereClause.date = { gte: filterStart };
     }
 
     const expenses = await prisma.expense.findMany({

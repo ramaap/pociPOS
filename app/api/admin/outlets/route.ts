@@ -16,7 +16,67 @@ export async function GET() {
       orderBy: { code: "asc" },
     });
 
-    return NextResponse.json({ outlets });
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const enrichedOutlets = await Promise.all(
+      outlets.map(async (outlet) => {
+        const isShiftClosed = outlet.shift_status === "closed";
+        const shiftStartTime = outlet.last_opened_at ? new Date(outlet.last_opened_at) : todayStart;
+
+        let todayCupsSold = 0;
+        let todayCashIn = 0;
+        let todayExpenseTotal = 0;
+
+        if (!isShiftClosed) {
+          // Total cup terjual pada shift aktif
+          const todayItems = await prisma.transactionItem.findMany({
+            where: {
+              transaction: {
+                outlet_id: outlet.id,
+                created_at: { gte: shiftStartTime },
+              },
+            },
+            select: { quantity: true },
+          });
+          todayCupsSold = todayItems.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
+
+          // Pemasukan kas tunai pada shift aktif
+          const cashTxs = await prisma.transaction.findMany({
+            where: {
+              outlet_id: outlet.id,
+              created_at: { gte: shiftStartTime },
+              payment_method: { in: ["Cash", "cash", "tunai", "Tunai"] },
+            },
+            select: { total_amount: true },
+          });
+          todayCashIn = cashTxs.reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
+
+          // Pengeluaran kasir pada shift aktif
+          const expenses = await prisma.expense.findMany({
+            where: {
+              outlet_id: outlet.id,
+              date: { gte: shiftStartTime },
+            },
+            select: { amount: true },
+          });
+          todayExpenseTotal = expenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+        }
+
+        const initialCash = outlet.initial_cash || 0;
+        const currentCashBalance = initialCash + todayCashIn - todayExpenseTotal;
+
+        return {
+          ...outlet,
+          todayCupsSold,
+          todayCashIn,
+          todayExpenseTotal,
+          currentCashBalance,
+        };
+      })
+    );
+
+    return NextResponse.json({ outlets: enrichedOutlets });
   } catch (error) {
     console.error("Failed to fetch outlets:", error);
     return NextResponse.json({ error: "Gagal mengambil daftar kedai" }, { status: 500 });

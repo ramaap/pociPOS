@@ -45,6 +45,7 @@ import {
   LogOut,
   Target,
   Banknote,
+  Coins,
 } from "lucide-react";
 
 interface Outlet {
@@ -54,6 +55,10 @@ interface Outlet {
   address?: string;
   target_cups?: number;
   initial_cash?: number;
+  todayCashIn?: number;
+  todayExpenseTotal?: number;
+  todayCupsSold?: number;
+  currentCashBalance?: number;
   active_status?: boolean;
 }
 
@@ -3358,20 +3363,29 @@ export default function AdminDashboardPage() {
                           </div>
 
                           <div className="flex items-center gap-2 flex-wrap">
+                            {/* Total Uang Cash Fisik di Laci Saat Ini (Real-time di Booth) */}
+                            <div
+                              className="px-2.5 py-1 bg-teal-50 text-teal-950 border border-teal-300 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs"
+                              title={`Total Uang Cash Fisik di Laci Booth saat ini: Modal Awal (Rp ${(outlet.initial_cash || 0).toLocaleString("id-ID")}) + Penjualan Tunai (Rp ${(outlet.todayCashIn || 0).toLocaleString("id-ID")}) - Beban Kasir (Rp ${(outlet.todayExpenseTotal || 0).toLocaleString("id-ID")}) = Rp ${(outlet.currentCashBalance !== undefined ? outlet.currentCashBalance : (outlet.initial_cash || 0)).toLocaleString("id-ID")}`}
+                            >
+                              <Banknote className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                              <span>Kas di Laci: <strong className="text-teal-900">Rp {(outlet.currentCashBalance !== undefined ? outlet.currentCashBalance : (outlet.initial_cash || 0)).toLocaleString("id-ID")}</strong></span>
+                            </div>
+
                             {/* Tombol Uang Cash yang Dibawa (Modal Kas Awal) */}
                             <button
                               onClick={() => openCashFloatModal(outlet)}
                               className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-2xs cursor-pointer group"
                               title="Ubah Uang Cash yang Dibawa (Modal Kas Awal) untuk kedai ini"
                             >
-                              <Banknote className="w-3.5 h-3.5 text-amber-700 group-hover:scale-110 transition" />
-                              <span>Cash Dibawa: <strong>Rp {(outlet.initial_cash || 0).toLocaleString("id-ID")}</strong></span>
+                              <Coins className="w-3.5 h-3.5 text-amber-700 group-hover:scale-110 transition shrink-0" />
+                              <span>Modal Awal: <strong>Rp {(outlet.initial_cash || 0).toLocaleString("id-ID")}</strong></span>
                               <Edit3 className="w-3 h-3 text-amber-600 opacity-60 group-hover:opacity-100" />
                             </button>
 
                             <button
                               onClick={() => openOpnameModal(outlet)}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs transition"
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs transition cursor-pointer"
                             >
                               <Sliders className="w-3.5 h-3.5" />
                               <span>Opname Stok</span>
@@ -3379,7 +3393,7 @@ export default function AdminDashboardPage() {
 
                             <button
                               onClick={() => handleZeroAll(outlet.id, outlet.name)}
-                              className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold flex items-center gap-1 transition"
+                              className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold flex items-center gap-1 transition cursor-pointer"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                               <span>Set 0</span>
@@ -3584,9 +3598,17 @@ export default function AdminDashboardPage() {
                         <span>Target: <strong>{outlet.target_cups || 100} cup / hari</strong></span>
                       </span>
 
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-50 text-teal-950 border border-teal-300 text-xs font-bold"
+                        title={`Total Uang Cash Fisik di Laci: Modal Awal (Rp ${(outlet.initial_cash || 0).toLocaleString("id-ID")}) + Penjualan Tunai (Rp ${(outlet.todayCashIn || 0).toLocaleString("id-ID")}) - Kas Keluar (Rp ${(outlet.todayExpenseTotal || 0).toLocaleString("id-ID")}) = Rp ${(outlet.currentCashBalance !== undefined ? outlet.currentCashBalance : (outlet.initial_cash || 0)).toLocaleString("id-ID")}`}
+                      >
+                        <Banknote className="w-3.5 h-3.5 text-teal-700" />
+                        <span>Kas di Laci: <strong className="text-teal-900">Rp {(outlet.currentCashBalance !== undefined ? outlet.currentCashBalance : (outlet.initial_cash || 0)).toLocaleString("id-ID")}</strong></span>
+                      </span>
+
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-300 text-xs font-bold">
-                        <Banknote className="w-3.5 h-3.5 text-amber-700" />
-                        <span>Cash Dibawa: <strong>Rp {(outlet.initial_cash || 0).toLocaleString("id-ID")}</strong></span>
+                        <Coins className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Modal Awal: <strong>Rp {(outlet.initial_cash || 0).toLocaleString("id-ID")}</strong></span>
                       </span>
                     </div>
                   </div>
@@ -5481,11 +5503,11 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-                  <Banknote className="w-4 h-4" />
+                  <Coins className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="font-extrabold text-sm text-slate-900">
-                    Uang Cash Dibawa
+                    Modal Kas Awal (Cash Dibawa)
                   </h3>
                   <p className="text-[10px] text-slate-500 font-semibold">{cashFloatOutlet.name}</p>
                 </div>
@@ -5501,7 +5523,7 @@ export default function AdminDashboardPage() {
             <form onSubmit={handleSaveCashFloat} className="space-y-4 my-4">
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Nominal Modal Kas / Uang Cash Dibawa:
+                  Nominal Modal Kas Awal (Uang Cash Dibawa):
                 </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-2.5 text-xs font-extrabold text-slate-400">Rp</span>
@@ -5517,8 +5539,36 @@ export default function AdminDashboardPage() {
                   />
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">
-                  Ini adalah uang kembalian / kas awal yang dibawa kasir saat shift operasional.
+                  Uang modal kembalian awal yang diserahkan ke kasir saat pembukaan shift kedai.
                 </p>
+              </div>
+
+              {/* Rincian Real-time Estimasi Total Kas di Laci */}
+              <div className="p-3 bg-teal-50/80 rounded-2xl border border-teal-200 text-xs text-teal-950 space-y-1">
+                <div className="flex justify-between items-center text-[11px] text-teal-800">
+                  <span>Modal Awal Baru:</span>
+                  <span className="font-mono font-bold">Rp {(Number(cashFloatValue) || 0).toLocaleString("id-ID")}</span>
+                </div>
+                <div className="flex justify-between items-center text-[11px] text-teal-800">
+                  <span>Penjualan Tunai Berjalan:</span>
+                  <span className="font-mono font-bold">+ Rp {((cashFloatOutlet as any)?.todayCashIn || 0).toLocaleString("id-ID")}</span>
+                </div>
+                {((cashFloatOutlet as any)?.todayExpenseTotal || 0) > 0 && (
+                  <div className="flex justify-between items-center text-[11px] text-rose-700">
+                    <span>Kas Keluar:</span>
+                    <span className="font-mono font-bold">- Rp {((cashFloatOutlet as any)?.todayExpenseTotal || 0).toLocaleString("id-ID")}</span>
+                  </div>
+                )}
+                <div className="pt-1 border-t border-teal-200/80 flex justify-between items-center font-bold text-teal-950">
+                  <span>Estimasi Total Kas di Laci:</span>
+                  <span className="font-mono font-black text-sm">
+                    Rp {(
+                      (Number(cashFloatValue) || 0) +
+                      ((cashFloatOutlet as any)?.todayCashIn || 0) -
+                      ((cashFloatOutlet as any)?.todayExpenseTotal || 0)
+                    ).toLocaleString("id-ID")}
+                  </span>
+                </div>
               </div>
 
               {/* Quick Nominal Buttons */}

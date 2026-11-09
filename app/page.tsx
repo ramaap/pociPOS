@@ -545,6 +545,11 @@ export default function PosTerminalPage() {
           localStorage.setItem("cached_poci_today_cash_in_" + finalOutletId, String(data.todayCashIn));
         }
 
+        if (typeof data.todayExpenseTotal === "number") {
+          setTodayExpenseTotal(data.todayExpenseTotal);
+          localStorage.setItem("cached_poci_today_expense_" + finalOutletId, String(data.todayExpenseTotal));
+        }
+
         localStorage.setItem("cached_poci_products", JSON.stringify(data.products));
         localStorage.setItem("cached_poci_materials_" + finalOutletId, JSON.stringify(data.rawMaterials));
         localStorage.setItem("cached_poci_outlets", JSON.stringify(data.outlets));
@@ -1612,16 +1617,21 @@ export default function PosTerminalPage() {
 
               {/* Uang Cash di Kedai (Modal Cash Dibawa + Transaksi Cash - Kas Keluar) */}
               <div
-                title={`Total Uang Cash Fisik di Laci Booth: Modal Dibawa (Rp ${initialCash.toLocaleString("id-ID")}) + Transaksi Tunai (Rp ${todayCashIn.toLocaleString("id-ID")}) - Kas Keluar (Rp ${todayExpenseTotal.toLocaleString("id-ID")}) = Rp ${currentCashBalance.toLocaleString("id-ID")}`}
-                className="px-2 py-1 bg-teal-50 rounded-lg text-teal-950 font-bold border border-teal-300 flex items-center justify-between sm:justify-start gap-1 shadow-2xs"
+                title={`Total Uang Cash Fisik di Laci Booth: Modal Awal Dibawa (Rp ${initialCash.toLocaleString("id-ID")}) + Penjualan Tunai Masuk (Rp ${todayCashIn.toLocaleString("id-ID")}) - Kas Keluar (Rp ${todayExpenseTotal.toLocaleString("id-ID")}) = Rp ${currentCashBalance.toLocaleString("id-ID")}`}
+                className="px-2 py-1 bg-teal-50 rounded-lg text-teal-950 font-bold border border-teal-300 flex items-center justify-between sm:justify-start gap-1.5 shadow-2xs"
               >
                 <span className="flex items-center gap-1 text-teal-700">
                   <Banknote className="w-3.5 h-3.5 shrink-0" />
-                  <span>Uang Cash:</span>
+                  <span>Kas di Laci:</span>
                 </span>
-                <strong className={currentCashBalance < 0 ? "text-rose-600" : "text-teal-950"}>
-                  Rp {currentCashBalance.toLocaleString("id-ID")}
-                </strong>
+                <div className="flex items-baseline gap-1">
+                  <strong className={currentCashBalance < 0 ? "text-rose-600" : "text-teal-950"}>
+                    Rp {currentCashBalance.toLocaleString("id-ID")}
+                  </strong>
+                  <span className="text-[10px] text-teal-700/80 font-normal hidden lg:inline">
+                    (Modal {Math.round(initialCash / 1000)}k + Tunai {Math.round(todayCashIn / 1000)}k)
+                  </span>
+                </div>
               </div>
 
               <button
