@@ -9,6 +9,7 @@ const MATERIAL_COST_PER_UNIT: Record<string, number> = {
   "cup reguler": 450, // Rp 450 / pcs
   "cup jumbo": 650, // Rp 650 / pcs
   "kantong teh": 15000, // Rp 15.000 / kantong (bisa menyeduh ~30 porsi es teh)
+  "gula cair": 15, // Rp 15 / ml (Simple syrup)
   "liquid tea premix": 12, // Rp 12 / ml (Rp 12.000 / liter)
   "sachet extra creamy": 1000, // Rp 1.000 / sachet
   "extra creamy foam": 1000,

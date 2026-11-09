@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 interface CheckoutItemPayload {
   productId: string;
   quantity: number;
+  sugarLevel?: "normal" | "less" | "tawar";
+  unitPrice?: number;
+  isPromoFree?: boolean;
 }
 
 interface CheckoutRequestBody {
@@ -104,10 +107,32 @@ export async function POST(req: Request) {
 
     for (const item of items) {
       const product = productMap.get(item.productId)!;
-      totalAmount += product.price * item.quantity;
+      const effectiveUnitPrice =
+        item.isPromoFree || item.unitPrice === 0
+          ? 0
+          : item.unitPrice !== undefined
+          ? item.unitPrice
+          : product.price;
+
+      totalAmount += effectiveUnitPrice * item.quantity;
 
       for (const bom of product.recipes) {
-        const requiredAmount = bom.quantity * item.quantity;
+        let requiredAmount = bom.quantity * item.quantity;
+
+        // Potong stok gula cair sesuai opsi gula: Full portion (default), Less sugar (50%), Tawar (0%)
+        const isSugar = bom.raw_material.name.toLowerCase().includes("gula");
+        if (isSugar) {
+          if (item.sugarLevel === "tawar") {
+            requiredAmount = 0; // Tanpa gula sama sekali
+          } else if (item.sugarLevel === "less") {
+            requiredAmount = (bom.quantity * 0.5) * item.quantity; // Less sugar 50%
+          } else {
+            requiredAmount = bom.quantity * item.quantity; // Normal full portion 100%
+          }
+        }
+
+        if (requiredAmount <= 0) continue;
+
         const existing = rawMaterialDeductionMap.get(bom.raw_material_id);
 
         if (existing) {
@@ -144,12 +169,17 @@ export async function POST(req: Request) {
         }
 
         const dedNameLower = deduction.name.toLowerCase();
-        if (dedNameLower.includes("kantong teh") || dedNameLower.includes("tea premix") || dedNameLower.includes("cair")) {
-          // Kantong teh / premix diseduh teko besar dan bukan acuan penghambat checkout kasir
+        // Kantong teh / premix cair diseduh per teko besar dan bukan acuan disable checkout
+        if (
+          dedNameLower.includes("kantong teh") ||
+          dedNameLower.includes("tea premix") ||
+          dedNameLower.includes("teh seduh") ||
+          dedNameLower.includes("liquid tea")
+        ) {
           continue;
         }
 
-        // Strict Check: Larang jika stok tidak mencukupi / menjadi minus
+        // Strict Check: Larang jika stok tidak mencukupi / menjadi minus (Termasuk Gula Cair, Cup, Sachet)
         if (boothStock.current_stock < deduction.deductQuantity) {
           throw new Error(
             `Stok ${deduction.name} di kedai ini tidak mencukupi! Sisa: ${Math.round(
@@ -190,11 +220,21 @@ export async function POST(req: Request) {
           payment_method: paymentMethod,
           offline_id: offlineId || null,
           items: {
-            create: items.map((item) => ({
-              product_id: item.productId,
-              quantity: item.quantity,
-              unit_price: productMap.get(item.productId)!.price,
-            })),
+            create: items.map((item) => {
+              const product = productMap.get(item.productId)!;
+              const effectivePrice =
+                item.isPromoFree || item.unitPrice === 0
+                  ? 0
+                  : item.unitPrice !== undefined
+                  ? item.unitPrice
+                  : product.price;
+
+              return {
+                product_id: item.productId,
+                quantity: item.quantity,
+                unit_price: effectivePrice,
+              };
+            }),
           },
         },
         include: {

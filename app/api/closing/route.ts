@@ -21,6 +21,7 @@ export async function POST(req: Request) {
       actual_cup_reg,
       actual_cup_jumbo,
       actual_liquid_ml,
+      actual_sugar_ml = 0,
       notes = "",
     } = body;
 
@@ -34,7 +35,8 @@ export async function POST(req: Request) {
       typeof actual_liquid_ml !== "number" ||
       actual_cup_reg < 0 ||
       actual_cup_jumbo < 0 ||
-      actual_liquid_ml < 0
+      actual_liquid_ml < 0 ||
+      (typeof actual_sugar_ml === "number" && actual_sugar_ml < 0)
     ) {
       return NextResponse.json(
         { error: "Isian hitungan fisik tidak valid. Harus berupa angka 0 atau lebih." },
@@ -42,12 +44,14 @@ export async function POST(req: Request) {
       );
     }
 
+    const sugarMl = typeof actual_sugar_ml === "number" ? actual_sugar_ml : 0;
+
     // 1. Ambil Stok Bahan Baku Aktual Sistem untuk Kedai Ini
     const boothStocks = await prisma.boothStock.findMany({
       where: {
         outlet_id,
         raw_material: {
-          name: { in: ["Cup Reguler", "Cup Jumbo", "Liquid Tea Premix", "Kantong Teh"] },
+          name: { in: ["Cup Reguler", "Cup Jumbo", "Liquid Tea Premix", "Kantong Teh", "Gula Cair"] },
         },
       },
       include: { raw_material: true },
@@ -56,10 +60,12 @@ export async function POST(req: Request) {
     const cupRegStock = boothStocks.find((s) => s.raw_material.name === "Cup Reguler");
     const cupJumboStock = boothStocks.find((s) => s.raw_material.name === "Cup Jumbo");
     const liquidStock = boothStocks.find((s) => s.raw_material.name === "Kantong Teh" || s.raw_material.name === "Liquid Tea Premix");
+    const sugarStock = boothStocks.find((s) => s.raw_material.name.toLowerCase().includes("gula"));
 
     const systemExpectedCupReg = cupRegStock ? Math.round(cupRegStock.current_stock) : 0;
     const systemExpectedCupJumbo = cupJumboStock ? Math.round(cupJumboStock.current_stock) : 0;
     const systemExpectedLiquid = liquidStock ? liquidStock.current_stock : 0;
+    const systemExpectedSugar = sugarStock ? sugarStock.current_stock : 0;
 
     // 2. Ambil Harga Retail untuk Perhitungan Denda Kehilangan Cup
     const regProduct = await prisma.product.findFirst({
@@ -79,6 +85,7 @@ export async function POST(req: Request) {
     const discrepancyCupJumbo = actual_cup_jumbo - systemExpectedCupJumbo;
     const totalDiscrepancyCup = discrepancyCupReg + discrepancyCupJumbo;
     const discrepancyLiquid = actual_liquid_ml - systemExpectedLiquid;
+    const discrepancySugar = sugarMl - systemExpectedSugar;
 
     // 4. Logika Flagging & Denda
     const missingRegCups = discrepancyCupReg < 0 ? Math.abs(discrepancyCupReg) : 0;
@@ -101,13 +108,16 @@ export async function POST(req: Request) {
         actual_cup_reg: Math.round(actual_cup_reg),
         actual_cup_jumbo: Math.round(actual_cup_jumbo),
         actual_liquid_ml: actual_liquid_ml,
+        actual_sugar_ml: sugarMl,
         system_expected_cup_reg: systemExpectedCupReg,
         system_expected_cup_jumbo: systemExpectedCupJumbo,
         system_expected_liquid_ml: systemExpectedLiquid,
+        system_expected_sugar_ml: systemExpectedSugar,
         discrepancy_cup: totalDiscrepancyCup,
         discrepancy_cup_reg: discrepancyCupReg,
         discrepancy_cup_jumbo: discrepancyCupJumbo,
         discrepancy_liquid: discrepancyLiquid,
+        discrepancy_sugar_ml: discrepancySugar,
         theft_flag: isTheftFlag,
         waste_flag: isWasteFlag,
         employee_debt: employeeDebt,
@@ -132,6 +142,12 @@ export async function POST(req: Request) {
       await prisma.boothStock.update({
         where: { id: liquidStock.id },
         data: { current_stock: actual_liquid_ml },
+      });
+    }
+    if (sugarStock) {
+      await prisma.boothStock.update({
+        where: { id: sugarStock.id },
+        data: { current_stock: sugarMl },
       });
     }
 

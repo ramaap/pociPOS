@@ -123,6 +123,9 @@ model ShiftClosing {
   discrepancy_cup_reg       Int      @default(0)
   discrepancy_cup_jumbo     Int      @default(0)
   discrepancy_liquid        Float    // actual_liquid_ml - expected_liquid_ml
+  actual_sugar_ml           Float    @default(0)
+  system_expected_sugar_ml  Float    @default(0)
+  discrepancy_sugar_ml      Float    @default(0)
   employee_debt             Float    @default(0) // missing cups * retail price
   theft_flag                Boolean  @default(false) // RED Flag: actual_cup < expected_cup
   waste_flag                Boolean  @default(false) // YELLOW Flag: actual_liquid_ml < expected_liquid_ml by > 2%

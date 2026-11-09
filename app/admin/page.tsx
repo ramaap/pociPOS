@@ -63,13 +63,16 @@ interface ShiftClosingRecord {
   actual_cup_reg: number;
   actual_cup_jumbo: number;
   actual_liquid_ml: number;
+  actual_sugar_ml?: number;
   system_expected_cup_reg: number;
   system_expected_cup_jumbo: number;
   system_expected_liquid_ml: number;
+  system_expected_sugar_ml?: number;
   discrepancy_cup: number;
   discrepancy_cup_reg: number;
   discrepancy_cup_jumbo: number;
   discrepancy_liquid: number;
+  discrepancy_sugar_ml?: number;
   employee_debt: number;
   theft_flag: boolean;
   waste_flag: boolean;
@@ -3434,8 +3437,8 @@ export default function AdminDashboardPage() {
                       <th className="py-2.5 px-3">Kedai</th>
                       <th className="py-2.5 px-3">Fisik Cup (Reg / Jumbo)</th>
                       <th className="py-2.5 px-3">Sistem (Reg / Jumbo)</th>
-                      <th className="py-2.5 px-3">Fisik Liquid</th>
-                      <th className="py-2.5 px-3">Sistem Liquid</th>
+                      <th className="py-2.5 px-3">Sisa Teh (Fisik / Sist)</th>
+                      <th className="py-2.5 px-3">Sisa Gula Cair (Fisik / Sist)</th>
                       <th className="py-2.5 px-3">Selisih Cup</th>
                       <th className="py-2.5 px-3">Potongan Gaji</th>
                       <th className="py-2.5 px-3">Status</th>
@@ -3470,8 +3473,18 @@ export default function AdminDashboardPage() {
                             <td className="py-2.5 px-3 text-slate-500">
                               {c.system_expected_cup_reg} / {c.system_expected_cup_jumbo}
                             </td>
-                            <td className="py-2.5 px-3">{c.actual_liquid_ml} ml</td>
-                            <td className="py-2.5 px-3 text-slate-500">{c.system_expected_liquid_ml} ml</td>
+                            <td className="py-2.5 px-3">
+                              {c.actual_liquid_ml} pcs <span className="text-slate-400">/ {c.system_expected_liquid_ml} pcs</span>
+                            </td>
+                            <td className="py-2.5 px-3 font-mono">
+                              <strong>{Math.round(c.actual_sugar_ml ?? 0).toLocaleString("id-ID")} ml</strong>{" "}
+                              <span className="text-slate-400">/ {Math.round(c.system_expected_sugar_ml ?? 0).toLocaleString("id-ID")} ml</span>
+                              {c.discrepancy_sugar_ml !== undefined && c.discrepancy_sugar_ml !== 0 && (
+                                <span className={`ml-1 text-[10px] font-bold ${c.discrepancy_sugar_ml < 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                                  ({c.discrepancy_sugar_ml > 0 ? `+${Math.round(c.discrepancy_sugar_ml)}` : Math.round(c.discrepancy_sugar_ml)} ml)
+                                </span>
+                              )}
+                            </td>
                             <td className="py-2.5 px-3">
                               <span className={c.discrepancy_cup < 0 ? "text-rose-600 font-bold" : "text-emerald-700 font-bold"}>
                                 {c.discrepancy_cup > 0 ? `+${c.discrepancy_cup}` : c.discrepancy_cup}

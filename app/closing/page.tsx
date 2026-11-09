@@ -17,6 +17,7 @@ export default function ShiftClosingPage() {
   const [actualCupReg, setActualCupReg] = useState<string>("");
   const [actualCupJumbo, setActualCupJumbo] = useState<string>("");
   const [actualLiquidMl, setActualLiquidMl] = useState<string>("");
+  const [actualSugarMl, setActualSugarMl] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -50,7 +51,7 @@ export default function ShiftClosingPage() {
       return;
     }
 
-    if (actualCupReg === "" || actualCupJumbo === "" || actualLiquidMl === "") {
+    if (actualCupReg === "" || actualCupJumbo === "" || actualLiquidMl === "" || actualSugarMl === "") {
       setErrorMessage("Mohon lengkapi semua isian hitungan fisik sebelum submit.");
       return;
     }
@@ -58,8 +59,14 @@ export default function ShiftClosingPage() {
     const regNum = parseInt(actualCupReg, 10);
     const jumboNum = parseInt(actualCupJumbo, 10);
     const liquidNum = parseFloat(actualLiquidMl);
+    const sugarNum = parseFloat(actualSugarMl);
 
-    if (isNaN(regNum) || regNum < 0 || isNaN(jumboNum) || jumboNum < 0 || isNaN(liquidNum) || liquidNum < 0) {
+    if (
+      isNaN(regNum) || regNum < 0 ||
+      isNaN(jumboNum) || jumboNum < 0 ||
+      isNaN(liquidNum) || liquidNum < 0 ||
+      isNaN(sugarNum) || sugarNum < 0
+    ) {
       setErrorMessage("Angka tidak valid. Pastikan semua angka bernilai 0 atau lebih.");
       return;
     }
@@ -75,6 +82,7 @@ export default function ShiftClosingPage() {
           actual_cup_reg: regNum,
           actual_cup_jumbo: jumboNum,
           actual_liquid_ml: liquidNum,
+          actual_sugar_ml: sugarNum,
           notes: notes.trim(),
         }),
       });
@@ -101,6 +109,7 @@ export default function ShiftClosingPage() {
           actual_cup_reg: regNum,
           actual_cup_jumbo: jumboNum,
           actual_liquid_ml: liquidNum,
+          actual_sugar_ml: sugarNum,
           notes: notes.trim(),
           timestamp: new Date().toISOString(),
         });
@@ -297,7 +306,36 @@ export default function ShiftClosingPage() {
                 </div>
               </div>
 
-              {/* Field 4: Catatan */}
+              {/* Field 4: Sisa Gula Cair (ml) */}
+              <div>
+                <label
+                  htmlFor="sugar-ml"
+                  className="block text-sm font-semibold text-slate-800 mb-1"
+                >
+                  4. Sisa Gula Cair <span className="text-amber-600 font-bold">(ml)</span>
+                </label>
+                <p className="text-xs text-slate-500 mb-2">
+                  Hitung fisik sisa persediaan sirup gula cair di kedai (contoh: 3850 ml).
+                </p>
+                <div className="relative">
+                  <input
+                    id="sugar-ml"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Contoh: 3850 (ml gula cair)"
+                    value={actualSugarMl}
+                    onChange={(e) => setActualSugarMl(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-lg font-mono font-medium text-slate-900"
+                  />
+                  <span className="absolute right-4 top-3.5 text-xs font-semibold text-slate-400 uppercase">
+                    ml
+                  </span>
+                </div>
+              </div>
+
+              {/* Field 5: Catatan */}
               <div>
                 <label
                   htmlFor="closing-notes"

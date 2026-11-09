@@ -85,6 +85,7 @@ export async function POST(req: Request) {
       const cupReg = await prisma.rawMaterial.create({ data: { name: "Cup Reguler", unit: "pcs" } });
       const cupJumbo = await prisma.rawMaterial.create({ data: { name: "Cup Jumbo", unit: "pcs" } });
       const kantongTeh = await prisma.rawMaterial.create({ data: { name: "Kantong Teh", unit: "pcs" } });
+      const gulaCair = await prisma.rawMaterial.create({ data: { name: "Gula Cair", unit: "ml" } });
       const rawCreamyTopping = await prisma.rawMaterial.create({ data: { name: "Sachet Extra Creamy", unit: "sachet" } });
 
       // 15 Varian Sachet Resmi Vendor Teh Poci
@@ -108,6 +109,7 @@ export async function POST(req: Request) {
         { mat: cupReg, stockOut1: 300, stockOut2: 250 },
         { mat: cupJumbo, stockOut1: 250, stockOut2: 200 },
         { mat: kantongTeh, stockOut1: 50, stockOut2: 40 },
+        { mat: gulaCair, stockOut1: 5000, stockOut2: 5000 },
         { mat: rawCreamyTopping, stockOut1: 50, stockOut2: 50 },
         { mat: rawThai, stockOut1: 50, stockOut2: 50 },
         { mat: rawCappuccino, stockOut1: 50, stockOut2: 50 },
@@ -173,6 +175,7 @@ export async function POST(req: Request) {
           });
           const bomRegData = [
             { product_id: prodReg.id, raw_material_id: cupReg.id, quantity: 1 },
+            { product_id: prodReg.id, raw_material_id: gulaCair.id, quantity: 30 },
           ];
           await prisma.bOM_Recipe.createMany({ data: bomRegData });
           createdProducts.push(prodReg);
@@ -183,6 +186,7 @@ export async function POST(req: Request) {
         });
         const bomJumboData = [
           { product_id: prodJumbo.id, raw_material_id: cupJumbo.id, quantity: 1 },
+          { product_id: prodJumbo.id, raw_material_id: gulaCair.id, quantity: 40 },
         ];
         if (item.flavorMaterialId) {
           bomJumboData.push({ product_id: prodJumbo.id, raw_material_id: item.flavorMaterialId, quantity: 1 });

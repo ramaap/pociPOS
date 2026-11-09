@@ -79,8 +79,11 @@ interface Product {
 }
 
 interface CartItem {
+  id: string;
   product: Product;
   quantity: number;
+  sugarLevel: "normal" | "less" | "tawar";
+  isPromoFree?: boolean;
 }
 
 interface RawMaterialStock {
@@ -145,6 +148,11 @@ export default function PosTerminalPage() {
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [stockAlertMessage, setStockAlertMessage] = useState<string | null>(null);
+
+  // Kode Diskon & Promo (Beli 2 Varian Rasa Gratis 1 Ori Jumbo)
+  const [promoCodeInput, setPromoCodeInput] = useState<string>("");
+  const [isPromoApplied, setIsPromoApplied] = useState<boolean>(false);
+  const [promoMessage, setPromoMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<"QRIS" | "Cash">("QRIS");
@@ -639,21 +647,37 @@ export default function PosTerminalPage() {
     });
   }, [groupedFlavors, activeCategory, searchQuery]);
 
-  // Hitung pemakaian bahan di keranjang saat ini
+  // Hitung pemakaian bahan di keranjang saat ini (termasuk porsi gula cair)
   const cartMaterialUsage = useMemo(() => {
     const usage = new Map<string, number>();
     for (const item of cart) {
       for (const recipe of item.product.recipes) {
         const matId = recipe.raw_material.id;
+        const matNameLower = recipe.raw_material.name.toLowerCase();
+        let qtyPerCup = recipe.quantity;
+
+        // Potong stok gula cair sesuai opsi level gula: Full (100%), Less (50%), Tawar (0%)
+        if (matNameLower.includes("gula")) {
+          if (item.sugarLevel === "tawar") {
+            qtyPerCup = 0;
+          } else if (item.sugarLevel === "less") {
+            qtyPerCup = recipe.quantity * 0.5;
+          }
+        }
+
         const currentQty = usage.get(matId) || 0;
-        usage.set(matId, currentQty + recipe.quantity * item.quantity);
+        usage.set(matId, currentQty + qtyPerCup * item.quantity);
       }
     }
     return usage;
   }, [cart]);
 
   // Validasi Stok Ketat Sesuai Kedai
-  const checkCanAddProduct = (product: Product, delta: number = 1): { canAdd: boolean; reason?: string } => {
+  const checkCanAddProduct = (
+    product: Product,
+    delta: number = 1,
+    sugarLevel: "normal" | "less" | "tawar" = "normal"
+  ): { canAdd: boolean; reason?: string } => {
     if (currentOutletObj?.shift_status === "closed") {
       return { canAdd: false, reason: "Shift kedai masih tutup. Silakan klik 'Opening Shift' terlebih dahulu." };
     }
@@ -663,25 +687,34 @@ export default function PosTerminalPage() {
       const material = rawMaterials.find((m) => m.id === matId);
       if (!material) continue;
 
-      const currentUsedInCart = cartMaterialUsage.get(matId) || 0;
-      const additionalNeeded = recipe.quantity * delta;
-      const totalWillBeUsed = currentUsedInCart + additionalNeeded;
+      let neededPerCup = recipe.quantity;
+      const matNameLower = material.name.toLowerCase();
+
+      if (matNameLower.includes("gula")) {
+        if (sugarLevel === "tawar") neededPerCup = 0;
+        else if (sugarLevel === "less") neededPerCup = recipe.quantity * 0.5;
+      }
 
       // Jangan jadikan Kantong Teh / Premix Teh sebagai acuan disable pada kasir
-      const matNameLower = material.name.toLowerCase();
       if (
         matNameLower.includes("kantong teh") ||
         matNameLower.includes("tea premix") ||
-        matNameLower.includes("cair") ||
-        matNameLower.includes("teh seduh")
+        matNameLower.includes("teh seduh") ||
+        matNameLower.includes("liquid tea")
       ) {
         continue;
       }
 
+      const currentUsedInCart = cartMaterialUsage.get(matId) || 0;
+      const additionalNeeded = neededPerCup * delta;
+      const totalWillBeUsed = currentUsedInCart + additionalNeeded;
+
       if (material.current_stock - totalWillBeUsed < 0) {
         const sisaTersedia = Math.max(0, Math.round(material.current_stock - currentUsedInCart));
-        if (material.name.toLowerCase().includes("cup")) {
+        if (matNameLower.includes("cup")) {
           return { canAdd: false, reason: `Stok ${material.name} di kedai ini habis! Sisa: ${sisaTersedia} pcs.` };
+        } else if (matNameLower.includes("gula")) {
+          return { canAdd: false, reason: `Stok Gula Cair di kedai ini tidak cukup! Sisa: ${sisaTersedia} ml.` };
         } else {
           return { canAdd: false, reason: `Stok ${material.name} kedai ini tidak cukup! Sisa: ${sisaTersedia} ${material.unit}.` };
         }
@@ -690,8 +723,21 @@ export default function PosTerminalPage() {
     return { canAdd: true };
   };
 
-  const addToCart = (product: Product) => {
-    const check = checkCanAddProduct(product, 1);
+  // Cek apakah produk merupakan teh varian rasa (buah/milky) - bukan Jasmine & Topping
+  const isFlavoredTea = (p: Product) => {
+    const name = p.name.toLowerCase();
+    return !name.includes("jasmine") && !name.includes("topping");
+  };
+
+  // Total teh varian rasa berbayar di keranjang
+  const flavoredTeaCount = useMemo(() => {
+    return cart
+      .filter((i) => !i.isPromoFree && isFlavoredTea(i.product))
+      .reduce((sum, i) => sum + i.quantity, 0);
+  }, [cart]);
+
+  const addToCart = (product: Product, sugarLevel: "normal" | "less" | "tawar" = "normal") => {
+    const check = checkCanAddProduct(product, 1, sugarLevel);
     if (!check.canAdd) {
       setStockAlertMessage(check.reason || "Stok bahan baku kedai tidak mencukupi!");
       setTimeout(() => setStockAlertMessage(null), 3500);
@@ -700,21 +746,39 @@ export default function PosTerminalPage() {
 
     setStockAlertMessage(null);
     setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+      // Cari apakah sudah ada item persis sama (produk sama, level gula sama, dan non-promo)
+      const existingIndex = prev.findIndex(
+        (item) => item.product.id === product.id && item.sugarLevel === sugarLevel && !item.isPromoFree
+      );
+
+      if (existingIndex > -1) {
+        return prev.map((item, idx) =>
+          idx === existingIndex ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      return [...prev, { product, quantity: 1 }];
+
+      const newItem: CartItem = {
+        id: `${product.id}_${sugarLevel}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        product,
+        quantity: 1,
+        sugarLevel,
+        isPromoFree: false,
+      };
+      return [...prev, newItem];
     });
   };
 
-  const updateQuantity = (productId: string, delta: number) => {
+  const updateSugarLevel = (cartId: string, level: "normal" | "less" | "tawar") => {
+    setCart((prev) =>
+      prev.map((item) => (item.id === cartId ? { ...item, sugarLevel: level } : item))
+    );
+  };
+
+  const updateQuantity = (cartId: string, delta: number) => {
     if (delta > 0) {
-      const targetCartItem = cart.find((i) => i.product.id === productId);
+      const targetCartItem = cart.find((i) => i.id === cartId);
       if (targetCartItem) {
-        const check = checkCanAddProduct(targetCartItem.product, delta);
+        const check = checkCanAddProduct(targetCartItem.product, delta, targetCartItem.sugarLevel);
         if (!check.canAdd) {
           setStockAlertMessage(check.reason || "Stok kedai tidak mencukupi!");
           setTimeout(() => setStockAlertMessage(null), 3500);
@@ -727,7 +791,7 @@ export default function PosTerminalPage() {
     setCart((prev) =>
       prev
         .map((item) => {
-          if (item.product.id === productId) {
+          if (item.id === cartId) {
             const newQty = item.quantity + delta;
             return newQty > 0 ? { ...item, quantity: newQty } : null;
           }
@@ -737,12 +801,82 @@ export default function PosTerminalPage() {
     );
   };
 
+  // Handler Diskon / Promo: Beli minimal 2 varian rasa -> Dapat 1 Ori Jumbo Gratis
+  const handleApplyPromoCode = (customCode?: string) => {
+    const code = (customCode || promoCodeInput).trim().toUpperCase();
+    if (!code && !customCode) {
+      setPromoMessage({ type: "error", text: "Silakan masukkan kode diskon / promo." });
+      setTimeout(() => setPromoMessage(null), 3500);
+      return;
+    }
+
+    if (flavoredTeaCount < 2) {
+      setPromoMessage({
+        type: "error",
+        text: `Kode diskon membutuhkan minimal 2 Teh Varian Rasa di keranjang (saat ini: ${flavoredTeaCount} cup).`,
+      });
+      setTimeout(() => setPromoMessage(null), 4500);
+      return;
+    }
+
+    // Cari produk Jasmine Poci Iced Tea (Jumbo)
+    const oriJumbo = products.find(
+      (p) => p.name.toLowerCase().includes("jasmine") && p.name.toLowerCase().includes("jumbo")
+    );
+
+    if (!oriJumbo) {
+      setPromoMessage({ type: "error", text: "Menu Teh Poci Ori Jumbo tidak ditemukan di katalog." });
+      setTimeout(() => setPromoMessage(null), 3500);
+      return;
+    }
+
+    setCart((prev) => {
+      const existingPromo = prev.find((i) => i.isPromoFree);
+      if (existingPromo) return prev;
+      const promoItem: CartItem = {
+        id: `promo_ori_${Date.now()}`,
+        product: oriJumbo,
+        quantity: 1,
+        sugarLevel: "normal",
+        isPromoFree: true,
+      };
+      return [...prev, promoItem];
+    });
+
+    setIsPromoApplied(true);
+    setPromoCodeInput("");
+    setPromoMessage({
+      type: "success",
+      text: "🎉 Promo Berhasil! 1 Teh Poci Ori Jumbo GRATIS telah ditambahkan ke keranjang.",
+    });
+    setTimeout(() => setPromoMessage(null), 4000);
+  };
+
+  // Batalkan promo otomatis jika varian rasa di keranjang berkurang < 2
+  useEffect(() => {
+    if (isPromoApplied && flavoredTeaCount < 2) {
+      setCart((prev) => prev.filter((i) => !i.isPromoFree));
+      setIsPromoApplied(false);
+      setPromoMessage({
+        type: "error",
+        text: "Promo Gratis 1 Ori Jumbo dibatalkan karena teh varian rasa di keranjang kurang dari 2 cup.",
+      });
+      setTimeout(() => setPromoMessage(null), 4000);
+    }
+  }, [flavoredTeaCount, isPromoApplied]);
+
   const clearCart = () => {
     setCart([]);
+    setIsPromoApplied(false);
+    setPromoMessage(null);
     setIsMobileCartOpen(false);
   };
 
-  const totalAmount = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const totalAmount = cart.reduce((sum, item) => {
+    const price = item.isPromoFree ? 0 : item.product.price;
+    return sum + price * item.quantity;
+  }, 0);
+
   const totalCupsCount = cart.reduce(
     (sum, item) => (item.product.name !== "Extra Creamy Topping" ? sum + item.quantity : sum),
     0
@@ -759,12 +893,24 @@ export default function PosTerminalPage() {
       outletName: currentOutlet?.name || "Es Teh Poci",
       outletCode: currentOutlet?.code || "OUT-01",
       outletAddress: currentOutlet?.address || "Booth Minimarket",
-      items: cart.map((i) => ({
-        name: formatProductName(i.product.name),
-        quantity: i.quantity,
-        price: i.product.price,
-        subtotal: i.quantity * i.product.price,
-      })),
+      items: cart.map((i) => {
+        const sugarLabel =
+          i.product.name.includes("Topping")
+            ? ""
+            : i.sugarLevel === "tawar"
+            ? " (Tawar)"
+            : i.sugarLevel === "less"
+            ? " (Less Sugar)"
+            : "";
+        const promoLabel = i.isPromoFree ? " [PROMO GRATIS]" : "";
+        const effectivePrice = i.isPromoFree ? 0 : i.product.price;
+        return {
+          name: `${formatProductName(i.product.name)}${sugarLabel}${promoLabel}`,
+          quantity: i.quantity,
+          price: effectivePrice,
+          subtotal: i.quantity * effectivePrice,
+        };
+      }),
       totalAmount,
       paymentMethod,
       timestamp: new Date().toISOString(),
@@ -776,17 +922,34 @@ export default function PosTerminalPage() {
       const payloadItems = cart.map((i) => ({
         productId: i.product.id,
         quantity: i.quantity,
+        sugarLevel: i.sugarLevel || "normal",
+        unitPrice: i.isPromoFree ? 0 : i.product.price,
+        isPromoFree: !!i.isPromoFree,
       }));
 
       if (!isOnline) {
         saveOfflineTransaction({
           outletId: selectedOutletId,
-          items: cart.map((i) => ({
-            productId: i.product.id,
-            productName: formatProductName(i.product.name),
-            quantity: i.quantity,
-            price: i.product.price,
-          })),
+          items: cart.map((i) => {
+            const sugarLabel =
+              i.product.name.includes("Topping")
+                ? ""
+                : i.sugarLevel === "tawar"
+                ? " (Tawar)"
+                : i.sugarLevel === "less"
+                ? " (Less Sugar)"
+                : "";
+            const promoLabel = i.isPromoFree ? " [PROMO GRATIS]" : "";
+            const effectivePrice = i.isPromoFree ? 0 : i.product.price;
+            return {
+              productId: i.product.id,
+              productName: `${formatProductName(i.product.name)}${sugarLabel}${promoLabel}`,
+              quantity: i.quantity,
+              price: effectivePrice,
+              sugarLevel: i.sugarLevel || "normal",
+              isPromoFree: !!i.isPromoFree,
+            };
+          }),
           paymentMethod,
           totalAmount,
         });
@@ -803,6 +966,8 @@ export default function PosTerminalPage() {
         setCompletedReceipt(receiptToPrint);
         setCheckoutSuccess(true);
         setCart([]);
+        setIsPromoApplied(false);
+        setPromoMessage(null);
         setIsMobileCartOpen(false);
         return;
       }
@@ -832,6 +997,8 @@ export default function PosTerminalPage() {
           setCompletedReceipt(receiptToPrint);
           setCheckoutSuccess(true);
           setCart([]);
+          setIsPromoApplied(false);
+          setPromoMessage(null);
           setIsMobileCartOpen(false);
           loadData();
           try {
@@ -846,12 +1013,26 @@ export default function PosTerminalPage() {
       } catch {
         saveOfflineTransaction({
           outletId: selectedOutletId,
-          items: cart.map((i) => ({
-            productId: i.product.id,
-            productName: formatProductName(i.product.name),
-            quantity: i.quantity,
-            price: i.product.price,
-          })),
+          items: cart.map((i) => {
+            const sugarLabel =
+              i.product.name.includes("Topping")
+                ? ""
+                : i.sugarLevel === "tawar"
+                ? " (Tawar)"
+                : i.sugarLevel === "less"
+                ? " (Less Sugar)"
+                : "";
+            const promoLabel = i.isPromoFree ? " [PROMO GRATIS]" : "";
+            const effectivePrice = i.isPromoFree ? 0 : i.product.price;
+            return {
+              productId: i.product.id,
+              productName: `${formatProductName(i.product.name)}${sugarLabel}${promoLabel}`,
+              quantity: i.quantity,
+              price: effectivePrice,
+              sugarLevel: i.sugarLevel || "normal",
+              isPromoFree: !!i.isPromoFree,
+            };
+          }),
           paymentMethod,
           totalAmount,
         });
@@ -860,6 +1041,8 @@ export default function PosTerminalPage() {
         setCompletedReceipt(receiptToPrint);
         setCheckoutSuccess(true);
         setCart([]);
+        setIsPromoApplied(false);
+        setPromoMessage(null);
         setIsMobileCartOpen(false);
       }
     });
@@ -1504,39 +1687,167 @@ export default function PosTerminalPage() {
                   ) : (
                     cart.map((item) => (
                       <div
-                        key={item.product.id}
-                        className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between shadow-xs"
+                        key={item.id}
+                        className="p-2.5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1.5"
                       >
-                        <div className="flex-1 mr-2 min-w-0">
-                          <h4 className="font-bold text-xs text-slate-900 truncate">
-                            {formatProductName(item.product.name)}
-                          </h4>
-                          <p className="text-[11px] font-mono text-emerald-700 font-semibold">
-                            {formatRupiah(item.product.price)}
-                          </p>
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 mr-2 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h4 className="font-bold text-xs text-slate-900 truncate">
+                                {formatProductName(item.product.name)}
+                              </h4>
+                              {item.isPromoFree && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500 text-white shrink-0">
+                                  PROMO GRATIS
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] font-mono mt-0.5">
+                              {item.isPromoFree ? (
+                                <>
+                                  <span className="line-through text-slate-400 mr-1.5">{formatRupiah(item.product.price)}</span>
+                                  <span className="text-emerald-700 font-black">Rp 0 (GRATIS)</span>
+                                </>
+                              ) : (
+                                <span className="text-emerald-700 font-semibold">{formatRupiah(item.product.price)}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 shrink-0">
+                            <button
+                              onClick={() => updateQuantity(item.id, -1)}
+                              className="w-6 h-6 rounded flex items-center justify-center text-slate-600 hover:bg-white active:scale-95 transition"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="w-6 text-center font-mono font-bold text-xs text-slate-900">
+                              {item.quantity}
+                            </span>
+                            <button
+                              disabled={item.isPromoFree}
+                              onClick={() => updateQuantity(item.id, 1)}
+                              className="w-6 h-6 rounded flex items-center justify-center text-slate-600 hover:bg-white active:scale-95 transition disabled:opacity-40"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="flex items-center space-x-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 shrink-0">
-                          <button
-                            onClick={() => updateQuantity(item.product.id, -1)}
-                            className="w-6 h-6 rounded flex items-center justify-center text-slate-600 hover:bg-white active:scale-95 transition"
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <span className="w-6 text-center font-mono font-bold text-xs text-slate-900">
-                            {item.quantity}
-                          </span>
-                          <button
-                            onClick={() => updateQuantity(item.product.id, 1)}
-                            className="w-6 h-6 rounded flex items-center justify-center text-slate-600 hover:bg-white active:scale-95 transition"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                        </div>
+                        {/* Opsi Porsi Gula Cair: Normal / Less Sugar / Tawar */}
+                        {!item.product.name.includes("Topping") && !item.isPromoFree && (
+                          <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                            <span className="text-slate-400 font-semibold">Porsi Gula:</span>
+                            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5">
+                              <button
+                                type="button"
+                                onClick={() => updateSugarLevel(item.id, "normal")}
+                                className={`px-2 py-0.5 rounded font-bold transition ${
+                                  item.sugarLevel === "normal" || !item.sugarLevel
+                                    ? "bg-white text-emerald-800 shadow-2xs"
+                                    : "text-slate-500 hover:text-slate-800"
+                                }`}
+                              >
+                                Normal
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateSugarLevel(item.id, "less")}
+                                className={`px-2 py-0.5 rounded font-bold transition ${
+                                  item.sugarLevel === "less"
+                                    ? "bg-white text-amber-700 shadow-2xs"
+                                    : "text-slate-500 hover:text-slate-800"
+                                }`}
+                              >
+                                Less (50%)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateSugarLevel(item.id, "tawar")}
+                                className={`px-2 py-0.5 rounded font-bold transition ${
+                                  item.sugarLevel === "tawar"
+                                    ? "bg-white text-slate-900 shadow-2xs"
+                                    : "text-slate-500 hover:text-slate-800"
+                                }`}
+                              >
+                                Tawar (0%)
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))
                   )}
                 </div>
+
+                {/* Banner Promo & Input Kode Diskon Mobile */}
+                {cart.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-slate-200">
+                    {flavoredTeaCount >= 2 && !isPromoApplied && (
+                      <div className="p-2.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
+                        <div>
+                          <p className="text-xs font-black text-amber-950 flex items-center gap-1">
+                            <span>🎁</span> Beli 2 Varian Rasa!
+                          </p>
+                          <p className="text-[10px] text-amber-800">Dapatkan 1 Teh Ori Jumbo GRATIS</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyPromoCode("BUY2FREE1")}
+                          className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-black rounded-lg shadow-xs transition shrink-0 cursor-pointer"
+                        >
+                          + Klaim Promo
+                        </button>
+                      </div>
+                    )}
+
+                    {isPromoApplied && (
+                      <div className="p-2 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-900 font-bold">
+                        <span className="flex items-center gap-1">
+                          <span>✓</span> Promo 1 Teh Ori Jumbo GRATIS Aktif!
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCart((prev) => prev.filter((i) => !i.isPromoFree));
+                            setIsPromoApplied(false);
+                          }}
+                          className="text-[10px] text-rose-600 hover:underline"
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        placeholder="Kode Diskon / Promo"
+                        value={promoCodeInput}
+                        onChange={(e) => setPromoCodeInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleApplyPromoCode();
+                          }
+                        }}
+                        className="flex-1 px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg uppercase font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleApplyPromoCode()}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
+                      >
+                        Terapkan
+                      </button>
+                    </div>
+                    {promoMessage && (
+                      <p className={`text-[11px] font-bold ${promoMessage.type === "success" ? "text-emerald-700" : "text-rose-600"}`}>
+                        {promoMessage.text}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Summary & Action Buttons */}
                 <div className="pt-2.5 border-t border-slate-200 space-y-2.5">
@@ -1838,39 +2149,169 @@ export default function PosTerminalPage() {
                 ) : (
                   cart.map((item) => (
                     <div
-                      key={item.product.id}
-                      className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between"
+                      key={item.id}
+                      className="p-3 bg-slate-50 rounded-xl border border-slate-200 shadow-2xs space-y-2"
                     >
-                      <div className="flex-1 mr-2">
-                        <h4 className="font-bold text-xs text-slate-900 leading-tight">
-                          {formatProductName(item.product.name)}
-                        </h4>
-                        <p className="text-xs font-mono text-emerald-700 font-semibold mt-0.5">
-                          {formatRupiah(item.product.price)}
-                        </p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 mr-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h4 className="font-bold text-xs text-slate-900 leading-tight">
+                              {formatProductName(item.product.name)}
+                            </h4>
+                            {item.isPromoFree && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500 text-white shrink-0">
+                                PROMO GRATIS
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs font-mono mt-0.5">
+                            {item.isPromoFree ? (
+                              <>
+                                <span className="line-through text-slate-400 mr-1 text-[11px]">{formatRupiah(item.product.price)}</span>
+                                <span className="text-emerald-700 font-black">Rp 0 (GRATIS)</span>
+                              </>
+                            ) : (
+                              <span className="text-emerald-700 font-semibold">{formatRupiah(item.product.price)}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-1.5 bg-white px-2 py-1 rounded-lg border border-slate-200 shrink-0">
+                          <button
+                            onClick={() => updateQuantity(item.id, -1)}
+                            className="w-6 h-6 rounded flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="w-6 text-center font-mono font-bold text-xs text-slate-900">
+                            {item.quantity}
+                          </span>
+                          <button
+                            disabled={item.isPromoFree}
+                            onClick={() => updateQuantity(item.id, 1)}
+                            className="w-6 h-6 rounded flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition disabled:opacity-40"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="flex items-center space-x-1.5 bg-white px-2 py-1 rounded-lg border border-slate-200">
-                        <button
-                          onClick={() => updateQuantity(item.product.id, -1)}
-                          className="w-6 h-6 rounded flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="w-6 text-center font-mono font-bold text-xs text-slate-900">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => updateQuantity(item.product.id, 1)}
-                          className="w-6 h-6 rounded flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
+                      {/* Opsi Porsi Gula Cair: Normal / Less Sugar / Tawar */}
+                      {!item.product.name.includes("Topping") && !item.isPromoFree && (
+                        <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[11px]">
+                          <span className="text-slate-400 font-semibold">Porsi Gula:</span>
+                          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => updateSugarLevel(item.id, "normal")}
+                              className={`px-2 py-0.5 rounded font-bold transition cursor-pointer ${
+                                item.sugarLevel === "normal" || !item.sugarLevel
+                                  ? "bg-emerald-600 text-white shadow-xs"
+                                  : "text-slate-600 hover:text-slate-900"
+                              }`}
+                            >
+                              Normal
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateSugarLevel(item.id, "less")}
+                              className={`px-2 py-0.5 rounded font-bold transition cursor-pointer ${
+                                item.sugarLevel === "less"
+                                  ? "bg-amber-500 text-white shadow-xs"
+                                  : "text-slate-600 hover:text-slate-900"
+                              }`}
+                            >
+                              Less (50%)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateSugarLevel(item.id, "tawar")}
+                              className={`px-2 py-0.5 rounded font-bold transition cursor-pointer ${
+                                item.sugarLevel === "tawar"
+                                  ? "bg-slate-800 text-white shadow-xs"
+                                  : "text-slate-600 hover:text-slate-900"
+                              }`}
+                            >
+                              Tawar (0%)
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
               </div>
+
+              {/* Banner Promo & Input Kode Diskon Desktop */}
+              {cart.length > 0 && (
+                <div className="mt-4 space-y-2.5 pt-3 border-t border-slate-100">
+                  {flavoredTeaCount >= 2 && !isPromoApplied && (
+                    <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-xl flex items-center justify-between gap-2 shadow-xs">
+                      <div>
+                        <p className="text-xs font-black text-amber-950 flex items-center gap-1">
+                          <span>🎁</span> Beli 2 Varian Rasa!
+                        </p>
+                        <p className="text-[11px] text-amber-800">Dapatkan 1 Teh Ori Jumbo GRATIS</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyPromoCode("BUY2FREE1")}
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-lg shadow-xs transition shrink-0 cursor-pointer"
+                      >
+                        + Klaim Promo
+                      </button>
+                    </div>
+                  )}
+
+                  {isPromoApplied && (
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-900 font-bold">
+                      <span className="flex items-center gap-1.5">
+                        <span>✓</span> Promo 1 Teh Ori Jumbo GRATIS Aktif!
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCart((prev) => prev.filter((i) => !i.isPromoFree));
+                          setIsPromoApplied(false);
+                        }}
+                        className="text-[11px] text-rose-600 hover:underline cursor-pointer"
+                      >
+                        Hapus Promo
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Kode Diskon / Promo"
+                        value={promoCodeInput}
+                        onChange={(e) => setPromoCodeInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleApplyPromoCode();
+                          }
+                        }}
+                        className="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded-lg uppercase font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleApplyPromoCode()}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
+                      >
+                        Terapkan
+                      </button>
+                    </div>
+                    {promoMessage && (
+                      <p className={`text-[11px] font-bold ${promoMessage.type === "success" ? "text-emerald-700" : "text-rose-600"}`}>
+                        {promoMessage.text}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Cart Summary & Checkout Action */}
