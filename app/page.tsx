@@ -830,6 +830,16 @@ export default function PosTerminalPage() {
       return;
     }
 
+    const check = checkCanAddProduct(oriJumbo, 1, "normal");
+    if (!check.canAdd) {
+      setPromoMessage({
+        type: "error",
+        text: check.reason || "Stok bahan (Cup Jumbo / Gula) untuk bonus tidak mencukupi di kedai ini!",
+      });
+      setTimeout(() => setPromoMessage(null), 4000);
+      return;
+    }
+
     setCart((prev) => {
       const existingPromo = prev.find((i) => i.isPromoFree);
       if (existingPromo) return prev;
