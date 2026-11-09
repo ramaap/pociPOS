@@ -6,8 +6,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const outletId = searchParams.get("outletId");
 
-    // Ambil semua produk dan resep BOM
+    // Ambil semua produk aktif dan resep BOM
     const products = await prisma.product.findMany({
+      where: { active_status: true },
       include: {
         recipes: {
           include: {
@@ -359,10 +360,17 @@ export async function POST(req: Request) {
         await linkOutlets(regProd.id);
         updatedProducts.push(regProd);
       } else if (regProd) {
-        await prisma.product.update({
-          where: { id: regProd.id },
-          data: { active_status: false },
-        });
+        const txCount = await prisma.transactionItem.count({ where: { product_id: regProd.id } });
+        if (txCount === 0) {
+          await prisma.bOM_Recipe.deleteMany({ where: { product_id: regProd.id } });
+          await prisma.outletProduct.deleteMany({ where: { product_id: regProd.id } });
+          await prisma.product.delete({ where: { id: regProd.id } });
+        } else {
+          await prisma.product.update({
+            where: { id: regProd.id },
+            data: { active_status: false },
+          });
+        }
       }
 
       // 2. Handle Varian Jumbo
@@ -403,10 +411,17 @@ export async function POST(req: Request) {
         await linkOutlets(jumboProd.id);
         updatedProducts.push(jumboProd);
       } else if (jumboProd) {
-        await prisma.product.update({
-          where: { id: jumboProd.id },
-          data: { active_status: false },
-        });
+        const txCount = await prisma.transactionItem.count({ where: { product_id: jumboProd.id } });
+        if (txCount === 0) {
+          await prisma.bOM_Recipe.deleteMany({ where: { product_id: jumboProd.id } });
+          await prisma.outletProduct.deleteMany({ where: { product_id: jumboProd.id } });
+          await prisma.product.delete({ where: { id: jumboProd.id } });
+        } else {
+          await prisma.product.update({
+            where: { id: jumboProd.id },
+            data: { active_status: false },
+          });
+        }
       }
 
       return NextResponse.json({

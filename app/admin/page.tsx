@@ -1392,6 +1392,9 @@ export default function AdminDashboardPage() {
     >();
 
     for (const p of menuProducts) {
+      // Abaikan produk yang telah dinonaktifkan / dihapus
+      if (p.active_status === false) continue;
+
       const isReg = /\((reguler|regular)\)/i.test(p.name);
       const isJum = /\(jumbo\)/i.test(p.name);
       let base = p.name.replace(/\s*[\(\[]?(reguler|regular|jumbo)[\)\]]?/gi, "").trim();
@@ -1408,22 +1411,15 @@ export default function AdminDashboardPage() {
       const entry = map.get(base)!;
       entry.allProducts.push(p);
 
-      if (isReg) {
+      const hasRegCup = p.recipes?.some((r: any) => r.raw_material?.name?.toLowerCase().includes("reguler"));
+      const hasJumboCup = p.recipes?.some((r: any) => r.raw_material?.name?.toLowerCase().includes("jumbo"));
+
+      if (p.category === "topping" || (!isReg && !isJum && !hasRegCup && !hasJumboCup)) {
+        entry.single = p;
+      } else if (isReg || hasRegCup) {
         entry.reguler = p;
-      } else if (isJum) {
+      } else if (isJum || hasJumboCup) {
         entry.jumbo = p;
-      } else {
-        const hasRegCup = p.recipes?.some((r: any) => r.raw_material?.name?.toLowerCase().includes("reguler"));
-        const hasJumboCup = p.recipes?.some((r: any) => r.raw_material?.name?.toLowerCase().includes("jumbo"));
-        if (hasRegCup && !entry.reguler) {
-          entry.reguler = p;
-        } else if (hasJumboCup && !entry.jumbo) {
-          entry.jumbo = p;
-        } else if (!entry.reguler) {
-          entry.reguler = p;
-        } else {
-          entry.single = p;
-        }
       }
     }
 
@@ -3692,9 +3688,19 @@ export default function AdminDashboardPage() {
                           <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80">
                             <div className="flex items-center justify-between">
                               <span className="font-bold text-slate-800">🌿 Porsi Reguler</span>
-                              <span className="font-mono font-bold text-emerald-800">
-                                {formatRupiah(reguler.price)}
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold text-emerald-800">
+                                  {formatRupiah(reguler.price)}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteMenu(reguler.id, reguler.name)}
+                                  className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                  title={`Hapus Porsi Reguler untuk ${baseName}`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                             {reguler.recipes && reguler.recipes.length > 0 && (
                               <p className="text-[10px] text-slate-500 mt-1 font-mono truncate">
@@ -3708,9 +3714,19 @@ export default function AdminDashboardPage() {
                           <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80">
                             <div className="flex items-center justify-between">
                               <span className="font-bold text-slate-800">🥤 Porsi Jumbo</span>
-                              <span className="font-mono font-bold text-emerald-800">
-                                {formatRupiah(jumbo.price)}
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold text-emerald-800">
+                                  {formatRupiah(jumbo.price)}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteMenu(jumbo.id, jumbo.name)}
+                                  className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                  title={`Hapus Porsi Jumbo untuk ${baseName}`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                             {jumbo.recipes && jumbo.recipes.length > 0 && (
                               <p className="text-[10px] text-slate-500 mt-1 font-mono truncate">
@@ -3724,9 +3740,19 @@ export default function AdminDashboardPage() {
                           <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80">
                             <div className="flex items-center justify-between">
                               <span className="font-bold text-slate-800">Standar / Topping</span>
-                              <span className="font-mono font-bold text-emerald-800">
-                                {formatRupiah(single.price)}
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold text-emerald-800">
+                                  {formatRupiah(single.price)}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteMenu(single.id, single.name)}
+                                  className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                  title={`Hapus menu ${single.name}`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                             {single.recipes && single.recipes.length > 0 && (
                               <p className="text-[10px] text-slate-500 mt-1 font-mono truncate">
@@ -4798,9 +4824,9 @@ export default function AdminDashboardPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
                   {/* Panel Reguler */}
                   <div className={`p-3.5 rounded-2xl border transition ${
-                    editMenuForm.enableReguler ? "bg-emerald-50/50 border-emerald-300" : "bg-slate-50 border-slate-200 opacity-60"
+                    editMenuForm.enableReguler ? "bg-emerald-50/50 border-emerald-300" : "bg-rose-50/40 border-rose-200"
                   }`}>
-                    <div className="flex items-center justify-between pb-2 border-b border-emerald-200/60 mb-2.5">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200 mb-2.5">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
@@ -4808,14 +4834,27 @@ export default function AdminDashboardPage() {
                           onChange={(e) => setEditMenuForm({ ...editMenuForm, enableReguler: e.target.checked })}
                           className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
                         />
-                        <span className="font-extrabold text-xs text-slate-900">🌿 Porsi Reguler</span>
+                        <span className={`font-extrabold text-xs ${editMenuForm.enableReguler ? "text-slate-900" : "text-rose-600 line-through"}`}>
+                          🌿 Porsi Reguler
+                        </span>
                       </label>
-                      <span className="text-[10px] font-mono text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-bold">
-                        Cup Reguler (1 pcs)
-                      </span>
+                      {editMenuForm.enableReguler ? (
+                        <button
+                          type="button"
+                          onClick={() => setEditMenuForm({ ...editMenuForm, enableReguler: false })}
+                          className="text-[10px] text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-lg transition"
+                          title="Hapus / Nonaktifkan Porsi Reguler"
+                        >
+                          <Trash2 className="w-3 h-3" /> Hapus Porsi
+                        </button>
+                      ) : (
+                        <span className="text-[10px] font-bold text-rose-600 bg-rose-100 px-2 py-0.5 rounded-lg">
+                          Dihapus / Tidak Aktif
+                        </span>
+                      )}
                     </div>
 
-                    {editMenuForm.enableReguler && (
+                    {editMenuForm.enableReguler ? (
                       <div className="space-y-2.5 text-xs">
                         <div>
                           <label className="text-[11px] font-bold text-slate-600 block mb-0.5">
@@ -4831,14 +4870,18 @@ export default function AdminDashboardPage() {
                           />
                         </div>
                       </div>
+                    ) : (
+                      <p className="text-[11px] text-rose-500 italic py-1">
+                        Porsi reguler akan dihapus saat klik Simpan Perubahan.
+                      </p>
                     )}
                   </div>
 
                   {/* Panel Jumbo */}
                   <div className={`p-3.5 rounded-2xl border transition ${
-                    editMenuForm.enableJumbo ? "bg-emerald-50/50 border-emerald-300" : "bg-slate-50 border-slate-200 opacity-60"
+                    editMenuForm.enableJumbo ? "bg-emerald-50/50 border-emerald-300" : "bg-rose-50/40 border-rose-200"
                   }`}>
-                    <div className="flex items-center justify-between pb-2 border-b border-emerald-200/60 mb-2.5">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200 mb-2.5">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
@@ -4846,14 +4889,27 @@ export default function AdminDashboardPage() {
                           onChange={(e) => setEditMenuForm({ ...editMenuForm, enableJumbo: e.target.checked })}
                           className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
                         />
-                        <span className="font-extrabold text-xs text-slate-900">🥤 Porsi Jumbo</span>
+                        <span className={`font-extrabold text-xs ${editMenuForm.enableJumbo ? "text-slate-900" : "text-rose-600 line-through"}`}>
+                          🥤 Porsi Jumbo
+                        </span>
                       </label>
-                      <span className="text-[10px] font-mono text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-bold">
-                        Cup Jumbo (1 pcs)
-                      </span>
+                      {editMenuForm.enableJumbo ? (
+                        <button
+                          type="button"
+                          onClick={() => setEditMenuForm({ ...editMenuForm, enableJumbo: false })}
+                          className="text-[10px] text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-lg transition"
+                          title="Hapus / Nonaktifkan Porsi Jumbo"
+                        >
+                          <Trash2 className="w-3 h-3" /> Hapus Porsi
+                        </button>
+                      ) : (
+                        <span className="text-[10px] font-bold text-rose-600 bg-rose-100 px-2 py-0.5 rounded-lg">
+                          Dihapus / Tidak Aktif
+                        </span>
+                      )}
                     </div>
 
-                    {editMenuForm.enableJumbo && (
+                    {editMenuForm.enableJumbo ? (
                       <div className="space-y-2.5 text-xs">
                         <div>
                           <label className="text-[11px] font-bold text-slate-600 block mb-0.5">
@@ -4869,6 +4925,10 @@ export default function AdminDashboardPage() {
                           />
                         </div>
                       </div>
+                    ) : (
+                      <p className="text-[11px] text-rose-500 italic py-1">
+                        Porsi jumbo akan dihapus saat klik Simpan Perubahan.
+                      </p>
                     )}
                   </div>
                 </div>
