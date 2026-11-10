@@ -16,6 +16,8 @@ export interface ReceiptData {
   items: ReceiptItem[];
   totalAmount: number;
   paymentMethod: "QRIS" | "Cash";
+  cashReceived?: number;
+  cashChange?: number;
   timestamp: string;
   isOffline?: boolean;
 }
@@ -66,6 +68,10 @@ export const generateReceiptText = (data: ReceiptData): string => {
   lines.push(doubleLine);
   lines.push(format58mmLine("TOTAL AKHIR", `Rp ${data.totalAmount.toLocaleString("id-ID")}`));
   lines.push(format58mmLine("METODE BAYAR", data.paymentMethod));
+  if (data.paymentMethod === "Cash" && data.cashReceived !== undefined) {
+    lines.push(format58mmLine("DITERIMA", `Rp ${data.cashReceived.toLocaleString("id-ID")}`));
+    lines.push(format58mmLine("KEMBALI", `Rp ${(data.cashChange ?? 0).toLocaleString("id-ID")}`));
+  }
   lines.push(format58mmLine("STATUS", "LUNAS"));
   if (data.isOffline) {
     lines.push(format58mmLine("MODE", "[TERCATAT OFFLINE]"));
@@ -141,6 +147,10 @@ export const generateEscPosBuffer = (data: ReceiptData): Uint8Array => {
   bytes.push(0x1b, 0x45, 0x00);
 
   bytes.push(...encoder.encode(format58mmLine("METODE", data.paymentMethod) + "\n"));
+  if (data.paymentMethod === "Cash" && data.cashReceived !== undefined) {
+    bytes.push(...encoder.encode(format58mmLine("DITERIMA", `Rp ${data.cashReceived.toLocaleString("id-ID")}`) + "\n"));
+    bytes.push(...encoder.encode(format58mmLine("KEMBALI", `Rp ${(data.cashChange ?? 0).toLocaleString("id-ID")}`) + "\n"));
+  }
   bytes.push(...encoder.encode(format58mmLine("STATUS", "LUNAS") + "\n"));
   if (data.isOffline) {
     bytes.push(...encoder.encode(format58mmLine("CATATAN", "[OFFLINE SYNC]") + "\n"));

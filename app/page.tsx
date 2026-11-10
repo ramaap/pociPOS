@@ -157,6 +157,7 @@ export default function PosTerminalPage() {
 
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<"QRIS" | "Cash">("QRIS");
+  const [cashReceivedInput, setCashReceivedInput] = useState<string>("");
   const [isProcessing, startTransition] = useTransition();
   const [checkoutSuccess, setCheckoutSuccess] = useState<boolean>(false);
   const [lastDeductions, setLastDeductions] = useState<any[]>([]);
@@ -983,6 +984,14 @@ export default function PosTerminalPage() {
     // Persiapkan data struk nota thermal sebelum cart dikosongkan
     const orderNumber = `#POC-${Date.now().toString().slice(-6)}`;
     const currentOutlet = outlets.find((o) => o.id === selectedOutletId);
+
+    const receivedNum = paymentMethod === "Cash"
+      ? (Number(cashReceivedInput) || totalAmount)
+      : undefined;
+    const changeNum = (receivedNum !== undefined && receivedNum >= totalAmount)
+      ? (receivedNum - totalAmount)
+      : (receivedNum !== undefined ? 0 : undefined);
+
     const receiptToPrint: ReceiptData = {
       orderId: orderNumber,
       outletName: currentOutlet?.name || "Es Teh Poci",
@@ -1008,6 +1017,8 @@ export default function PosTerminalPage() {
       }),
       totalAmount,
       paymentMethod,
+      cashReceived: receivedNum,
+      cashChange: changeNum,
       timestamp: new Date().toISOString(),
       isOffline: !isOnline,
     };
@@ -1192,6 +1203,7 @@ export default function PosTerminalPage() {
     setIsCheckoutModalOpen(false);
     setCheckoutSuccess(false);
     setCompletedReceipt(null);
+    setCashReceivedInput("");
     setLastDeductions([]);
     setPrintStatusMessage(null);
     setIsMobileCartOpen(false); // Tutup accordion cart secara default setelah transaksi selesai
@@ -1923,25 +1935,26 @@ export default function PosTerminalPage() {
                     <button
                       disabled={cart.length === 0}
                       onClick={() => {
-                        setPaymentMethod("QRIS");
+                        setPaymentMethod("Cash");
+                        setCashReceivedInput(String(totalAmount));
                         setIsCheckoutModalOpen(true);
                       }}
-                      className="py-3 px-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.98]"
+                      className="py-3 px-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
                     >
-                      <QrCode className="w-4 h-4" />
-                      Bayar QRIS
+                      <Banknote className="w-4 h-4 text-emerald-400" />
+                      Bayar Tunai
                     </button>
 
                     <button
                       disabled={cart.length === 0}
                       onClick={() => {
-                        setPaymentMethod("Cash");
+                        setPaymentMethod("QRIS");
                         setIsCheckoutModalOpen(true);
                       }}
-                      className="py-3 px-3 bg-slate-800 hover:bg-slate-900 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.98]"
+                      className="py-3 px-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
                     >
-                      <Banknote className="w-4 h-4" />
-                      Bayar Tunai
+                      <QrCode className="w-4 h-4" />
+                      Bayar QRIS
                     </button>
                   </div>
                 </div>
@@ -2484,28 +2497,32 @@ export default function PosTerminalPage() {
                 </div>
               </div>
 
-              <button
-                disabled={cart.length === 0}
-                onClick={() => {
-                  setPaymentMethod("QRIS");
-                  setIsCheckoutModalOpen(true);
-                }}
-                className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow-lg hover:shadow-xl disabled:shadow-none transition flex items-center justify-center gap-2 text-sm"
-              >
-                <QrCode className="w-5 h-5" />
-                Bayar QRIS ({currentOutletObj?.code})
-              </button>
-
-              <div className="mt-2 text-center">
+              <div className="grid grid-cols-2 gap-2">
                 <button
+                  type="button"
                   disabled={cart.length === 0}
                   onClick={() => {
                     setPaymentMethod("Cash");
+                    setCashReceivedInput(String(totalAmount));
                     setIsCheckoutModalOpen(true);
                   }}
-                  className="text-xs text-slate-500 hover:text-slate-700 font-semibold underline"
+                  className="py-3.5 px-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow-md hover:shadow-lg disabled:shadow-none transition flex items-center justify-center gap-2 text-xs sm:text-sm active:scale-[0.98] cursor-pointer"
                 >
-                  Opsi Bayar Tunai (Manual Cash)
+                  <Banknote className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
+                  <span>Bayar Tunai</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={cart.length === 0}
+                  onClick={() => {
+                    setPaymentMethod("QRIS");
+                    setIsCheckoutModalOpen(true);
+                  }}
+                  className="py-3.5 px-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow-md hover:shadow-lg disabled:shadow-none transition flex items-center justify-center gap-2 text-xs sm:text-sm active:scale-[0.98] cursor-pointer"
+                >
+                  <QrCode className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  <span>Bayar QRIS</span>
                 </button>
               </div>
             </div>
@@ -2630,6 +2647,22 @@ export default function PosTerminalPage() {
                         {completedReceipt?.paymentMethod} (LUNAS)
                       </span>
                     </div>
+                    {completedReceipt?.paymentMethod === "Cash" && completedReceipt?.cashReceived !== undefined && (
+                      <>
+                        <div className="flex justify-between text-[10px] text-slate-600">
+                          <span>UANG DITERIMA:</span>
+                          <span className="font-bold text-slate-800">
+                            {formatRupiah(completedReceipt.cashReceived)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
+                          <span>KEMBALIAN:</span>
+                          <span className="font-black text-xs font-mono text-emerald-800">
+                            {formatRupiah(completedReceipt.cashChange ?? 0)}
+                          </span>
+                        </div>
+                      </>
+                    )}
                     {completedReceipt?.isOffline && (
                       <div className="flex justify-between text-[10px] text-amber-700 font-bold">
                         <span>STATUS:</span>
@@ -2752,19 +2785,121 @@ export default function PosTerminalPage() {
                       </p>
                     </div>
                   ) : (
-                    <div className="mt-4 p-4 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 text-left text-xs space-y-1.5">
-                      <p className="font-bold">⚠️ Pembayaran Tunai Terdeteksi:</p>
-                      <p>
-                        Simpan uang tunai di dompet shift kasir. Sistem BOM kedai ini tetap memotong stok secara otomatis.
-                      </p>
+                    <div className="mt-4 space-y-3 text-left">
+                      {/* Kalkulator Tunai Cepat & Kembalian */}
+                      <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-700">
+                            Uang Diterima dari Pelanggan:
+                          </label>
+                          <span className="text-[10px] text-slate-400 font-semibold">
+                            Ketik / Pilih Nominal Cepat
+                          </span>
+                        </div>
+
+                        {/* Input Nominal Tunai */}
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-sm text-slate-400 font-mono">
+                            Rp
+                          </span>
+                          <input
+                            type="number"
+                            min={totalAmount}
+                            step="500"
+                            value={cashReceivedInput}
+                            onChange={(e) => setCashReceivedInput(e.target.value)}
+                            placeholder={String(totalAmount)}
+                            className="w-full pl-11 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-mono text-base font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                        </div>
+
+                        {/* Tombol Nominal Cepat: Uang Pas, 10rb, 20rb, 50rb */}
+                        <div className="grid grid-cols-4 gap-1.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setCashReceivedInput(String(totalAmount))}
+                            className={`py-2 px-1 rounded-xl text-[11px] font-extrabold border transition cursor-pointer active:scale-95 text-center ${
+                              Number(cashReceivedInput) === totalAmount
+                                ? "bg-emerald-600 border-emerald-700 text-white shadow-xs"
+                                : "bg-white border-slate-200 text-emerald-800 hover:bg-emerald-50"
+                            }`}
+                          >
+                            Uang Pas
+                          </button>
+                          {[10000, 20000, 50000].map((amt) => {
+                            const isBelow = amt < totalAmount;
+                            const isSelected = Number(cashReceivedInput) === amt;
+                            return (
+                              <button
+                                key={amt}
+                                type="button"
+                                disabled={isBelow}
+                                onClick={() => setCashReceivedInput(String(amt))}
+                                className={`py-2 px-1 rounded-xl text-[11px] font-extrabold border transition text-center ${
+                                  isBelow
+                                    ? "bg-slate-100 border-slate-200 text-slate-400 opacity-50 cursor-not-allowed"
+                                    : isSelected
+                                    ? "bg-emerald-600 border-emerald-700 text-white shadow-xs"
+                                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer active:scale-95"
+                                }`}
+                              >
+                                {amt === 10000 ? "10rb" : amt === 20000 ? "20rb" : "50rb"}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Baris Hasil Hitung Kembalian */}
+                        {(() => {
+                          const val = Number(cashReceivedInput) || 0;
+                          const change = val - totalAmount;
+                          const isShort = val > 0 && change < 0;
+
+                          return (
+                            <div
+                              className={`p-3 rounded-xl border flex items-center justify-between transition-colors ${
+                                isShort
+                                  ? "bg-rose-50 border-rose-200 text-rose-800"
+                                  : change > 0
+                                  ? "bg-emerald-50 border-emerald-200 text-emerald-950"
+                                  : "bg-slate-100 border-slate-200 text-slate-700"
+                              }`}
+                            >
+                              <div className="text-left">
+                                <p className="text-[11px] font-bold uppercase tracking-wider">
+                                  {isShort ? "Uang Kurang:" : "Kembalian Pelanggan:"}
+                                </p>
+                                <p className="text-[10px] text-slate-500">
+                                  {isShort
+                                    ? `Kurang ${formatRupiah(Math.abs(change))}`
+                                    : change === 0
+                                    ? "Uang pas (tanpa kembalian)"
+                                    : "Kembalikan ke pelanggan"}
+                                </p>
+                              </div>
+                              <span
+                                className={`text-xl font-black font-mono tracking-tight ${
+                                  isShort
+                                    ? "text-rose-600"
+                                    : change > 0
+                                    ? "text-emerald-700"
+                                    : "text-slate-600"
+                                }`}
+                              >
+                                {formatRupiah(Math.max(0, change))}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
                   )}
                 </div>
 
                 <button
                   onClick={handleExecuteCheckout}
-                  disabled={isProcessing}
-                  className="w-full py-3.5 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm rounded-xl shadow-lg hover:shadow-xl transition flex items-center justify-center gap-2"
+                  disabled={isProcessing || (paymentMethod === "Cash" && Number(cashReceivedInput) > 0 && Number(cashReceivedInput) < totalAmount)}
+                  className="w-full py-3.5 px-6 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 text-white font-extrabold text-sm rounded-xl shadow-lg hover:shadow-xl disabled:shadow-none transition flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
                 >
                   {isProcessing ? (
                     <span className="inline-flex items-center gap-2">
@@ -2776,6 +2911,8 @@ export default function PosTerminalPage() {
                       <CheckCircle2 className="w-5 h-5" />
                       {paymentMethod === "QRIS"
                         ? "Simulasi Pelanggan Sukses Scan QRIS"
+                        : Number(cashReceivedInput) > 0 && Number(cashReceivedInput) < totalAmount
+                        ? "Nominal Uang Kurang"
                         : "Konfirmasi Uang Tunai Diterima"}
                     </>
                   )}
@@ -3426,6 +3563,18 @@ export default function PosTerminalPage() {
               <span>METODE:</span>
               <span>{completedReceipt.paymentMethod} (LUNAS)</span>
             </div>
+            {completedReceipt.paymentMethod === "Cash" && completedReceipt.cashReceived !== undefined && (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>DITERIMA:</span>
+                  <span>Rp {completedReceipt.cashReceived.toLocaleString("id-ID")}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}>
+                  <span>KEMBALI:</span>
+                  <span>Rp {(completedReceipt.cashChange ?? 0).toLocaleString("id-ID")}</span>
+                </div>
+              </>
+            )}
             {completedReceipt.isOffline && (
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span>STATUS:</span>
