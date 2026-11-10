@@ -332,12 +332,6 @@ export default function PosTerminalPage() {
     return () => clearInterval(timer);
   }, [selectedOutletId]);
 
-  // Reset POS Modal State
-  const [isResetPosModalOpen, setIsResetPosModalOpen] = useState<boolean>(false);
-  const [resetPosPin, setResetPosPin] = useState<string>("");
-  const [resetPosLoading, setResetPosLoading] = useState<boolean>(false);
-  const [resetPosMessage, setResetPosMessage] = useState<string | null>(null);
-
   // ================= OPENING KEDAI / BUKA SHIFT STATE =================
   const [isOpeningModalOpen, setIsOpeningModalOpen] = useState<boolean>(false);
   const [openingCashFloat, setOpeningCashFloat] = useState<number>(0);
@@ -1203,55 +1197,6 @@ export default function PosTerminalPage() {
     setIsMobileCartOpen(false); // Tutup accordion cart secara default setelah transaksi selesai
   };
 
-  const handleResetPosSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!resetPosPin) {
-      setResetPosMessage("Masukkan PIN Admin.");
-      return;
-    }
-
-    setResetPosLoading(true);
-    setResetPosMessage(null);
-
-    try {
-      const res = await fetch("/api/admin/reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "reset_pos",
-          outletId: selectedOutletId,
-          pin: resetPosPin,
-        }),
-      });
-
-      const resData = await res.json();
-      if (res.ok) {
-        setResetPosMessage("✅ " + resData.message);
-        clearCart();
-        // Bersihkan antrean offline
-        localStorage.removeItem("teh_poci_offline_tx_queue");
-        setPendingSyncCount(0);
-        if (selectedOutletId) {
-          localStorage.setItem("poci_brew_barrel_ml_" + selectedOutletId, "8000");
-          setBrewLiquidMl(8000);
-          setCustomBrewInput("8000");
-        }
-        setTimeout(() => {
-          setIsResetPosModalOpen(false);
-          setResetPosPin("");
-          setResetPosMessage(null);
-          loadData();
-        }, 1500);
-      } else {
-        setResetPosMessage("❌ " + resData.error);
-      }
-    } catch {
-      setResetPosMessage("❌ Gagal menghubungi server.");
-    } finally {
-      setResetPosLoading(false);
-    }
-  };
-
   const formatRupiah = (val: number) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
@@ -1430,19 +1375,6 @@ export default function PosTerminalPage() {
                 <span>Sync ({pendingSyncCount})</span>
               </button>
             )}
-
-            <button
-              onClick={() => {
-                setResetPosPin("");
-                setResetPosMessage(null);
-                setIsResetPosModalOpen(true);
-              }}
-              className="p-1 sm:px-2 sm:py-1 rounded-lg sm:rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 hover:bg-amber-400 hover:text-slate-950 transition border border-amber-400/40 shrink-0 flex items-center gap-1"
-              title="Reset Data Operasional POS (Membutuhkan PIN Admin)"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Reset POS</span>
-            </button>
 
             {/* Desktop Only Links (lg+) */}
             <div className="hidden lg:flex items-center space-x-2 shrink-0">
@@ -3131,80 +3063,7 @@ export default function PosTerminalPage() {
         </div>
       )}
 
-      {/* Modal Otorisasi Reset POS Kasir */}
-      {isResetPosModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-center animate-in fade-in zoom-in duration-200">
-            <div className="w-12 h-12 bg-amber-100 text-amber-800 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-amber-200">
-              <RotateCcw className="w-6 h-6" />
-            </div>
-
-            <h3 className="text-lg font-black text-slate-900">
-              Reset Terminal Kasir POS
-            </h3>
-            <p className="text-xs text-emerald-700 font-bold mt-0.5">
-              {currentOutletObj?.name}
-            </p>
-
-            <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-left text-xs space-y-1">
-              <p className="font-bold flex items-center gap-1">
-                <Lock className="w-3.5 h-3.5 text-amber-700" />
-                Dibutuhkan Otorisasi Admin
-              </p>
-              <p>
-                Aksi ini akan menghapus antrean transaksi lokal dan membersihkan riwayat kasir {currentOutletObj?.name}. Katalog produk dan resep tidak akan hilang.
-              </p>
-            </div>
-
-            {resetPosMessage && (
-              <div className="mt-3 p-2.5 rounded-xl bg-slate-100 text-xs font-semibold text-slate-800 border border-slate-300">
-                {resetPosMessage}
-              </div>
-            )}
-
-            <form onSubmit={handleResetPosSubmit} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1 text-left">
-                  Masukkan PIN Admin:
-                </label>
-                <input
-                  type="password"
-                  maxLength={6}
-                  value={resetPosPin}
-                  onChange={(e) => setResetPosPin(e.target.value)}
-                  placeholder="PIN 4 digit"
-                  autoFocus
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-center text-lg font-mono font-bold tracking-widest text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  required
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={resetPosLoading}
-                  onClick={() => setIsResetPosModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 transition"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={resetPosLoading}
-                  className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5"
-                >
-                  {resetPosLoading ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RotateCcw className="w-4 h-4" />
-                  )}
-                  Reset Kasir
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* MODAL: BUKA TUTUP SHIFT SELESAI */}
 
       {/* ============================================================== */}
       {/* MODAL: OPENING KEDAI / BUKA SHIFT BARU                         */}
