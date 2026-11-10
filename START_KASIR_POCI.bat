@@ -13,7 +13,7 @@ start "POCI Next.js Server" cmd /k "npm run start"
 timeout /t 3 /nobreak >nul
 
 echo [2/2] Menjalankan Cloudflare Tunnel (kasir.ya-kasir-tehpoci.my.id)...
-start "POCI Cloudflare Tunnel" cmd /k "cloudflared tunnel run tehpoci-pos"
+start "POCI Cloudflare Tunnel" cmd /k "cloudflared tunnel --config "%USERPROFILE%\.cloudflared\config.yml" run tehpoci-pos"
 
 echo.
 echo ========================================================
