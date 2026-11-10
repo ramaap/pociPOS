@@ -3305,8 +3305,9 @@ export default function PosTerminalPage() {
                       ? openingStockValues[rm.id]
                       : rm.current_stock || 0;
 
-                    const isCup = rm.name.toLowerCase().includes("cup");
-                    const isLiquid = rm.name.toLowerCase().includes("liquid") || rm.name.toLowerCase().includes("tea");
+                    const isCup = rm.unit.toLowerCase() === "pcs" && rm.name.toLowerCase().includes("cup");
+                    const isLiquid = rm.unit.toLowerCase() === "ml";
+                    const isSachet = rm.unit.toLowerCase() === "sachet" || rm.name.toLowerCase().includes("sachet") || rm.name.toLowerCase().includes("mix");
 
                     return (
                       <div
@@ -3318,14 +3319,14 @@ export default function PosTerminalPage() {
                             {rm.name}
                           </p>
                           <p className="text-[10px] text-slate-400">
-                            {isCup ? "Gelas saji" : isLiquid ? "Teh cair premix" : "Sachet rasa"}
+                            {isCup ? "Gelas saji" : isLiquid ? "Sirup / Gula cair" : isSachet ? "Sachet bubuk rasa" : "Bahan baku"}
                           </p>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <input
                             type="number"
                             min="0"
-                            step={isLiquid ? "100" : "1"}
+                            step="1"
                             value={currentVal}
                             onChange={(e) => {
                               const val = Number(e.target.value) || 0;
