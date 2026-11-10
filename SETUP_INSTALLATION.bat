@@ -41,8 +41,15 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [4/5] Mengisi data awal master menu, BOM, & outlet (npm run seed)...
-call npm run seed
+:: Proteksi Data: Hanya jalankan seed jika database baru dan belum memiliki data transaksi
+if exist "prisma\dev.db" (
+    echo [4/5] Memeriksa data database...
+    echo       Database dev.db sudah ada. Data transaksi dan riwayat operasional tetap dipertahankan.
+    echo       (Seed dilewati agar tidak menghapus transaksi yang sudah tercatat)
+) else (
+    echo [4/5] Mengisi data awal master menu, BOM, & outlet (npm run seed)...
+    call npm run seed
+)
 
 echo [5/5] Membangun build produksi Next.js (npm run build)...
 call npm run build
