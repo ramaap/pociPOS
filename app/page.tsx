@@ -1315,15 +1315,6 @@ export default function PosTerminalPage() {
                   <span className="sm:hidden">Shift</span>
                 </Link>
               )}
-
-              <Link
-                href="/admin"
-                className="p-1 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl bg-slate-900/80 hover:bg-slate-900 text-amber-400 transition flex items-center space-x-1"
-                title="Admin Dashboard"
-              >
-                <ShieldAlert className="w-4 h-4" />
-                <span className="hidden sm:inline text-xs font-semibold text-slate-200">Admin</span>
-              </Link>
             </div>
           </div>
 
@@ -1440,14 +1431,6 @@ export default function PosTerminalPage() {
                   <span>Tutup Shift</span>
                 </Link>
               )}
-
-              <Link
-                href="/admin"
-                className="flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900/80 hover:bg-slate-900 text-slate-200 transition"
-              >
-                <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-                <span>Admin</span>
-              </Link>
             </div>
           </div>
         </div>
