@@ -256,6 +256,10 @@ class BluetoothThermalManager {
     }
   }
 
+  isConnected(): boolean {
+    return !!(this.device && this.device.gatt?.connected && this.characteristic);
+  }
+
   disconnect() {
     if (this.device && this.device.gatt.connected) {
       this.device.gatt.disconnect();

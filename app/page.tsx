@@ -21,6 +21,7 @@ import {
   Search,
   Store,
   ChevronDown,
+  ChevronUp,
   RotateCcw,
   Lock,
   Printer,
@@ -145,6 +146,12 @@ export default function PosTerminalPage() {
   // Pantun Semangat Gemini AI (Update Otomatis Tiap 15 Menit)
   const [pantunText, setPantunText] = useState<string>("");
   const [isPantunLoading, setIsPantunLoading] = useState<boolean>(false);
+  const [isPantunCollapsed, setIsPantunCollapsed] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("poci_pantun_collapsed") === "true";
+    }
+    return false;
+  });
 
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -169,6 +176,26 @@ export default function PosTerminalPage() {
     text: string;
     type: "success" | "warning" | "error";
   } | null>(null);
+
+  // Auto-Print & Auto-Close Timer State
+  const [autoPrintReceipt, setAutoPrintReceipt] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("poci_autoprint_receipt") !== "false";
+    }
+    return true;
+  });
+  const [autoCloseSeconds, setAutoCloseSeconds] = useState<number | null>(null);
+  const [isTimerPaused, setIsTimerPaused] = useState<boolean>(false);
+
+  const toggleAutoPrint = () => {
+    setAutoPrintReceipt((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("poci_autoprint_receipt", String(next));
+      }
+      return next;
+    });
+  };
 
   // ================= RE-BREWING & DISPENSER TEH (WATER BARREL 8L) STATE =================
   const [brewLiquidMl, setBrewLiquidMl] = useState<number>(8000);
@@ -1068,11 +1095,12 @@ export default function PosTerminalPage() {
           });
         }
         deductBrewLiquidForCart(cart);
-        deductBrewLiquidForCart(cart);
         setTodayCupsSold((prev) => prev + totalCartCups);
         setPendingSyncCount(getPendingTransactions().length);
         setCompletedReceipt(receiptToPrint);
         setCheckoutSuccess(true);
+        setAutoCloseSeconds(5);
+        setIsTimerPaused(false);
         setCart([]);
         setIsPromoApplied(false);
         setPromoMessage(null);
@@ -1105,6 +1133,8 @@ export default function PosTerminalPage() {
           setLastDeductions(data.inventoryDeductions || []);
           setCompletedReceipt(receiptToPrint);
           setCheckoutSuccess(true);
+          setAutoCloseSeconds(5);
+          setIsTimerPaused(false);
           setCart([]);
           setIsPromoApplied(false);
           setPromoMessage(null);
@@ -1150,6 +1180,8 @@ export default function PosTerminalPage() {
         setPendingSyncCount(getPendingTransactions().length);
         setCompletedReceipt(receiptToPrint);
         setCheckoutSuccess(true);
+        setAutoCloseSeconds(5);
+        setIsTimerPaused(false);
         setCart([]);
         setIsPromoApplied(false);
         setPromoMessage(null);
@@ -1158,46 +1190,87 @@ export default function PosTerminalPage() {
     });
   };
 
+  // Print handler cerdas: Bluetooth jika terkoneksi/diminta, fallback otomatis ke browser default printer
+  const handlePrintReceipt = async (forceBluetoothPrompt = false) => {
+    if (!completedReceipt) return;
+
+    if (bluetoothPrinter.isConnected() || forceBluetoothPrompt) {
+      setIsPrintingBt(true);
+      setPrintStatusMessage(null);
+      try {
+        await bluetoothPrinter.print(completedReceipt);
+        setPrintStatusMessage({
+          text: "Struk berhasil dicetak ke Printer Bluetooth!",
+          type: "success",
+        });
+        setTimeout(() => setPrintStatusMessage(null), 4000);
+        return;
+      } catch (err: any) {
+        const isCancelled =
+          err?.name === "BluetoothUserCancelledError" ||
+          err?.name === "NotFoundError" ||
+          err?.message?.toLowerCase().includes("cancel") ||
+          err?.message?.toLowerCase().includes("batal") ||
+          err?.message?.toLowerCase().includes("user selected no device");
+
+        if (isCancelled) {
+          setPrintStatusMessage({
+            text: "Pencarian printer Bluetooth dibatalkan oleh kasir.",
+            type: "warning",
+          });
+          setTimeout(() => setPrintStatusMessage(null), 3000);
+          return;
+        } else {
+          setPrintStatusMessage({
+            text: "Bluetooth tidak terhubung. Mengalihkan ke printer default...",
+            type: "warning",
+          });
+          setTimeout(() => {
+            printReceiptViaBrowser();
+          }, 500);
+        }
+      } finally {
+        setIsPrintingBt(false);
+      }
+    } else {
+      // Standar: langsung cetak ke printer default thermal sistem / RawBT
+      printReceiptViaBrowser();
+    }
+  };
+
   const handlePrintBrowser = () => {
-    printReceiptViaBrowser();
+    handlePrintReceipt(false);
   };
 
   const handlePrintBluetooth = async () => {
-    if (!completedReceipt) return;
-    setIsPrintingBt(true);
-    setPrintStatusMessage(null);
-    try {
-      await bluetoothPrinter.print(completedReceipt);
-      setPrintStatusMessage({
-        text: "Struk berhasil dicetak ke Printer Bluetooth!",
-        type: "success",
-      });
-      setTimeout(() => setPrintStatusMessage(null), 4000);
-    } catch (err: any) {
-      const isCancelled =
-        err?.name === "BluetoothUserCancelledError" ||
-        err?.name === "NotFoundError" ||
-        err?.message?.toLowerCase().includes("cancel") ||
-        err?.message?.toLowerCase().includes("batal") ||
-        err?.message?.toLowerCase().includes("user selected no device");
-
-      if (isCancelled) {
-        setPrintStatusMessage({
-          text: "Pencarian printer Bluetooth dibatalkan oleh kasir.",
-          type: "warning",
-        });
-        setTimeout(() => setPrintStatusMessage(null), 4000);
-      } else {
-        setPrintStatusMessage({
-          text: err?.message || "Gagal mencetak ke Bluetooth. Pastikan printer menyala & Bluetooth aktif.",
-          type: "error",
-        });
-        setTimeout(() => setPrintStatusMessage(null), 6000);
-      }
-    } finally {
-      setIsPrintingBt(false);
-    }
+    handlePrintReceipt(true);
   };
+
+  // Auto-close modal struk setelah checkout sukses (countdown 5 detik)
+  useEffect(() => {
+    if (!checkoutSuccess || autoCloseSeconds === null || isTimerPaused) return;
+
+    if (autoCloseSeconds <= 0) {
+      handleFinishTransaction();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setAutoCloseSeconds((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [checkoutSuccess, autoCloseSeconds, isTimerPaused]);
+
+  // Auto-print saat transaksi berhasil (jika toggle auto-print aktif)
+  useEffect(() => {
+    if (checkoutSuccess && completedReceipt && autoPrintReceipt) {
+      const timer = setTimeout(() => {
+        handlePrintReceipt(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [checkoutSuccess, completedReceipt]);
 
   const handleFinishTransaction = () => {
     setIsCheckoutModalOpen(false);
@@ -1207,6 +1280,8 @@ export default function PosTerminalPage() {
     setLastDeductions([]);
     setPrintStatusMessage(null);
     setIsMobileCartOpen(false); // Tutup accordion cart secara default setelah transaksi selesai
+    setAutoCloseSeconds(null);
+    setIsTimerPaused(false);
   };
 
   const formatRupiah = (val: number) => {
@@ -1580,75 +1655,98 @@ export default function PosTerminalPage() {
             </div>
           </div>
 
-          {/* Pantun Semangat Karyawan (Gemini AI • Auto-update Tiap 15 Menit) */}
+          {/* Pantun Semangat Karyawan & Progress (Compact & Collapsible) */}
           {(() => {
             const isTargetReached = todayCupsSold >= dailyTargetCups;
             const progressPercent = Math.min(100, Math.round((todayCupsSold / (dailyTargetCups || 1)) * 100));
 
             return (
               <div
-                className={`rounded-2xl p-3 sm:p-4 border transition-all ${
+                className={`rounded-xl px-3 py-1.5 sm:px-3.5 sm:py-2 border transition-all ${
                   isTargetReached
-                    ? "bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white border-emerald-500 shadow-md shadow-emerald-600/20"
-                    : "bg-gradient-to-r from-amber-50/95 via-orange-50/90 to-amber-100/90 border-amber-200 text-slate-800 shadow-xs"
+                    ? "bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white border-emerald-500 shadow-xs"
+                    : "bg-gradient-to-r from-amber-50/95 via-orange-50/90 to-amber-100/90 border-amber-200 text-slate-800 shadow-2xs"
                 }`}
               >
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 sm:gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1">
-                      <span
-                        className={`text-xs font-bold ${
-                          isTargetReached ? "text-emerald-100 font-extrabold" : "text-amber-900"
-                        }`}
-                      >
-                        {isTargetReached
-                          ? `🎉 Target: ${todayCupsSold}/${dailyTargetCups} Cup!`
-                          : `Progress: ${todayCupsSold}/${dailyTargetCups} Cup (${progressPercent}%)`}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        &bull; Update 15 mnt
-                      </span>
-                      {isPantunLoading && (
-                        <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1 animate-pulse">
-                          <RefreshCw className="w-3 h-3 animate-spin" /> Gemini...
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Teks Pantun Lucu Berima */}
-                    <div
-                      className={`text-xs sm:text-sm font-bold whitespace-pre-line leading-relaxed italic ${
-                        isTargetReached ? "text-white" : "text-amber-950"
+                {/* Header 1 Baris Ramping: Progress + Teks Pantun Singkat + Aksi */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span
+                      className={`text-[11px] sm:text-xs font-black shrink-0 ${
+                        isTargetReached ? "text-emerald-100" : "text-amber-950"
                       }`}
                     >
-                      “{pantunText || "Makan bakso kuahnya pedas,\nEs batu kristal dinginnya pas!\nTinggal beberapa cup kerja cerdas,\nRezeki berkah mengalir deras! 🧊🔥"}”
+                      {isTargetReached
+                        ? `🎉 ${todayCupsSold}/${dailyTargetCups} Cup!`
+                        : `Target: ${todayCupsSold}/${dailyTargetCups} (${progressPercent}%)`}
+                    </span>
+
+                    {/* Progress Bar Mini Inline */}
+                    <div className="w-16 sm:w-24 bg-black/10 rounded-full h-1.5 overflow-hidden shrink-0 hidden xs:block">
+                      <div
+                        className={`h-full transition-all duration-500 rounded-full ${
+                          isTargetReached ? "bg-white" : "bg-gradient-to-r from-amber-500 to-orange-500"
+                        }`}
+                        style={{ width: `${progressPercent}%` }}
+                      />
                     </div>
+
+                    {/* Cuplikan Pantun 1 Baris (Truncated jika collapsed) */}
+                    <p
+                      className={`text-[11px] italic font-semibold truncate flex-1 min-w-0 ${
+                        isTargetReached ? "text-white/95" : "text-amber-900"
+                      }`}
+                      title={pantunText}
+                    >
+                      “{(pantunText || "Semangat jualan es teh hari ini!").replace(/\n/g, " ")}”
+                    </p>
                   </div>
 
-                  {/* Tombol Acak Pantun */}
-                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center pt-1 sm:pt-0">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
                       disabled={isPantunLoading}
                       onClick={() => fetchPantun(true)}
                       title="Acak pantun berima baru dari Gemini AI"
-                      className="px-2.5 py-1 rounded-xl text-xs font-bold bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs flex items-center gap-1.5 transition cursor-pointer active:scale-95 disabled:opacity-50"
+                      className="p-1 sm:px-2 sm:py-0.5 rounded-lg text-[10px] sm:text-[11px] font-bold bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs flex items-center gap-1 transition cursor-pointer active:scale-95 disabled:opacity-50"
                     >
-                      <Dices className={`w-3.5 h-3.5 text-amber-700 ${isPantunLoading ? "animate-spin" : ""}`} />
-                      <span>{isPantunLoading ? "Menulis..." : "Acak Pantun"}</span>
+                      <Dices className={`w-3 h-3 text-amber-700 ${isPantunLoading ? "animate-spin" : ""}`} />
+                      <span className="hidden sm:inline">{isPantunLoading ? "Menulis..." : "Acak"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !isPantunCollapsed;
+                        setIsPantunCollapsed(next);
+                        try {
+                          localStorage.setItem("poci_pantun_collapsed", String(next));
+                        } catch {}
+                      }}
+                      title={isPantunCollapsed ? "Buka teks pantun lengkap" : "Kecilkan banner pantun"}
+                      className="p-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-black/5 transition cursor-pointer"
+                    >
+                      {isPantunCollapsed ? (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      )}
                     </button>
                   </div>
                 </div>
 
-                {/* Progress Bar Visual */}
-                <div className="mt-2.5 w-full bg-black/10 rounded-full h-1.5 sm:h-2 overflow-hidden">
-                  <div
-                    className={`h-full transition-all duration-500 rounded-full ${
-                      isTargetReached ? "bg-white" : "bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600"
-                    }`}
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
+                {/* Teks Pantun Penuh (Hanya Tampil jika Tidak Di-collapse) */}
+                {!isPantunCollapsed && (
+                  <div className="mt-1.5 pt-1.5 border-t border-black/5 animate-in fade-in duration-150">
+                    <p
+                      className={`text-[11px] sm:text-xs font-bold whitespace-pre-line leading-relaxed italic ${
+                        isTargetReached ? "text-white" : "text-amber-950"
+                      }`}
+                    >
+                      “{pantunText || "Makan bakso kuahnya pedas,\nEs batu kristal dinginnya pas!\nTinggal beberapa cup kerja cerdas,\nRezeki berkah mengalir deras! 🧊🔥"}”
+                    </p>
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -2145,134 +2243,148 @@ export default function PosTerminalPage() {
             </div>
           </div>
 
-          {/* Grid Menu */}
+          {/* Grid Menu Padat & Ringkas (4 Kolom di Desktop agar Tidak Scroll) */}
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="h-44 bg-white rounded-2xl animate-pulse border border-slate-200" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div key={i} className="h-28 bg-white rounded-xl animate-pulse border border-slate-200" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
               {filteredFlavors.map((item) => {
                 const { baseName, meta, reguler, jumbo } = item;
+
+                // Produk default untuk kartu single-size (Jumbo atau Reguler atau Topping)
+                const defaultProd = jumbo || reguler || item.single;
+                const checkDefault = defaultProd ? checkCanAddProduct(defaultProd, 1) : { canAdd: false };
+                const isSingleSize = (!reguler && jumbo) || (reguler && !jumbo) || (!reguler && !jumbo && item.single);
 
                 return (
                   <div
                     key={baseName}
-                    className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md border border-slate-200/90 flex flex-col justify-between relative overflow-hidden transition"
+                    onClick={() => {
+                      // Seluruh kartu bisa diketuk langsung untuk menu 1 ukuran
+                      if (isSingleSize && defaultProd && checkDefault.canAdd) {
+                        addToCart(defaultProd);
+                      }
+                    }}
+                    className={`bg-white rounded-xl p-2.5 sm:p-3 shadow-2xs hover:shadow-md border border-slate-200/90 flex flex-col justify-between relative overflow-hidden transition select-none ${
+                      isSingleSize && checkDefault.canAdd
+                        ? "cursor-pointer active:scale-[0.98] hover:border-emerald-500"
+                        : ""
+                    }`}
                   >
                     {baseName.toLowerCase().includes("jasmine") ? (
-                      <div className="absolute top-2 right-2 bg-gradient-to-r from-emerald-600 to-teal-700 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow flex items-center gap-1">
+                      <div className="absolute top-1.5 right-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full shadow-2xs flex items-center gap-0.5">
                         <span>⭐</span>
-                        <span>Menu Utama</span>
+                        <span>Utama</span>
                       </div>
                     ) : null}
 
                     <div>
-                      <div className="flex items-center space-x-3 mb-2.5">
+                      <div className="flex items-center space-x-2 sm:space-x-2.5 mb-2">
                         <div
-                          className={`w-11 h-11 rounded-2xl ${meta.circleBg} text-white flex items-center justify-center text-xl shadow-inner flex-shrink-0`}
+                          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl ${meta.circleBg} text-white flex items-center justify-center text-base sm:text-lg shadow-inner flex-shrink-0`}
                         >
                           {meta.icon}
                         </div>
-                        <div>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${meta.badgeBg} ${meta.badgeText}`}>
+                        <div className="min-w-0 flex-1 pr-6">
+                          <span className={`px-1.5 py-0.2 rounded text-[8px] sm:text-[9px] font-bold ${meta.badgeBg} ${meta.badgeText}`}>
                             {meta.category === "original"
-                              ? "Original Poci"
+                              ? "Original"
                               : meta.category === "milky"
-                              ? "Milky Fusion"
-                              : "Fruit Tea"}
+                              ? "Milky"
+                              : "Fruit"}
                           </span>
-                          <h3 className="font-extrabold text-sm text-slate-900 leading-tight mt-0.5">
+                          <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 leading-tight mt-0.5 truncate" title={baseName}>
                             {baseName}
                           </h3>
                         </div>
                       </div>
                     </div>
 
-                    {/* Dual or Single Size Action Buttons dengan Validasi Stok Mandiri */}
-                    <div
-                      className={`grid gap-2 pt-2 border-t border-slate-100 ${
-                        reguler && jumbo ? "grid-cols-2" : "grid-cols-1"
-                      }`}
-                    >
-                      {reguler && (() => {
-                        const checkReg = checkCanAddProduct(reguler, 1);
-                        const isDisabled = !checkReg.canAdd;
-                        return (
-                          <button
-                            type="button"
-                            disabled={isDisabled}
-                            onClick={() => addToCart(reguler)}
-                            title={isDisabled ? checkReg.reason : "Tambah ke Keranjang"}
-                            className={`px-2.5 py-2 rounded-xl font-bold transition flex flex-col items-center justify-center group border ${
-                              isDisabled
-                                ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
-                                : "bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-800 border-slate-200 hover:border-emerald-600 active:scale-95"
-                            }`}
-                          >
-                            <span className="text-[10px]">
-                              {isDisabled ? "Stok Habis" : jumbo ? "Reguler" : "Pesan (Reguler)"}
-                            </span>
-                            <span className={`text-xs font-mono font-black ${isDisabled ? "text-slate-400 line-through" : "text-emerald-800 group-hover:text-white"}`}>
-                              {formatRupiah(reguler.price)}
-                            </span>
-                          </button>
-                        );
-                      })()}
+                    {/* Action Area: Dual Size (Jasmine) vs Single Size (15 Varian Jumbo / Topping) */}
+                    {reguler && jumbo ? (
+                      <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100">
+                        {(() => {
+                          const checkReg = checkCanAddProduct(reguler, 1);
+                          const isDisabled = !checkReg.canAdd;
+                          return (
+                            <button
+                              type="button"
+                              disabled={isDisabled}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addToCart(reguler);
+                              }}
+                              title={isDisabled ? checkReg.reason : "Tambah Reguler"}
+                              className={`py-1 px-1.5 rounded-lg font-bold transition flex flex-col items-center justify-center border text-center ${
+                                isDisabled
+                                  ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
+                                  : "bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-800 border-slate-200 active:scale-95 cursor-pointer"
+                              }`}
+                            >
+                              <span className="text-[9px]">{isDisabled ? "Habis" : "Reguler"}</span>
+                              <span className={`text-[10px] sm:text-xs font-mono font-black ${isDisabled ? "text-slate-400 line-through" : "text-emerald-800 hover:text-white"}`}>
+                                {formatRupiah(reguler.price)}
+                              </span>
+                            </button>
+                          );
+                        })()}
 
-                      {jumbo && (() => {
-                        const checkJumbo = checkCanAddProduct(jumbo, 1);
-                        const isDisabled = !checkJumbo.canAdd;
-                        return (
-                          <button
-                            type="button"
-                            disabled={isDisabled}
-                            onClick={() => addToCart(jumbo)}
-                            title={isDisabled ? checkJumbo.reason : "Tambah ke Keranjang"}
-                            className={`px-2.5 py-2 rounded-xl font-bold transition flex flex-col items-center justify-center group border ${
-                              isDisabled
-                                ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
-                                : "bg-emerald-50 hover:bg-emerald-700 hover:text-white text-emerald-900 border-emerald-200 hover:border-emerald-700 active:scale-95"
-                            }`}
-                          >
-                            <span className="text-[10px]">
-                              {isDisabled ? "Stok Habis" : reguler ? "Jumbo" : baseName.toLowerCase().includes("jasmine") ? "Pesan (Jumbo)" : "Pesan"}
-                            </span>
-                            <span className={`text-xs font-mono font-black ${isDisabled ? "text-slate-400 line-through" : "text-emerald-900 group-hover:text-white"}`}>
-                              {formatRupiah(jumbo.price)}
-                            </span>
-                          </button>
-                        );
-                      })()}
-
-                      {!reguler && !jumbo && item.single && (() => {
-                        const prod = item.single;
-                        const checkSingle = checkCanAddProduct(prod, 1);
-                        const isDisabled = !checkSingle.canAdd;
-                        return (
-                          <button
-                            type="button"
-                            disabled={isDisabled}
-                            onClick={() => addToCart(prod)}
-                            title={isDisabled ? checkSingle.reason : "Tambah ke Keranjang"}
-                            className={`px-2.5 py-2 rounded-xl font-bold transition flex flex-col items-center justify-center group border ${
-                              isDisabled
-                                ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
-                                : "bg-emerald-50 hover:bg-emerald-700 hover:text-white text-emerald-900 border-emerald-200 hover:border-emerald-700 active:scale-95"
-                            }`}
-                          >
-                            <span className="text-[10px]">
-                              {isDisabled ? "Stok Habis" : "Tambah ke Keranjang"}
-                            </span>
-                            <span className={`text-xs font-mono font-black ${isDisabled ? "text-slate-400 line-through" : "text-emerald-900 group-hover:text-white"}`}>
-                              {formatRupiah(prod.price)}
-                            </span>
-                          </button>
-                        );
-                      })()}
-                    </div>
+                        {(() => {
+                          const checkJumbo = checkCanAddProduct(jumbo, 1);
+                          const isDisabled = !checkJumbo.canAdd;
+                          return (
+                            <button
+                              type="button"
+                              disabled={isDisabled}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addToCart(jumbo);
+                              }}
+                              title={isDisabled ? checkJumbo.reason : "Tambah Jumbo"}
+                              className={`py-1 px-1.5 rounded-lg font-bold transition flex flex-col items-center justify-center border text-center ${
+                                isDisabled
+                                  ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
+                                  : "bg-emerald-50 hover:bg-emerald-700 hover:text-white text-emerald-900 border-emerald-200 active:scale-95 cursor-pointer"
+                              }`}
+                            >
+                              <span className="text-[9px]">{isDisabled ? "Habis" : "Jumbo"}</span>
+                              <span className={`text-[10px] sm:text-xs font-mono font-black ${isDisabled ? "text-slate-400 line-through" : "text-emerald-900 hover:text-white"}`}>
+                                {formatRupiah(jumbo.price)}
+                              </span>
+                            </button>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      // Single Size (Semua varian rasa jumbo & topping) - Tap Anywhere & Quick Add Bar
+                      <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-1">
+                        <div>
+                          <span className={`text-xs sm:text-sm font-mono font-black ${!checkDefault.canAdd ? "text-slate-400 line-through" : "text-emerald-800"}`}>
+                            {defaultProd ? formatRupiah(defaultProd.price) : "-"}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={!checkDefault.canAdd}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (defaultProd) addToCart(defaultProd);
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-extrabold transition flex items-center gap-1 ${
+                            !checkDefault.canAdd
+                              ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-60"
+                              : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs active:scale-95 cursor-pointer"
+                          }`}
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>{!checkDefault.canAdd ? "Habis" : "Pesan"}</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -2678,33 +2790,70 @@ export default function PosTerminalPage() {
                   </div>
                 </div>
 
-                {/* Tombol Aksi Cetak & Transaksi Baru */}
+                {/* Tombol Aksi Cetak Tunggal & Transaksi Baru Otomatis */}
                 <div className="space-y-2 pt-1">
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={handlePrintBluetooth}
-                      disabled={isPrintingBt}
-                      className="py-3 px-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] disabled:bg-slate-300 text-white font-bold rounded-xl shadow text-xs flex items-center justify-center gap-1.5 transition"
-                    >
-                      <Bluetooth className="w-4 h-4 shrink-0" />
-                      <span>{isPrintingBt ? "Menghubungkan..." : "Cetak Bluetooth"}</span>
-                    </button>
-
-                    <button
-                      onClick={handlePrintBrowser}
-                      className="py-3 px-3 bg-slate-800 hover:bg-slate-900 active:scale-[0.98] text-white font-bold rounded-xl shadow text-xs flex items-center justify-center gap-1.5 transition"
-                    >
-                      <Printer className="w-4 h-4 shrink-0" />
-                      <span>Print (RawBT/58mm)</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handlePrintReceipt(false)}
+                    disabled={isPrintingBt}
+                    className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] disabled:bg-slate-300 text-white font-extrabold rounded-xl shadow text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4 shrink-0" />
+                    <span>{isPrintingBt ? "Menghubungkan Printer..." : "🖨️ Cetak Struk (Thermal 58mm)"}</span>
+                  </button>
 
                   <button
+                    type="button"
                     onClick={handleFinishTransaction}
-                    className="w-full py-3 px-4 bg-white hover:bg-slate-100 active:scale-[0.98] text-slate-800 font-extrabold rounded-xl border border-slate-300 text-xs flex items-center justify-center gap-2 transition shadow-sm"
+                    className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white font-extrabold rounded-xl shadow-md text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer"
                   >
-                    <span>✓ Transaksi Baru / Selesai</span>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>
+                      ✓ Transaksi Baru Sekarang
+                      {autoCloseSeconds !== null && !isTimerPaused && (
+                        <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-slate-700 text-emerald-300 text-[10px] font-mono">
+                          {autoCloseSeconds}s
+                        </span>
+                      )}
+                    </span>
                   </button>
+
+                  {/* Pengaturan Mini: Auto-Cetak, Jeda Hitung Mundur, dan Pair BT */}
+                  <div className="flex items-center justify-between pt-1 px-1 text-[11px] text-slate-500">
+                    <div className="flex items-center gap-1.5">
+                      {autoCloseSeconds !== null && (
+                        <button
+                          type="button"
+                          onClick={() => setIsTimerPaused(!isTimerPaused)}
+                          className="text-slate-500 hover:text-slate-800 underline font-medium transition cursor-pointer"
+                        >
+                          {isTimerPaused ? "▶ Lanjutkan Timer" : `⏸ Tahan (${autoCloseSeconds}s)`}
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1.5 cursor-pointer select-none font-medium hover:text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={autoPrintReceipt}
+                          onChange={toggleAutoPrint}
+                          className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <span>Auto-Cetak</span>
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => handlePrintReceipt(true)}
+                        className="text-slate-500 hover:text-emerald-700 flex items-center gap-1 font-medium transition cursor-pointer"
+                        title="Hubungkan atau cari printer via Web Bluetooth"
+                      >
+                        <Bluetooth className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span>Pair BT</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (
