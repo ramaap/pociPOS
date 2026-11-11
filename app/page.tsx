@@ -38,6 +38,8 @@ import {
   TrendingUp,
   Sunrise,
   AlertTriangle,
+  AlertCircle,
+  Delete,
   ShieldCheck,
   KeyRound,
 } from "lucide-react";
@@ -438,41 +440,48 @@ export default function PosTerminalPage() {
     }
   };
 
-  // Mobile Cart Accordion & Sticky-on-Scroll State
+  // Mobile / Tablet Bottom Bar Cart & Drawer State
   const [isMobileCartOpen, setIsMobileCartOpen] = useState<boolean>(false);
-  const [isStickyMobileCart, setIsStickyMobileCart] = useState<boolean>(false);
-  const cartAnchorRef = React.useRef<HTMLDivElement>(null);
+  const [splitSugarItemIds, setSplitSugarItemIds] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    let initialAnchorOffset = 0;
+  // Helper Pemformatan Angka Titik & Keypad Numerik Kasir Tunai
+  const formatNumberWithDots = (val: number | string) => {
+    const digits = String(val).replace(/\D/g, "");
+    if (!digits) return "";
+    return Number(digits).toLocaleString("id-ID");
+  };
 
-    const measureOffset = () => {
-      if (cartAnchorRef.current) {
-        const box = cartAnchorRef.current.getBoundingClientRect();
-        initialAnchorOffset = box.top + window.scrollY;
+  const getCashReceivedNum = (val: string) => {
+    return Number(val.replace(/\D/g, "")) || 0;
+  };
+
+  const handleNumpadDigit = (digit: string) => {
+    setCashReceivedInput((prev) => {
+      const rawDigits = prev.replace(/\D/g, "");
+      if (digit === "000") {
+        if (!rawDigits || rawDigits === "0") return "";
+        return formatNumberWithDots(rawDigits + "000");
       }
-    };
+      if (rawDigits === "0" || !rawDigits) {
+        return formatNumberWithDots(digit);
+      }
+      const next = rawDigits + digit;
+      if (next.length > 9) return prev;
+      return formatNumberWithDots(next);
+    });
+  };
 
-    measureOffset();
-    const timer = setTimeout(measureOffset, 400);
+  const handleNumpadBackspace = () => {
+    setCashReceivedInput((prev) => {
+      const rawDigits = prev.replace(/\D/g, "");
+      if (rawDigits.length <= 1) return "";
+      return formatNumberWithDots(rawDigits.slice(0, -1));
+    });
+  };
 
-    const handleScroll = () => {
-      const currentScroll = window.scrollY;
-      const targetThreshold = initialAnchorOffset > 0 ? (initialAnchorOffset - 10) : 70;
-      // Sticky aktif terus-menerus baik saat scroll down maupun scroll up
-      setIsStickyMobileCart(currentScroll > targetThreshold);
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("resize", measureOffset);
-    handleScroll();
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", measureOffset);
-    };
-  }, []);
+  const handleNumpadClear = () => {
+    setCashReceivedInput("");
+  };
 
   const fetchPantun = async (forceRefresh = false) => {
     setIsPantunLoading(true);
@@ -1242,7 +1251,8 @@ export default function PosTerminalPage() {
           if (item.sugarBreakdown) {
             const b = { ...item.sugarBreakdown };
             if (delta > 0) {
-              b.normal += delta;
+              const currentLvl = item.sugarLevel || "normal";
+              b[currentLvl] = (b[currentLvl] || 0) + delta;
             } else {
               let toReduce = Math.abs(delta);
               if (b.normal >= toReduce) {
@@ -1664,8 +1674,9 @@ export default function PosTerminalPage() {
     const orderNumber = `#POC-${Date.now().toString().slice(-6)}`;
     const currentOutlet = outlets.find((o) => o.id === selectedOutletId);
 
+    const rawCash = getCashReceivedNum(cashReceivedInput);
     const receivedNum = paymentMethod === "Cash"
-      ? (Number(cashReceivedInput) || totalAmount)
+      ? (rawCash || totalAmount)
       : undefined;
     const changeNum = (receivedNum !== undefined && receivedNum >= totalAmount)
       ? (receivedNum - totalAmount)
@@ -2271,7 +2282,7 @@ export default function PosTerminalPage() {
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-6 pb-28 lg:pb-6">
         {/* Left Column: Menu Catalog */}
         <div className="lg:col-span-8 flex flex-col space-y-3 sm:space-y-4">
           {/* Banner Peringatan jika Shift Kedai Masih Tutup */}
@@ -2528,567 +2539,6 @@ export default function PosTerminalPage() {
               </div>
             );
           })()}
-
-          {/* Mobile Cart Sentinel / Anchor untuk deteksi posisi scroll */}
-          <div ref={cartAnchorRef} className={`block lg:hidden ${isStickyMobileCart ? "h-16" : "h-0"}`} />
-
-          {/* Mobile Cart Accordion (Sticky ke Atas Layar saat Scroll Down, Kembali ke Bawah Stok Live saat Scroll Up) */}
-          <div
-            className={`block lg:hidden transition-all duration-200 ${
-              isStickyMobileCart
-                ? "fixed top-2 left-3 right-3 sm:left-6 sm:right-6 max-w-7xl mx-auto z-50 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-300 animate-in fade-in slide-in-from-top-1"
-                : "bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden"
-            }`}
-          >
-            {/* Header Accordion Bar (Selalu Tampil) */}
-            <div
-              onClick={() => setIsMobileCartOpen(!isMobileCartOpen)}
-              className="p-3 sm:p-3.5 flex items-center justify-between gap-2.5 cursor-pointer hover:bg-slate-50/80 active:bg-slate-100 select-none transition"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="relative shrink-0">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200 shadow-xs">
-                    <ShoppingBag className="w-5 h-5" />
-                  </div>
-                  {/* Little Item Counter Badge on Icon */}
-                  {totalCupsCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-black flex items-center justify-center shadow">
-                      {totalCupsCount}
-                    </span>
-                  )}
-                </div>
-
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-xs sm:text-sm text-slate-900 truncate">
-                      Pesanan Aktif ({currentOutletObj?.code})
-                    </span>
-                  </div>
-
-                  {/* Little Item Counter & Status Notification */}
-                  <div className="mt-0.5">
-                    {cart.length === 0 ? (
-                      <span className="text-[11px] text-slate-400 font-medium">
-                        Keranjang kosong
-                      </span>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold">
-                          {totalCupsCount} cup
-                        </span>
-                        <span className="font-mono text-emerald-800 text-xs font-black">
-                          {formatRupiah(totalAmount)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Side: Quick Indicator & Animated Chevron */}
-              <div className="flex items-center gap-2 shrink-0">
-                {cart.length > 0 && !isMobileCartOpen && (
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
-                    Buka Kasir ➔
-                  </span>
-                )}
-                <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
-                  <ChevronDown
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      isMobileCartOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Accordion Body: Rincian Keranjang & Tombol Checkout */}
-            {isMobileCartOpen && (
-              <div className="border-t border-slate-100 p-3.5 bg-slate-50/60 space-y-3 animate-in fade-in slide-in-from-top-2 duration-150">
-                {/* Reset button bar if items exist */}
-                {cart.length > 0 && (
-                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      Daftar Pesanan ({cart.length} item)
-                    </span>
-                    <button
-                      onClick={clearCart}
-                      className="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Kosongkan
-                    </button>
-                  </div>
-                )}
-
-                {/* Items List */}
-                <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
-                  {cart.length === 0 ? (
-                    <div className="py-5 text-center text-slate-400">
-                      <ShoppingBag className="w-8 h-8 mx-auto stroke-1 text-slate-300 mb-1" />
-                      <p className="text-xs font-medium">Keranjang masih kosong</p>
-                      <p className="text-[10px] text-slate-400">
-                        Pilih menu di bawah atau klaim voucher promo
-                      </p>
-                    </div>
-                  ) : (
-                    cart.map((item) => (
-                      <div
-                        key={item.id}
-                        className="p-2.5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1.5"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 mr-2 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <h4 className="font-bold text-xs text-slate-900 truncate">
-                                {formatProductName(item.product.name)}
-                              </h4>
-                              {item.isRedeemedVoucher ? (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-700 text-white shrink-0">
-                                  🎟️ KLAIM VOUCHER
-                                </span>
-                              ) : item.isPromoVoucher ? (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-600 text-white shrink-0">
-                                  🎟️ VOUCHER STRUK
-                                </span>
-                              ) : item.isPromoFree ? (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500 text-white shrink-0">
-                                  PROMO GRATIS
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className="text-[11px] font-mono mt-0.5">
-                              {item.isPromoFree ? (
-                                <>
-                                  <span className="line-through text-slate-400 mr-1.5">{formatRupiah(item.product.price)}</span>
-                                  <span className="text-emerald-700 font-black">
-                                    {item.isPromoVoucher ? "Rp 0 (VOUCHER)" : item.isRedeemedVoucher ? "Rp 0 (KLAIM)" : "Rp 0 (GRATIS)"}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="text-emerald-700 font-semibold">{formatRupiah(item.product.price)}</span>
-                              )}
-                            </div>
-                            {item.isPromoFree && (
-                              item.isRedeemedVoucher ? (
-                                <div className="mt-1 p-1 bg-emerald-50 border border-emerald-300 rounded text-[9px] text-emerald-950 flex items-center justify-between gap-1">
-                                  <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong></span>
-                                  <span className="text-emerald-700 font-bold shrink-0">🥤 Disajikan Fisik</span>
-                                </div>
-                              ) : item.isPromoVoucher ? (
-                                <div className="mt-1 p-1 bg-amber-50 border border-amber-300 rounded text-[9px] text-amber-900 flex items-center justify-between gap-1">
-                                  <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong> (Struk)</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => togglePromoVoucherMode(item.id)}
-                                    className="text-emerald-700 font-bold underline shrink-0 hover:text-emerald-900 cursor-pointer"
-                                  >
-                                    Sajikan Fisik?
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="mt-1 flex items-center justify-between text-[9px] text-emerald-800">
-                                  <span>🥤 Disajikan fisik sekarang</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => togglePromoVoucherMode(item.id)}
-                                    className="text-amber-800 font-bold underline shrink-0 hover:text-amber-950 cursor-pointer"
-                                  >
-                                    Ubah Jadi Voucher?
-                                  </button>
-                                </div>
-                              )
-                            )}
-                          </div>
-
-                          {/* Jika Topping atau Promo: Stepper Qty Biasa */}
-                          {item.product.name.includes("Topping") || item.isPromoFree ? (
-                            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => updateQuantity(item.id, -1)}
-                                className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 active:scale-90 transition font-black shadow-2xs cursor-pointer"
-                                title="Kurangi 1"
-                              >
-                                <Minus className="w-4 h-4 stroke-[2.5]" />
-                              </button>
-                              <span className="w-6 text-center font-mono font-black text-xs text-slate-900">
-                                {item.quantity}
-                              </span>
-                              <button
-                                type="button"
-                                disabled={item.isPromoFree}
-                                onClick={() => updateQuantity(item.id, 1)}
-                                className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black shadow-2xs cursor-pointer disabled:opacity-40"
-                                title="Tambah 1"
-                              >
-                                <Plus className="w-4 h-4 stroke-[2.5]" />
-                              </button>
-                            </div>
-                          ) : (
-                            /* Untuk Minuman Teh: Badge Total Qty & Tombol Hapus */
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 font-mono font-black text-xs border border-emerald-200 shadow-2xs">
-                                {item.quantity} cup
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => updateQuantity(item.id, -item.quantity)}
-                                className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                                title="Hapus produk ini dari keranjang"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Opsi B: Multi-Counter Level Gula (Normal / Less / Tawar) */}
-                        {!item.product.name.includes("Topping") && !item.isPromoFree && (
-                          <div className="pt-2 border-t border-slate-100 space-y-1.5">
-                            <div className="flex items-center justify-between text-[11px]">
-                              <span className="text-slate-500 font-bold">Porsi Gula:</span>
-                              <span className="text-[10px] text-slate-400 font-mono font-bold">
-                                {(() => {
-                                  const b = item.sugarBreakdown || {
-                                    normal: item.sugarLevel === "normal" ? item.quantity : 0,
-                                    less: item.sugarLevel === "less" ? item.quantity : 0,
-                                    tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
-                                  };
-                                  const parts: string[] = [];
-                                  if (b.normal > 0) parts.push(`${b.normal} Normal`);
-                                  if (b.less > 0) parts.push(`${b.less} Less`);
-                                  if (b.tawar > 0) parts.push(`${b.tawar} Tawar`);
-                                  return parts.join(", ") || `${item.quantity} Normal`;
-                                })()}
-                              </span>
-                            </div>
-
-                            <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                              {/* Kolom Normal */}
-                              {(() => {
-                                const b = item.sugarBreakdown || {
-                                  normal: item.sugarLevel === "normal" ? item.quantity : 0,
-                                  less: item.sugarLevel === "less" ? item.quantity : 0,
-                                  tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
-                                };
-                                const count = b.normal;
-                                return (
-                                  <div
-                                    className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${
-                                      count > 0
-                                        ? "bg-white border-emerald-300 shadow-2xs"
-                                        : "bg-white/60 border-slate-200 opacity-60"
-                                    }`}
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (item.quantity === 1) setSingleSugarLevel(item.id, "normal");
-                                      }}
-                                      className={`text-[10px] sm:text-[11px] font-black cursor-pointer leading-tight ${
-                                        count > 0 ? "text-emerald-800" : "text-slate-500"
-                                      }`}
-                                    >
-                                      Normal
-                                    </button>
-                                    <span className="text-[9px] text-slate-400 font-mono mb-1">100%</span>
-
-                                    <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-slate-100">
-                                      <button
-                                        type="button"
-                                        disabled={count === 0}
-                                        onClick={() => updateSugarBreakdown(item.id, "normal", -1)}
-                                        className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
-                                      >
-                                        <Minus className="w-3 h-3 stroke-[2.5]" />
-                                      </button>
-                                      <span className={`font-mono font-black text-xs ${count > 0 ? "text-emerald-700" : "text-slate-400"}`}>
-                                        {count}
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => updateSugarBreakdown(item.id, "normal", 1)}
-                                        className="w-6 h-6 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
-                                      >
-                                        <Plus className="w-3 h-3 stroke-[2.5]" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-
-                              {/* Kolom Less */}
-                              {(() => {
-                                const b = item.sugarBreakdown || {
-                                  normal: item.sugarLevel === "normal" ? item.quantity : 0,
-                                  less: item.sugarLevel === "less" ? item.quantity : 0,
-                                  tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
-                                };
-                                const count = b.less;
-                                return (
-                                  <div
-                                    className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${
-                                      count > 0
-                                        ? "bg-white border-amber-300 shadow-2xs"
-                                        : "bg-white/60 border-slate-200 opacity-60"
-                                    }`}
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (item.quantity === 1) setSingleSugarLevel(item.id, "less");
-                                      }}
-                                      className={`text-[10px] sm:text-[11px] font-black cursor-pointer leading-tight ${
-                                        count > 0 ? "text-amber-800" : "text-slate-500"
-                                      }`}
-                                    >
-                                      Less
-                                    </button>
-                                    <span className="text-[9px] text-slate-400 font-mono mb-1">50%</span>
-
-                                    <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-slate-100">
-                                      <button
-                                        type="button"
-                                        disabled={count === 0}
-                                        onClick={() => updateSugarBreakdown(item.id, "less", -1)}
-                                        className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
-                                      >
-                                        <Minus className="w-3 h-3 stroke-[2.5]" />
-                                      </button>
-                                      <span className={`font-mono font-black text-xs ${count > 0 ? "text-amber-700" : "text-slate-400"}`}>
-                                        {count}
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => updateSugarBreakdown(item.id, "less", 1)}
-                                        className="w-6 h-6 rounded flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
-                                      >
-                                        <Plus className="w-3 h-3 stroke-[2.5]" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-
-                              {/* Kolom Tawar */}
-                              {(() => {
-                                const b = item.sugarBreakdown || {
-                                  normal: item.sugarLevel === "normal" ? item.quantity : 0,
-                                  less: item.sugarLevel === "less" ? item.quantity : 0,
-                                  tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
-                                };
-                                const count = b.tawar;
-                                return (
-                                  <div
-                                    className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${
-                                      count > 0
-                                        ? "bg-white border-slate-400 shadow-2xs"
-                                        : "bg-white/60 border-slate-200 opacity-60"
-                                    }`}
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (item.quantity === 1) setSingleSugarLevel(item.id, "tawar");
-                                      }}
-                                      className={`text-[10px] sm:text-[11px] font-black cursor-pointer leading-tight ${
-                                        count > 0 ? "text-slate-900" : "text-slate-500"
-                                      }`}
-                                    >
-                                      Tawar
-                                    </button>
-                                    <span className="text-[9px] text-slate-400 font-mono mb-1">0%</span>
-
-                                    <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-slate-100">
-                                      <button
-                                        type="button"
-                                        disabled={count === 0}
-                                        onClick={() => updateSugarBreakdown(item.id, "tawar", -1)}
-                                        className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
-                                      >
-                                        <Minus className="w-3 h-3 stroke-[2.5]" />
-                                      </button>
-                                      <span className={`font-mono font-black text-xs ${count > 0 ? "text-slate-900" : "text-slate-400"}`}>
-                                        {count}
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => updateSugarBreakdown(item.id, "tawar", 1)}
-                                        className="w-6 h-6 rounded flex items-center justify-center bg-slate-800 hover:bg-slate-900 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
-                                      >
-                                        <Plus className="w-3 h-3 stroke-[2.5]" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Kolom Catatan Permintaan Khusus */}
-                        {!item.isPromoFree && (
-                          <div className="pt-2 border-t border-slate-100">
-                            <input
-                              type="text"
-                              placeholder="Catatan khusus (cth: es sedikit, pisah cup)..."
-                              value={item.notes || ""}
-                              onChange={(e) => updateItemNotes(item.id, e.target.value)}
-                              className="w-full px-2.5 py-1.5 text-[11px] bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-400 font-medium"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Banner Promo Otomatis & Input Voucher/Diskon (Selalu Tampil, Termasuk Saat Keranjang Kosong) */}
-                <div className="space-y-2 pt-2 border-t border-slate-200">
-                  {isPromoApplied ? (
-                    <div className="p-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-900 font-bold shadow-2xs">
-                      <span className="flex items-center gap-1.5">
-                        <span>🎉</span>
-                        <div>
-                          <span>
-                            Promo Otomatis: Gratis {cart.find((i) => i.isPromoFree && !i.isRedeemedVoucher)?.quantity || 1} Teh Ori Jumbo!
-                          </span>
-                          {promoCampaign?.end_at && (
-                            <span className="text-[9px] text-emerald-700 font-semibold block">
-                              ⏳ Batas Promo: {new Date(promoCampaign.end_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                          )}
-                        </div>
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black shrink-0">
-                        Otomatis
-                      </span>
-                    </div>
-                  ) : cart.length > 0 ? (
-                    promoCampaign.status === "expired" ? (
-                      <div className="p-2 bg-slate-100 border border-slate-200 rounded-xl text-[10px] text-slate-500 flex items-center justify-between">
-                        <span className="flex items-center gap-1.5">
-                          <span>⏳</span>
-                          <span>Promo Beli 2 Gratis 1 Telah Berakhir</span>
-                        </span>
-                        <span className="text-[9px] font-bold text-slate-400">Periode Selesai</span>
-                      </div>
-                    ) : promoCampaign.status === "scheduled" ? (
-                      <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-900 flex items-center justify-between">
-                        <span className="flex items-center gap-1.5">
-                          <span>⏳</span>
-                          <span>Promo Beli 2 Gratis 1 Segera Dimulai</span>
-                        </span>
-                        <span className="text-[9px] font-bold text-amber-700">Terjadwal</span>
-                      </div>
-                    ) : promoCampaign.status === "inactive" ? (
-                      <div className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] text-slate-400 flex items-center justify-between">
-                        <span>Promo Otomatis Beli 2 Gratis 1: Nonaktif</span>
-                        <span className="text-[9px] font-bold text-slate-400">Admin OFF</span>
-                      </div>
-                    ) : flavoredTeaCount === 1 ? (
-                      <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 font-medium flex items-center gap-1.5">
-                        <span>💡</span>
-                        <span>
-                          Tambah <strong>1 Teh Varian Rasa</strong> lagi untuk dapat bonus <strong>1 Teh Ori Jumbo GRATIS</strong> otomatis!
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="p-2 bg-slate-100 border border-slate-200 rounded-xl text-[10px] text-slate-500 flex items-center justify-between">
-                        <div>
-                          <span>Promo: Beli 2 Varian Rasa Gratis 1 Teh Ori Jumbo</span>
-                          {promoCampaign?.end_at && (
-                            <span className="text-[9px] text-slate-400 block font-normal">
-                              Batas: {new Date(promoCampaign.end_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                          )}
-                        </div>
-                        <span className="font-bold text-slate-700">({flavoredTeaCount}/2 Cup)</span>
-                      </div>
-                    )
-                  ) : (
-                    <div className="p-2 bg-emerald-50/80 border border-emerald-200/90 rounded-xl flex items-center justify-between text-xs text-emerald-950 font-bold">
-                      <span className="flex items-center gap-1.5">
-                        <span className="text-sm">🎟️</span>
-                        <span>Punya Voucher Promo Struk / Diskon?</span>
-                      </span>
-                      <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-black shrink-0">
-                        Klaim Gratis
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="flex gap-1.5">
-                    <input
-                      type="text"
-                      placeholder="Kode Diskon / Voucher (cth: VCR-...)"
-                      value={promoCodeInput}
-                      onChange={(e) => setPromoCodeInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleApplyPromoCode();
-                        }
-                      }}
-                      className="flex-1 px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg uppercase font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleApplyPromoCode()}
-                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
-                    >
-                      Terapkan
-                    </button>
-                  </div>
-                  {promoMessage && (
-                    <p className={`text-[11px] font-bold ${promoMessage.type === "success" ? "text-emerald-700" : "text-rose-600"}`}>
-                      {promoMessage.text}
-                    </p>
-                  )}
-                </div>
-
-                {/* Summary & Action Buttons */}
-                <div className="pt-2.5 border-t border-slate-200 space-y-2.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-600 font-semibold">
-                      Total ({totalCupsCount} cup):
-                    </span>
-                    <span className="text-lg font-black text-emerald-800 font-mono">
-                      {formatRupiah(totalAmount)}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      disabled={cart.length === 0}
-                      onClick={() => {
-                        setPaymentMethod("Cash");
-                        setCashReceivedInput(String(totalAmount));
-                        setIsCheckoutModalOpen(true);
-                      }}
-                      className="py-3 px-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
-                    >
-                      <Banknote className="w-4 h-4 text-emerald-400" />
-                      Bayar Tunai
-                    </button>
-
-                    <button
-                      disabled={cart.length === 0}
-                      onClick={() => {
-                        setPaymentMethod("QRIS");
-                        setIsCheckoutModalOpen(true);
-                      }}
-                      className="py-3 px-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
-                    >
-                      <QrCode className="w-4 h-4" />
-                      Bayar QRIS
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Toast Peringatan Stok */}
           {stockAlertMessage && (
@@ -3611,321 +3061,290 @@ export default function PosTerminalPage() {
               {cart.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center py-12 text-center text-slate-400">
                   <ShoppingBag className="w-10 h-10 stroke-1 text-slate-300 mb-2" />
-                  <p className="text-sm font-medium">Keranjang masih kosong</p>
-                  <p className="text-xs text-slate-400 mt-1 max-w-[200px]">
-                    Sentuh menu di samping atau masukkan kode voucher promo di bawah
+                  <p className="text-xs font-bold text-slate-600">Keranjang masih kosong</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Sentuh menu minuman untuk menambahkan cup
                   </p>
                 </div>
               ) : (
-                cart.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 shadow-2xs space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between gap-1.5">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <h4 className="font-bold text-xs text-slate-900 leading-tight">
-                            {formatProductName(item.product.name)}
-                          </h4>
-                          {item.isRedeemedVoucher ? (
-                            <span className="px-1.5 py-0.2 rounded text-[8px] font-black bg-emerald-700 text-white shrink-0">
-                              🎟️ KLAIM VOUCHER
-                            </span>
-                          ) : item.isPromoVoucher ? (
-                            <span className="px-1.5 py-0.2 rounded text-[8px] font-black bg-amber-600 text-white shrink-0">
-                              🎟️ VOUCHER STRUK
-                            </span>
-                          ) : item.isPromoFree ? (
-                            <span className="px-1.5 py-0.2 rounded text-[8px] font-black bg-amber-500 text-white shrink-0">
-                              PROMO GRATIS
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="text-xs font-mono mt-0.5">
-                          {item.isPromoFree ? (
-                            <>
-                              <span className="line-through text-slate-400 mr-1 text-[11px]">{formatRupiah(item.product.price)}</span>
-                              <span className="text-emerald-700 font-black">
-                                {item.isPromoVoucher ? "Rp 0 (VOUCHER)" : item.isRedeemedVoucher ? "Rp 0 (KLAIM)" : "Rp 0 (GRATIS)"}
+                cart.map((item) => {
+                  const b = item.sugarBreakdown || {
+                    normal: item.sugarLevel === "normal" ? item.quantity : 0,
+                    less: item.sugarLevel === "less" ? item.quantity : 0,
+                    tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+                  };
+                  const isMixed = [b.normal, b.less, b.tawar].filter((v) => v > 0).length > 1;
+                  const showStepper = isMixed || splitSugarItemIds.has(item.id);
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-2.5 bg-slate-50/90 rounded-xl border border-slate-200/90 space-y-1.5 transition-all"
+                    >
+                      {/* Baris 1: Nama Produk, Tag Promo & Stepper Qty */}
+                      <div className="flex items-center justify-between gap-1.5">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <h4 className="font-extrabold text-xs text-slate-900 truncate">
+                              {formatProductName(item.product.name)}
+                            </h4>
+                            {item.isRedeemedVoucher ? (
+                              <span className="px-1.5 py-0.2 rounded text-[8px] font-black bg-emerald-700 text-white shrink-0">
+                                🎟️ KLAIM VOUCHER
                               </span>
-                            </>
-                          ) : (
-                            <span className="text-emerald-700 font-semibold">{formatRupiah(item.product.price)}</span>
-                          )}
-                        </div>
-                        {item.isPromoFree && (
-                          item.isRedeemedVoucher ? (
-                            <div className="mt-1 p-1 bg-emerald-50 border border-emerald-300 rounded text-[9px] text-emerald-950 flex items-center justify-between gap-1">
-                              <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong></span>
-                              <span className="text-emerald-700 font-bold shrink-0">🥤 Disajikan Fisik</span>
-                            </div>
-                          ) : item.isPromoVoucher ? (
-                            <div className="mt-1 p-1 bg-amber-50 border border-amber-300 rounded text-[9px] text-amber-900 flex items-center justify-between gap-1">
-                              <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong> (Struk)</span>
-                              <button
-                                type="button"
-                                onClick={() => togglePromoVoucherMode(item.id)}
-                                className="text-emerald-700 font-bold underline shrink-0 hover:text-emerald-900 cursor-pointer"
-                              >
-                                Sajikan Fisik?
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="mt-1 flex items-center justify-between text-[9px] text-emerald-800">
-                              <span>🥤 Disajikan fisik sekarang</span>
-                              <button
-                                type="button"
-                                onClick={() => togglePromoVoucherMode(item.id)}
-                                className="text-amber-800 font-bold underline shrink-0 hover:text-amber-950 cursor-pointer"
-                              >
-                                Ubah Jadi Voucher?
-                              </button>
-                            </div>
-                          )
-                        )}
-                      </div>
+                            ) : item.isPromoVoucher ? (
+                              <span className="px-1.5 py-0.2 rounded text-[8px] font-black bg-amber-600 text-white shrink-0">
+                                🎟️ VOUCHER STRUK
+                              </span>
+                            ) : item.isPromoFree ? (
+                              <span className="px-1.5 py-0.2 rounded text-[8px] font-black bg-amber-500 text-white shrink-0">
+                                PROMO GRATIS
+                              </span>
+                            ) : null}
+                          </div>
 
-                      {item.product.name.includes("Topping") || item.isPromoFree ? (
-                        /* Counter Biasa untuk Topping & Promo Gratis */
-                        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.id, -1)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 active:scale-90 transition font-black shadow-2xs cursor-pointer"
-                            title="Kurangi 1 cup"
-                          >
-                            <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
-                          </button>
-                          <span className="w-6 text-center font-mono font-black text-xs text-slate-900">
-                            {item.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            disabled={item.isPromoFree}
-                            onClick={() => updateQuantity(item.id, 1)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                            title="Tambah 1 cup"
-                          >
-                            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                          </button>
-                        </div>
-                      ) : (
-                        /* Untuk Minuman Teh: Badge Total Qty & Tombol Hapus */
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 font-mono font-black text-xs border border-emerald-200 shadow-2xs">
-                            {item.quantity} cup
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.id, -item.quantity)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                            title="Hapus produk ini dari keranjang"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Opsi B: Multi-Counter Level Gula (Normal / Less / Tawar) */}
-                    {!item.product.name.includes("Topping") && !item.isPromoFree && (
-                      <div className="pt-1.5 border-t border-slate-200/80 space-y-1">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="text-slate-500 font-bold">Porsi Gula:</span>
-                          <span className="text-[10px] text-slate-400 font-mono font-bold truncate ml-1">
-                            {(() => {
-                              const b = item.sugarBreakdown || {
-                                normal: item.sugarLevel === "normal" ? item.quantity : 0,
-                                less: item.sugarLevel === "less" ? item.quantity : 0,
-                                tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
-                              };
-                              const parts: string[] = [];
-                              if (b.normal > 0) parts.push(`${b.normal} Normal`);
-                              if (b.less > 0) parts.push(`${b.less} Less`);
-                              if (b.tawar > 0) parts.push(`${b.tawar} Tawar`);
-                              return parts.join(", ") || `${item.quantity} Normal`;
-                            })()}
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                          {/* Kolom Normal */}
-                          {(() => {
-                            const b = item.sugarBreakdown || {
-                              normal: item.sugarLevel === "normal" ? item.quantity : 0,
-                              less: item.sugarLevel === "less" ? item.quantity : 0,
-                              tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
-                            };
-                            const count = b.normal;
-                            return (
-                              <div
-                                className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${
-                                  count > 0
-                                    ? "bg-white border-emerald-300 shadow-2xs"
-                                    : "bg-white/60 border-slate-200 opacity-60"
-                                }`}
-                              >
+                          <div className="text-[11px] font-mono mt-0.5">
+                            {item.isPromoFree ? (
+                              <>
+                                <span className="line-through text-slate-400 mr-1 text-[11px]">{formatRupiah(item.product.price)}</span>
+                                <span className="text-emerald-700 font-black">
+                                  {item.isPromoVoucher ? "Rp 0 (VOUCHER)" : item.isRedeemedVoucher ? "Rp 0 (KLAIM)" : "Rp 0 (GRATIS)"}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-emerald-700 font-semibold">{formatRupiah(item.product.price)}</span>
+                            )}
+                          </div>
+                          {item.isPromoFree && (
+                            item.isRedeemedVoucher ? (
+                              <div className="mt-1 p-1 bg-emerald-50 border border-emerald-300 rounded text-[9px] text-emerald-950 flex items-center justify-between gap-1">
+                                <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong></span>
+                                <span className="text-emerald-700 font-bold shrink-0">🥤 Disajikan Fisik</span>
+                              </div>
+                            ) : item.isPromoVoucher ? (
+                              <div className="mt-1 p-1 bg-amber-50 border border-amber-300 rounded text-[9px] text-amber-900 flex items-center justify-between gap-1">
+                                <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong> (Struk)</span>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    if (item.quantity === 1) setSingleSugarLevel(item.id, "normal");
-                                  }}
-                                  className={`text-[10px] sm:text-[11px] font-black cursor-pointer leading-tight ${
-                                    count > 0 ? "text-emerald-800" : "text-slate-500"
-                                  }`}
+                                  onClick={() => togglePromoVoucherMode(item.id)}
+                                  className="text-emerald-700 font-bold underline shrink-0 hover:text-emerald-900 cursor-pointer"
                                 >
-                                  Normal
+                                  Sajikan Fisik?
                                 </button>
-                                <span className="text-[9px] text-slate-400 font-mono mb-0.5">100%</span>
+                              </div>
+                            ) : (
+                              <div className="mt-1 flex items-center justify-between text-[9px] text-emerald-800">
+                                <span>🥤 Disajikan fisik sekarang</span>
+                                <button
+                                  type="button"
+                                  onClick={() => togglePromoVoucherMode(item.id)}
+                                  className="text-amber-800 font-bold underline shrink-0 hover:text-amber-950 cursor-pointer"
+                                >
+                                  Ubah Jadi Voucher?
+                                </button>
+                              </div>
+                            )
+                          )}
+                        </div>
 
+                        {/* Stepper Jumlah Cup & Tombol Hapus */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center gap-0.5 bg-white p-0.5 rounded-lg border border-slate-200">
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, -1)}
+                              className="w-5 h-5 rounded flex items-center justify-center bg-slate-50 hover:bg-rose-50 text-slate-700 hover:text-rose-600 active:scale-90 transition font-black cursor-pointer"
+                              title="Kurangi 1 cup"
+                            >
+                              <Minus className="w-2.5 h-2.5 stroke-[2.5]" />
+                            </button>
+                            <span className="w-4 text-center font-mono font-black text-xs text-slate-900">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={item.isPromoFree}
+                              onClick={() => updateQuantity(item.id, 1)}
+                              className="w-5 h-5 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs disabled:opacity-40"
+                              title="Tambah 1 cup"
+                            >
+                              <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setCart((prev) => prev.filter((i) => i.id !== item.id))}
+                            className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                            title="Hapus produk ini dari keranjang"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Porsi Gula Segmented Toggle (Ultra Ringkas 1 Baris) */}
+                      {!item.product.name.includes("Topping") && !item.isPromoFree && (
+                        <div className="pt-1.5 border-t border-slate-100">
+                          <div className="flex items-center justify-between text-[10px] mb-1">
+                            <span className="text-slate-500 font-bold">Porsi Gula:</span>
+                            {showStepper ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSplitSugarItemIds((prev) => {
+                                    const next = new Set(prev);
+                                    next.delete(item.id);
+                                    return next;
+                                  });
+                                  setSingleSugarLevel(item.id, item.sugarLevel || "normal");
+                                }}
+                                className="text-[9.5px] text-slate-500 hover:text-slate-800 font-bold underline cursor-pointer"
+                              >
+                                Samakan Semua
+                              </button>
+                            ) : item.quantity > 1 ? (
+                              <button
+                                type="button"
+                                onClick={() => setSplitSugarItemIds((prev) => new Set(prev).add(item.id))}
+                                className="text-[9.5px] text-emerald-700 hover:text-emerald-900 font-bold underline cursor-pointer"
+                              >
+                                + Bagi Porsi?
+                              </button>
+                            ) : null}
+                          </div>
+
+                          {showStepper ? (
+                            /* Multi-Counter Stepper untuk Porsi Campur */
+                            <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                              {/* Normal */}
+                              <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.normal > 0 ? "bg-white border-emerald-300 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
+                                <span className={`text-[10px] font-black leading-tight ${b.normal > 0 ? "text-emerald-800" : "text-slate-500"}`}>Normal</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">100%</span>
                                 <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
                                   <button
                                     type="button"
-                                    disabled={count === 0}
+                                    disabled={b.normal === 0}
                                     onClick={() => updateSugarBreakdown(item.id, "normal", -1)}
-                                    className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 transition font-black cursor-pointer"
                                   >
-                                    <Minus className="w-3 h-3 stroke-[2.5]" />
+                                    <Minus className="w-2.5 h-2.5 stroke-[2.5]" />
                                   </button>
-                                  <span className={`font-mono font-black text-xs ${count > 0 ? "text-emerald-700" : "text-slate-400"}`}>
-                                    {count}
-                                  </span>
+                                  <span className={`font-mono font-black text-xs ${b.normal > 0 ? "text-emerald-700" : "text-slate-400"}`}>{b.normal}</span>
                                   <button
                                     type="button"
                                     onClick={() => updateSugarBreakdown(item.id, "normal", 1)}
-                                    className="w-6 h-6 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white transition font-black cursor-pointer shadow-2xs"
                                   >
-                                    <Plus className="w-3 h-3 stroke-[2.5]" />
+                                    <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
                                   </button>
                                 </div>
                               </div>
-                            );
-                          })()}
-
-                          {/* Kolom Less */}
-                          {(() => {
-                            const b = item.sugarBreakdown || {
-                              normal: item.sugarLevel === "normal" ? item.quantity : 0,
-                              less: item.sugarLevel === "less" ? item.quantity : 0,
-                              tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
-                            };
-                            const count = b.less;
-                            return (
-                              <div
-                                className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${
-                                  count > 0
-                                    ? "bg-white border-amber-300 shadow-2xs"
-                                    : "bg-white/60 border-slate-200 opacity-60"
-                                }`}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (item.quantity === 1) setSingleSugarLevel(item.id, "less");
-                                  }}
-                                  className={`text-[10px] sm:text-[11px] font-black cursor-pointer leading-tight ${
-                                    count > 0 ? "text-amber-800" : "text-slate-500"
-                                  }`}
-                                >
-                                  Less
-                                </button>
-                                <span className="text-[9px] text-slate-400 font-mono mb-0.5">50%</span>
-
+                              {/* Less */}
+                              <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.less > 0 ? "bg-white border-amber-300 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
+                                <span className={`text-[10px] font-black leading-tight ${b.less > 0 ? "text-amber-800" : "text-slate-500"}`}>Less</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">50%</span>
                                 <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
                                   <button
                                     type="button"
-                                    disabled={count === 0}
+                                    disabled={b.less === 0}
                                     onClick={() => updateSugarBreakdown(item.id, "less", -1)}
-                                    className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 transition font-black cursor-pointer"
                                   >
-                                    <Minus className="w-3 h-3 stroke-[2.5]" />
+                                    <Minus className="w-2.5 h-2.5 stroke-[2.5]" />
                                   </button>
-                                  <span className={`font-mono font-black text-xs ${count > 0 ? "text-amber-700" : "text-slate-400"}`}>
-                                    {count}
-                                  </span>
+                                  <span className={`font-mono font-black text-xs ${b.less > 0 ? "text-amber-700" : "text-slate-400"}`}>{b.less}</span>
                                   <button
                                     type="button"
                                     onClick={() => updateSugarBreakdown(item.id, "less", 1)}
-                                    className="w-6 h-6 rounded flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white transition font-black cursor-pointer shadow-2xs"
                                   >
-                                    <Plus className="w-3 h-3 stroke-[2.5]" />
+                                    <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
                                   </button>
                                 </div>
                               </div>
-                            );
-                          })()}
-
-                          {/* Kolom Tawar */}
-                          {(() => {
-                            const b = item.sugarBreakdown || {
-                              normal: item.sugarLevel === "normal" ? item.quantity : 0,
-                              less: item.sugarLevel === "less" ? item.quantity : 0,
-                              tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
-                            };
-                            const count = b.tawar;
-                            return (
-                              <div
-                                className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${
-                                  count > 0
-                                    ? "bg-white border-slate-400 shadow-2xs"
-                                    : "bg-white/60 border-slate-200 opacity-60"
-                                }`}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (item.quantity === 1) setSingleSugarLevel(item.id, "tawar");
-                                  }}
-                                  className={`text-[10px] sm:text-[11px] font-black cursor-pointer leading-tight ${
-                                    count > 0 ? "text-slate-900" : "text-slate-500"
-                                  }`}
-                                >
-                                  Tawar
-                                </button>
-                                <span className="text-[9px] text-slate-400 font-mono mb-0.5">0%</span>
-
+                              {/* Tawar */}
+                              <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.tawar > 0 ? "bg-white border-slate-400 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
+                                <span className={`text-[10px] font-black leading-tight ${b.tawar > 0 ? "text-slate-900" : "text-slate-500"}`}>Tawar</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">0%</span>
                                 <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
                                   <button
                                     type="button"
-                                    disabled={count === 0}
+                                    disabled={b.tawar === 0}
                                     onClick={() => updateSugarBreakdown(item.id, "tawar", -1)}
-                                    className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 transition font-black cursor-pointer"
                                   >
-                                    <Minus className="w-3 h-3 stroke-[2.5]" />
+                                    <Minus className="w-2.5 h-2.5 stroke-[2.5]" />
                                   </button>
-                                  <span className={`font-mono font-black text-xs ${count > 0 ? "text-slate-900" : "text-slate-400"}`}>
-                                    {count}
-                                  </span>
+                                  <span className={`font-mono font-black text-xs ${b.tawar > 0 ? "text-slate-900" : "text-slate-400"}`}>{b.tawar}</span>
                                   <button
                                     type="button"
                                     onClick={() => updateSugarBreakdown(item.id, "tawar", 1)}
-                                    className="w-6 h-6 rounded flex items-center justify-center bg-slate-800 hover:bg-slate-900 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-slate-700 hover:bg-slate-800 text-white transition font-black cursor-pointer shadow-2xs"
                                   >
-                                    <Plus className="w-3 h-3 stroke-[2.5]" />
+                                    <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
                                   </button>
                                 </div>
                               </div>
-                            );
-                          })()}
+                            </div>
+                          ) : (
+                            /* Segmented 1-Row Toggle Ringkas */
+                            <div className="grid grid-cols-3 gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                              <button
+                                type="button"
+                                onClick={() => setSingleSugarLevel(item.id, "normal")}
+                                className={`py-1 rounded-md text-[10px] sm:text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                                  item.sugarLevel === "normal"
+                                    ? "bg-white text-emerald-800 shadow-2xs border border-emerald-300 font-black"
+                                    : "text-slate-500 hover:text-slate-800"
+                                }`}
+                              >
+                                <span>Normal</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">100%</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSingleSugarLevel(item.id, "less")}
+                                className={`py-1 rounded-md text-[10px] sm:text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                                  item.sugarLevel === "less"
+                                    ? "bg-white text-amber-800 shadow-2xs border border-amber-300 font-black"
+                                    : "text-slate-500 hover:text-slate-800"
+                                }`}
+                              >
+                                <span>Less</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">50%</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSingleSugarLevel(item.id, "tawar")}
+                                className={`py-1 rounded-md text-[10px] sm:text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                                  item.sugarLevel === "tawar"
+                                    ? "bg-white text-slate-900 shadow-2xs border border-slate-400 font-black"
+                                    : "text-slate-500 hover:text-slate-800"
+                                }`}
+                              >
+                                <span>Tawar</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">0%</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Kolom Catatan Permintaan Khusus */}
-                    {!item.isPromoFree && (
-                      <div className="pt-1.5 border-t border-slate-200/80">
-                        <input
-                          type="text"
-                          placeholder="Catatan khusus (cth: es sedikit, pisah cup)..."
-                          value={item.notes || ""}
-                          onChange={(e) => updateItemNotes(item.id, e.target.value)}
-                          className="w-full px-2 py-1 text-[11px] bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-400 font-medium"
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))
+                      {/* Kolom Catatan Permintaan Khusus */}
+                      {!item.isPromoFree && (
+                        <div className="pt-1">
+                          <input
+                            type="text"
+                            placeholder="Catatan khusus (cth: es sedikit, pisah cup)..."
+                            value={item.notes || ""}
+                            onChange={(e) => updateItemNotes(item.id, e.target.value)}
+                            className="w-full px-2 py-0.5 text-[10px] bg-white border border-slate-200 rounded-lg text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               )}
             </div>
 
@@ -4056,7 +3475,7 @@ export default function PosTerminalPage() {
                   disabled={cart.length === 0}
                   onClick={() => {
                     setPaymentMethod("Cash");
-                    setCashReceivedInput(String(totalAmount));
+                    setCashReceivedInput(formatNumberWithDots(totalAmount));
                     setIsCheckoutModalOpen(true);
                   }}
                   className="py-2.5 sm:py-3 px-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow-md hover:shadow-lg disabled:shadow-none transition flex items-center justify-center gap-1.5 text-xs sm:text-sm active:scale-[0.98] cursor-pointer"
@@ -4082,6 +3501,449 @@ export default function PosTerminalPage() {
           </div>
         </div>
       </main>
+
+      {/* Mobile / Tablet (< lg) Sticky Bottom Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl p-2.5 sm:p-3 block lg:hidden animate-in slide-in-from-bottom duration-200">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+          {/* Sisi Kiri: Ringkasan Keranjang & Pemicu Drawer */}
+          <button
+            type="button"
+            onClick={() => setIsMobileCartOpen(!isMobileCartOpen)}
+            className="flex items-center gap-2.5 text-left min-w-0 cursor-pointer active:scale-95 transition"
+          >
+            <div className="relative shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              {totalCupsCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-black flex items-center justify-center shadow">
+                  {totalCupsCount}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1 font-mono font-black text-sm sm:text-base text-slate-900">
+                <span>{formatRupiah(totalAmount)}</span>
+                <ChevronUp
+                  className={`w-4 h-4 text-slate-400 transition-transform ${
+                    isMobileCartOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </div>
+              <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 truncate">
+                {totalCupsCount > 0
+                  ? `${totalCupsCount} cup · Ketuk lihat rincian`
+                  : "Keranjang kosong · Sentuh menu"}
+              </p>
+            </div>
+          </button>
+
+          {/* Sisi Kanan: Tombol Aksi Cepat Bayar Tunai & QRIS */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              disabled={cart.length === 0}
+              onClick={() => {
+                setPaymentMethod("Cash");
+                setCashReceivedInput(formatNumberWithDots(totalAmount));
+                setIsCheckoutModalOpen(true);
+              }}
+              className="px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl text-xs sm:text-sm flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer disabled:cursor-not-allowed transition"
+            >
+              <Banknote className="w-4 h-4 text-emerald-400" />
+              <span>Tunai</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={cart.length === 0}
+              onClick={() => {
+                setPaymentMethod("QRIS");
+                setIsCheckoutModalOpen(true);
+              }}
+              className="px-3 sm:px-4 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl text-xs sm:text-sm flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer disabled:cursor-not-allowed transition"
+            >
+              <QrCode className="w-4 h-4 text-white" />
+              <span>QRIS</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile / Tablet Bottom Sheet Drawer (Hanya Muncul saat Diklik) */}
+      {isMobileCartOpen && (
+        <div className="fixed inset-0 z-50 block lg:hidden">
+          {/* Backdrop */}
+          <div
+            onClick={() => setIsMobileCartOpen(false)}
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity animate-in fade-in"
+          />
+
+          {/* Drawer Container */}
+          <div className="absolute inset-x-0 bottom-0 bg-white rounded-t-3xl shadow-2xl border-t border-slate-200 max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-200">
+            {/* Drawer Header */}
+            <div className="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5 text-emerald-700" />
+                <h3 className="font-extrabold text-sm sm:text-base text-slate-900">
+                  Pesanan Aktif ({currentOutletObj?.code})
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold">
+                  {totalCupsCount} cup
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {cart.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearCart}
+                    className="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer mr-1"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Kosongkan</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsMobileCartOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center cursor-pointer transition"
+                >
+                  <ChevronDown className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Drawer Body (Items List) */}
+            <div className="p-3.5 sm:p-4 overflow-y-auto flex-1 space-y-2.5">
+              {cart.length === 0 ? (
+                <div className="py-8 text-center text-slate-400">
+                  <ShoppingBag className="w-10 h-10 mx-auto stroke-1 text-slate-300 mb-1.5" />
+                  <p className="text-sm font-bold text-slate-600">Keranjang masih kosong</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Sentuh menu minuman atau masukkan voucher di bawah
+                  </p>
+                </div>
+              ) : (
+                cart.map((item) => {
+                  const b = item.sugarBreakdown || {
+                    normal: item.sugarLevel === "normal" ? item.quantity : 0,
+                    less: item.sugarLevel === "less" ? item.quantity : 0,
+                    tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+                  };
+                  const isMixed = [b.normal, b.less, b.tawar].filter((v) => v > 0).length > 1;
+                  const showStepper = isMixed || splitSugarItemIds.has(item.id);
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-3 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-2"
+                    >
+                      {/* Baris 1: Nama Produk & Stepper Qty */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h4 className="font-extrabold text-xs sm:text-sm text-slate-900 truncate">
+                              {formatProductName(item.product.name)}
+                            </h4>
+                            {item.isRedeemedVoucher ? (
+                              <span className="px-1.5 py-0.2 rounded text-[8.5px] font-black bg-emerald-700 text-white shrink-0">
+                                🎟️ KLAIM VOUCHER
+                              </span>
+                            ) : item.isPromoVoucher ? (
+                              <span className="px-1.5 py-0.2 rounded text-[8.5px] font-black bg-amber-600 text-white shrink-0">
+                                🎟️ VOUCHER STRUK
+                              </span>
+                            ) : item.isPromoFree ? (
+                              <span className="px-1.5 py-0.2 rounded text-[8.5px] font-black bg-amber-500 text-white shrink-0">
+                                PROMO GRATIS
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="text-[11px] font-mono mt-0.5">
+                            {item.isPromoFree ? (
+                              <span className="text-emerald-700 font-black">
+                                {item.isPromoVoucher ? "Rp 0 (VOUCHER)" : item.isRedeemedVoucher ? "Rp 0 (KLAIM)" : "Rp 0 (GRATIS)"}
+                              </span>
+                            ) : (
+                              <span className="text-emerald-700 font-semibold">{formatRupiah(item.product.price)}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Stepper Jumlah Cup & Tombol Hapus */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200">
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, -1)}
+                              className="w-6 h-6 rounded flex items-center justify-center bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 active:scale-90 transition font-black cursor-pointer shadow-2xs"
+                            >
+                              <Minus className="w-3 h-3 stroke-[2.5]" />
+                            </button>
+                            <span className="w-5 text-center font-mono font-black text-xs text-slate-900">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={item.isPromoFree}
+                              onClick={() => updateQuantity(item.id, 1)}
+                              className="w-6 h-6 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs disabled:opacity-40"
+                            >
+                              <Plus className="w-3 h-3 stroke-[2.5]" />
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setCart((prev) => prev.filter((i) => i.id !== item.id))}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Baris 2: Pemilih Level Gula */}
+                      {!item.product.name.includes("Topping") && !item.isPromoFree && (
+                        <div className="pt-1.5 border-t border-slate-100">
+                          <div className="flex items-center justify-between text-[10px] mb-1">
+                            <span className="text-slate-500 font-bold">Porsi Gula:</span>
+                            {showStepper ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSplitSugarItemIds((prev) => {
+                                    const next = new Set(prev);
+                                    next.delete(item.id);
+                                    return next;
+                                  });
+                                  setSingleSugarLevel(item.id, item.sugarLevel || "normal");
+                                }}
+                                className="text-[9.5px] text-slate-500 hover:text-slate-800 font-bold underline cursor-pointer"
+                              >
+                                Samakan Semua
+                              </button>
+                            ) : item.quantity > 1 ? (
+                              <button
+                                type="button"
+                                onClick={() => setSplitSugarItemIds((prev) => new Set(prev).add(item.id))}
+                                className="text-[9.5px] text-emerald-700 hover:text-emerald-900 font-bold underline cursor-pointer"
+                              >
+                                + Bagi Porsi?
+                              </button>
+                            ) : null}
+                          </div>
+
+                          {showStepper ? (
+                            /* Multi-Counter Stepper untuk Porsi Campur */
+                            <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                              {/* Normal */}
+                              <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.normal > 0 ? "bg-white border-emerald-300 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
+                                <span className={`text-[10px] font-black leading-tight ${b.normal > 0 ? "text-emerald-800" : "text-slate-500"}`}>Normal</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">100%</span>
+                                <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
+                                  <button
+                                    type="button"
+                                    disabled={b.normal === 0}
+                                    onClick={() => updateSugarBreakdown(item.id, "normal", -1)}
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 transition font-black cursor-pointer"
+                                  >
+                                    <Minus className="w-2.5 h-2.5 stroke-[2.5]" />
+                                  </button>
+                                  <span className={`font-mono font-black text-xs ${b.normal > 0 ? "text-emerald-700" : "text-slate-400"}`}>{b.normal}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateSugarBreakdown(item.id, "normal", 1)}
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white transition font-black cursor-pointer shadow-2xs"
+                                  >
+                                    <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
+                                  </button>
+                                </div>
+                              </div>
+                              {/* Less */}
+                              <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.less > 0 ? "bg-white border-amber-300 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
+                                <span className={`text-[10px] font-black leading-tight ${b.less > 0 ? "text-amber-800" : "text-slate-500"}`}>Less</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">50%</span>
+                                <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
+                                  <button
+                                    type="button"
+                                    disabled={b.less === 0}
+                                    onClick={() => updateSugarBreakdown(item.id, "less", -1)}
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 transition font-black cursor-pointer"
+                                  >
+                                    <Minus className="w-2.5 h-2.5 stroke-[2.5]" />
+                                  </button>
+                                  <span className={`font-mono font-black text-xs ${b.less > 0 ? "text-amber-700" : "text-slate-400"}`}>{b.less}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateSugarBreakdown(item.id, "less", 1)}
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white transition font-black cursor-pointer shadow-2xs"
+                                  >
+                                    <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
+                                  </button>
+                                </div>
+                              </div>
+                              {/* Tawar */}
+                              <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.tawar > 0 ? "bg-white border-slate-400 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
+                                <span className={`text-[10px] font-black leading-tight ${b.tawar > 0 ? "text-slate-900" : "text-slate-500"}`}>Tawar</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">0%</span>
+                                <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
+                                  <button
+                                    type="button"
+                                    disabled={b.tawar === 0}
+                                    onClick={() => updateSugarBreakdown(item.id, "tawar", -1)}
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 transition font-black cursor-pointer"
+                                  >
+                                    <Minus className="w-2.5 h-2.5 stroke-[2.5]" />
+                                  </button>
+                                  <span className={`font-mono font-black text-xs ${b.tawar > 0 ? "text-slate-900" : "text-slate-400"}`}>{b.tawar}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateSugarBreakdown(item.id, "tawar", 1)}
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-slate-700 hover:bg-slate-800 text-white transition font-black cursor-pointer shadow-2xs"
+                                  >
+                                    <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Segmented 1-Row Toggle Ringkas */
+                            <div className="grid grid-cols-3 gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                              <button
+                                type="button"
+                                onClick={() => setSingleSugarLevel(item.id, "normal")}
+                                className={`py-1 rounded-md text-[10px] sm:text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                                  item.sugarLevel === "normal"
+                                    ? "bg-white text-emerald-800 shadow-2xs border border-emerald-300 font-black"
+                                    : "text-slate-500 hover:text-slate-800"
+                                }`}
+                              >
+                                <span>Normal</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">100%</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSingleSugarLevel(item.id, "less")}
+                                className={`py-1 rounded-md text-[10px] sm:text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                                  item.sugarLevel === "less"
+                                    ? "bg-white text-amber-800 shadow-2xs border border-amber-300 font-black"
+                                    : "text-slate-500 hover:text-slate-800"
+                                }`}
+                              >
+                                <span>Less</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">50%</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSingleSugarLevel(item.id, "tawar")}
+                                className={`py-1 rounded-md text-[10px] sm:text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                                  item.sugarLevel === "tawar"
+                                    ? "bg-white text-slate-900 shadow-2xs border border-slate-400 font-black"
+                                    : "text-slate-500 hover:text-slate-800"
+                                }`}
+                              >
+                                <span>Tawar</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">0%</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Baris 3: Catatan Khusus */}
+                      {!item.isPromoFree && (
+                        <div className="pt-1">
+                          <input
+                            type="text"
+                            placeholder="Catatan khusus (cth: es sedikit, pisah cup)..."
+                            value={item.notes || ""}
+                            onChange={(e) => updateItemNotes(item.id, e.target.value)}
+                            className="w-full px-2 py-1 text-[10px] bg-slate-50 border border-slate-200 rounded-lg text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Drawer Footer (Promo + Checkout) */}
+            <div className="p-3.5 sm:p-4 border-t border-slate-100 bg-slate-50/80 shrink-0 space-y-2.5">
+              {/* Promo input row */}
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  placeholder="Kode Diskon / Voucher (cth: VCR-...)"
+                  value={promoCodeInput}
+                  onChange={(e) => setPromoCodeInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleApplyPromoCode();
+                    }
+                  }}
+                  className="flex-1 px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg uppercase font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleApplyPromoCode()}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
+                >
+                  Terapkan
+                </button>
+              </div>
+              {promoMessage && (
+                <p className={`text-[10px] font-bold ${promoMessage.type === "success" ? "text-emerald-700" : "text-rose-600"}`}>
+                  {promoMessage.text}
+                </p>
+              )}
+
+              {/* Total Tagihan */}
+              <div className="flex justify-between items-center pt-1 border-t border-slate-200">
+                <span className="text-xs text-slate-600 font-semibold">
+                  Total ({totalCupsCount} cup):
+                </span>
+                <span className="text-lg font-black text-emerald-800 font-mono">
+                  {formatRupiah(totalAmount)}
+                </span>
+              </div>
+
+              {/* Tombol Bayar */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={cart.length === 0}
+                  onClick={() => {
+                    setIsMobileCartOpen(false);
+                    setPaymentMethod("Cash");
+                    setCashReceivedInput(formatNumberWithDots(totalAmount));
+                    setIsCheckoutModalOpen(true);
+                  }}
+                  className="py-2.5 px-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow-md text-xs sm:text-sm flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+                >
+                  <Banknote className="w-4 h-4 text-emerald-400" />
+                  <span>Bayar Tunai</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={cart.length === 0}
+                  onClick={() => {
+                    setIsMobileCartOpen(false);
+                    setPaymentMethod("QRIS");
+                    setIsCheckoutModalOpen(true);
+                  }}
+                  className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow-md text-xs sm:text-sm flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+                >
+                  <QrCode className="w-4 h-4 text-white" />
+                  <span>Bayar QRIS</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Modal QRIS Checkout */}
       {isCheckoutModalOpen && (
@@ -4422,33 +4284,45 @@ export default function PosTerminalPage() {
                             Uang Diterima dari Pelanggan:
                           </label>
                           <span className="text-[10px] text-slate-400 font-semibold">
-                            Ketik / Pilih Nominal Cepat
+                            Ketik / Numpad / Tombol Cepat
                           </span>
                         </div>
 
-                        {/* Input Nominal Tunai */}
+                        {/* Input Nominal Tunai dengan Titik Ribuan */}
                         <div className="relative">
-                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-sm text-slate-400 font-mono">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-sm text-slate-400 font-mono select-none">
                             Rp
                           </span>
                           <input
-                            type="number"
-                            min={totalAmount}
-                            step="500"
+                            type="text"
+                            inputMode="numeric"
                             value={cashReceivedInput}
-                            onChange={(e) => setCashReceivedInput(e.target.value)}
-                            placeholder={String(totalAmount)}
-                            className="w-full pl-11 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-mono text-base font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/\D/g, "");
+                              setCashReceivedInput(digits ? formatNumberWithDots(digits) : "");
+                            }}
+                            placeholder={formatNumberWithDots(totalAmount)}
+                            className="w-full pl-11 pr-10 py-2.5 bg-white border border-slate-300 rounded-xl font-mono text-lg font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                           />
+                          {cashReceivedInput && (
+                            <button
+                              type="button"
+                              onClick={handleNumpadClear}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                              title="Hapus semua"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
 
-                        {/* Tombol Nominal Cepat: Uang Pas, 10rb, 20rb, 50rb, 100rb */}
-                        <div className="grid grid-cols-5 gap-1 sm:gap-1.5 pt-1">
+                        {/* Tombol Nominal Cepat: Uang Pas, 10.000, 20.000, 50.000, 100.000 */}
+                        <div className="grid grid-cols-5 gap-1 sm:gap-1.5 pt-0.5">
                           <button
                             type="button"
-                            onClick={() => setCashReceivedInput(String(totalAmount))}
-                            className={`py-2 px-0.5 sm:px-1 rounded-xl text-[10px] sm:text-[11px] font-extrabold border transition cursor-pointer active:scale-95 text-center truncate ${
-                              Number(cashReceivedInput) === totalAmount
+                            onClick={() => setCashReceivedInput(formatNumberWithDots(totalAmount))}
+                            className={`py-2 px-1 rounded-xl text-[10px] sm:text-[11px] font-extrabold border transition cursor-pointer active:scale-95 text-center truncate ${
+                              getCashReceivedNum(cashReceivedInput) === totalAmount
                                 ? "bg-emerald-600 border-emerald-700 text-white shadow-xs"
                                 : "bg-white border-slate-200 text-emerald-800 hover:bg-emerald-50"
                             }`}
@@ -4457,32 +4331,70 @@ export default function PosTerminalPage() {
                           </button>
                           {[10000, 20000, 50000, 100000].map((amt) => {
                             const isBelow = amt < totalAmount;
-                            const isSelected = Number(cashReceivedInput) === amt;
+                            const isSelected = getCashReceivedNum(cashReceivedInput) === amt;
                             return (
                               <button
                                 key={amt}
                                 type="button"
                                 disabled={isBelow}
-                                onClick={() => setCashReceivedInput(String(amt))}
+                                onClick={() => setCashReceivedInput(formatNumberWithDots(amt))}
                                 className={`py-2 px-0.5 sm:px-1 rounded-xl text-[10px] sm:text-[11px] font-extrabold border transition text-center ${
                                   isBelow
-                                    ? "bg-slate-100 border-slate-200 text-slate-400 opacity-50 cursor-not-allowed"
+                                    ? "bg-slate-100 border-slate-200 text-slate-300 opacity-50 cursor-not-allowed"
                                     : isSelected
-                                    ? "bg-emerald-600 border-emerald-700 text-white shadow-xs"
+                                    ? "bg-emerald-600 border-emerald-700 text-white shadow-xs cursor-pointer"
                                     : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer active:scale-95"
                                 }`}
                               >
-                                {amt === 100000 ? "100rb" : `${amt / 1000}rb`}
+                                {amt.toLocaleString("id-ID")}
                               </button>
                             );
                           })}
                         </div>
 
+                        {/* Touch Keypad Numerik POS */}
+                        <div className="pt-1.5 border-t border-slate-200">
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => (
+                              <button
+                                key={digit}
+                                type="button"
+                                onClick={() => handleNumpadDigit(String(digit))}
+                                className="py-2.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-base font-black text-slate-800 shadow-2xs active:scale-95 transition cursor-pointer select-none"
+                              >
+                                {digit}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => handleNumpadDigit("000")}
+                              className="py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs font-black text-slate-700 shadow-2xs active:scale-95 transition cursor-pointer select-none"
+                            >
+                              000
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleNumpadDigit("0")}
+                              className="py-2.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-base font-black text-slate-800 shadow-2xs active:scale-95 transition cursor-pointer select-none"
+                            >
+                              0
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleNumpadBackspace}
+                              className="py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-black shadow-2xs active:scale-95 transition flex items-center justify-center cursor-pointer select-none"
+                              title="Hapus satu digit"
+                            >
+                              <Delete className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+
                         {/* Baris Hasil Hitung Kembalian */}
                         {(() => {
-                          const val = Number(cashReceivedInput) || 0;
+                          const val = getCashReceivedNum(cashReceivedInput);
                           const change = val - totalAmount;
-                          const isShort = val > 0 && change < 0;
+                          const isShort = val < totalAmount;
 
                           return (
                             <div
@@ -4515,7 +4427,7 @@ export default function PosTerminalPage() {
                                     : "text-slate-600"
                                 }`}
                               >
-                                {formatRupiah(Math.max(0, change))}
+                                {isShort ? formatRupiah(Math.abs(change)) : formatRupiah(change)}
                               </span>
                             </div>
                           );
@@ -4525,27 +4437,52 @@ export default function PosTerminalPage() {
                   )}
                 </div>
 
-                <button
-                  onClick={handleExecuteCheckout}
-                  disabled={isProcessing || (paymentMethod === "Cash" && Number(cashReceivedInput) > 0 && Number(cashReceivedInput) < totalAmount)}
-                  className="w-full py-3.5 px-6 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 text-white font-extrabold text-sm rounded-xl shadow-lg hover:shadow-xl disabled:shadow-none transition flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
-                >
-                  {isProcessing ? (
-                    <span className="inline-flex items-center gap-2">
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      Memproses Transaksi Kedai...
-                    </span>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-5 h-5" />
-                      {paymentMethod === "QRIS"
-                        ? "Simulasi Pelanggan Sukses Scan QRIS"
-                        : Number(cashReceivedInput) > 0 && Number(cashReceivedInput) < totalAmount
-                        ? "Nominal Uang Kurang"
-                        : "Konfirmasi Uang Tunai Diterima"}
-                    </>
-                  )}
-                </button>
+                {/* Tombol Konfirmasi Bayar (Nonaktif jika Uang Kurang) */}
+                {(() => {
+                  const rawCash = getCashReceivedNum(cashReceivedInput);
+                  const isCashInvalid = paymentMethod === "Cash" && rawCash < totalAmount;
+                  const isDisabled = isProcessing || isCashInvalid;
+
+                  return (
+                    <button
+                      type="button"
+                      onClick={handleExecuteCheckout}
+                      disabled={isDisabled}
+                      className={`w-full py-3.5 px-6 font-extrabold text-sm rounded-xl shadow-lg transition flex items-center justify-center gap-2 ${
+                        isDisabled
+                          ? "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300 shadow-none"
+                          : "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer active:scale-[0.99]"
+                      }`}
+                    >
+                      {isProcessing ? (
+                        <span className="inline-flex items-center gap-2">
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Memproses Transaksi Kedai...
+                        </span>
+                      ) : paymentMethod === "QRIS" ? (
+                        <>
+                          <CheckCircle2 className="w-5 h-5" />
+                          <span>Simulasi Pelanggan Sukses Scan QRIS</span>
+                        </>
+                      ) : rawCash === 0 ? (
+                        <>
+                          <AlertCircle className="w-4 h-4 text-amber-500" />
+                          <span>Masukkan Nominal Uang Tunai</span>
+                        </>
+                      ) : rawCash < totalAmount ? (
+                        <>
+                          <AlertCircle className="w-4 h-4 text-rose-500" />
+                          <span>Uang Kurang ({formatRupiah(totalAmount - rawCash)})</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-5 h-5" />
+                          <span>Konfirmasi Uang Tunai Diterima ({formatRupiah(rawCash)})</span>
+                        </>
+                      )}
+                    </button>
+                  );
+                })()}
               </div>
             )}
           </div>
