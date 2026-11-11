@@ -2962,12 +2962,12 @@ export default function PosTerminalPage() {
                           />
                         </div>
 
-                        {/* Tombol Nominal Cepat: Uang Pas, 10rb, 20rb, 50rb */}
-                        <div className="grid grid-cols-4 gap-1.5 pt-1">
+                        {/* Tombol Nominal Cepat: Uang Pas, 10rb, 20rb, 50rb, 100rb */}
+                        <div className="grid grid-cols-5 gap-1 sm:gap-1.5 pt-1">
                           <button
                             type="button"
                             onClick={() => setCashReceivedInput(String(totalAmount))}
-                            className={`py-2 px-1 rounded-xl text-[11px] font-extrabold border transition cursor-pointer active:scale-95 text-center ${
+                            className={`py-2 px-0.5 sm:px-1 rounded-xl text-[10px] sm:text-[11px] font-extrabold border transition cursor-pointer active:scale-95 text-center truncate ${
                               Number(cashReceivedInput) === totalAmount
                                 ? "bg-emerald-600 border-emerald-700 text-white shadow-xs"
                                 : "bg-white border-slate-200 text-emerald-800 hover:bg-emerald-50"
@@ -2975,7 +2975,7 @@ export default function PosTerminalPage() {
                           >
                             Uang Pas
                           </button>
-                          {[10000, 20000, 50000].map((amt) => {
+                          {[10000, 20000, 50000, 100000].map((amt) => {
                             const isBelow = amt < totalAmount;
                             const isSelected = Number(cashReceivedInput) === amt;
                             return (
@@ -2984,7 +2984,7 @@ export default function PosTerminalPage() {
                                 type="button"
                                 disabled={isBelow}
                                 onClick={() => setCashReceivedInput(String(amt))}
-                                className={`py-2 px-1 rounded-xl text-[11px] font-extrabold border transition text-center ${
+                                className={`py-2 px-0.5 sm:px-1 rounded-xl text-[10px] sm:text-[11px] font-extrabold border transition text-center ${
                                   isBelow
                                     ? "bg-slate-100 border-slate-200 text-slate-400 opacity-50 cursor-not-allowed"
                                     : isSelected
@@ -2992,7 +2992,7 @@ export default function PosTerminalPage() {
                                     : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer active:scale-95"
                                 }`}
                               >
-                                {amt === 10000 ? "10rb" : amt === 20000 ? "20rb" : "50rb"}
+                                {amt === 100000 ? "100rb" : `${amt / 1000}rb`}
                               </button>
                             );
                           })}
