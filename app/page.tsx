@@ -894,28 +894,6 @@ export default function PosTerminalPage() {
     );
   };
 
-  const toggleQuickNote = (cartId: string, tag: string) => {
-    setCart((prev) =>
-      prev.map((item) => {
-        if (item.id !== cartId) return item;
-        const currentNotes = (item.notes || "").trim();
-        if (!currentNotes) {
-          return { ...item, notes: tag };
-        }
-        if (currentNotes.includes(tag)) {
-          const updated = currentNotes
-            .replace(tag, "")
-            .replace(/,\s*,/g, ",")
-            .replace(/^,\s*|,\s*$/g, "")
-            .trim();
-          return { ...item, notes: updated };
-        } else {
-          return { ...item, notes: `${currentNotes}, ${tag}` };
-        }
-      })
-    );
-  };
-
   const updateQuantity = (cartId: string, delta: number) => {
     if (delta > 0) {
       const targetCartItem = cart.find((i) => i.id === cartId);
@@ -2020,40 +1998,13 @@ export default function PosTerminalPage() {
 
                         {/* Kolom Catatan Permintaan Khusus */}
                         {!item.isPromoFree && (
-                          <div className="pt-2 border-t border-slate-100 space-y-1.5">
-                            <div className="flex items-center gap-1 flex-wrap">
-                              {[
-                                { label: "Es Sedikit", tag: "Es Sedikit" },
-                                { label: "Tanpa Es", tag: "Tanpa Es" },
-                                { label: "Es Banyak", tag: "Es Banyak" },
-                                { label: "Pisah Es", tag: "Pisah Es" },
-                                ...(item.product.name.includes("Topping")
-                                  ? []
-                                  : [{ label: "Tanpa Topping", tag: "Tanpa Topping" }]),
-                              ].map((chip) => {
-                                const isActive = item.notes?.includes(chip.tag);
-                                return (
-                                  <button
-                                    key={chip.tag}
-                                    type="button"
-                                    onClick={() => toggleQuickNote(item.id, chip.tag)}
-                                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition cursor-pointer active:scale-95 ${
-                                      isActive
-                                        ? "bg-emerald-600 border-emerald-700 text-white shadow-2xs"
-                                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                    }`}
-                                  >
-                                    {chip.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
+                          <div className="pt-2 border-t border-slate-100">
                             <input
                               type="text"
-                              placeholder="Catatan khusus (es sedikit, tanpa topping, dll)..."
+                              placeholder="Catatan khusus (cth: es sedikit, pisah cup)..."
                               value={item.notes || ""}
                               onChange={(e) => updateItemNotes(item.id, e.target.value)}
-                              className="w-full px-2.5 py-1 text-[11px] bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-400 font-medium"
+                              className="w-full px-2.5 py-1.5 text-[11px] bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-400 font-medium"
                             />
                           </div>
                         )}
@@ -2630,40 +2581,13 @@ export default function PosTerminalPage() {
 
                       {/* Kolom Catatan Permintaan Khusus */}
                       {!item.isPromoFree && (
-                        <div className="pt-2 border-t border-slate-200 space-y-1.5">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {[
-                              { label: "Es Sedikit", tag: "Es Sedikit" },
-                              { label: "Tanpa Es", tag: "Tanpa Es" },
-                              { label: "Es Banyak", tag: "Es Banyak" },
-                              { label: "Pisah Es", tag: "Pisah Es" },
-                              ...(item.product.name.includes("Topping")
-                                ? []
-                                : [{ label: "Tanpa Topping", tag: "Tanpa Topping" }]),
-                            ].map((chip) => {
-                              const isActive = item.notes?.includes(chip.tag);
-                              return (
-                                <button
-                                  key={chip.tag}
-                                  type="button"
-                                  onClick={() => toggleQuickNote(item.id, chip.tag)}
-                                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition cursor-pointer active:scale-95 ${
-                                    isActive
-                                      ? "bg-emerald-600 border-emerald-700 text-white shadow-2xs"
-                                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                  }`}
-                                >
-                                  {chip.label}
-                                </button>
-                              );
-                            })}
-                          </div>
+                        <div className="pt-2 border-t border-slate-200">
                           <input
                             type="text"
-                            placeholder="Catatan lain (cth: es sedikit, pisah cup)..."
+                            placeholder="Catatan khusus (cth: es sedikit, pisah cup)..."
                             value={item.notes || ""}
                             onChange={(e) => updateItemNotes(item.id, e.target.value)}
-                            className="w-full px-2.5 py-1 text-[11px] bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-400 font-medium"
+                            className="w-full px-2.5 py-1.5 text-[11px] bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-400 font-medium"
                           />
                         </div>
                       )}
