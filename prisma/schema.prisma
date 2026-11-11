@@ -24,6 +24,7 @@ model Outlet {
   outletProducts OutletProduct[]
   expenses       Expense[]
   sugarRefillLogs SugarRefillLog[]
+  promoVouchers   PromoVoucher[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -179,4 +180,20 @@ model SugarRefillLog {
   outlet       Outlet   @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
 
   @@map("sugar_refill_logs")
+}
+
+model PromoVoucher {
+  id             String    @id @default(cuid())
+  code           String    @unique // e.g. "VCR-POC-839201"
+  outlet_id      String
+  product_name   String    @default("Jasmine Poci Iced Tea (Jumbo)")
+  status         String    @default("active") // "active" | "redeemed" | "expired"
+  created_at     DateTime  @default(now())
+  expires_at     DateTime
+  redeemed_at    DateTime?
+  redeemed_tx_id String?
+  notes          String?
+  outlet         Outlet    @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+
+  @@map("promo_vouchers")
 }

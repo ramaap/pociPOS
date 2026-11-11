@@ -7,6 +7,15 @@ interface CheckoutItemPayload {
   sugarLevel?: "normal" | "less" | "tawar";
   unitPrice?: number;
   isPromoFree?: boolean;
+  isPromoVoucher?: boolean;
+  voucherCode?: string;
+}
+
+interface IssuedVoucherPayload {
+  code: string;
+  productName?: string;
+  expiresAt: string;
+  notes?: string;
 }
 
 interface CheckoutRequestBody {
@@ -14,6 +23,8 @@ interface CheckoutRequestBody {
   items: CheckoutItemPayload[];
   paymentMethod: "QRIS" | "Cash";
   offlineId?: string; // Client UUID for idempotent offline-first sync
+  issuedVouchers?: IssuedVoucherPayload[];
+  redeemedVoucherCode?: string;
 }
 
 export async function POST(req: Request) {
@@ -28,6 +39,20 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    const currentOutlet = await prisma.outlet.findFirst({
+      where: {
+        OR: [{ id: outletId }, { code: outletId }],
+      },
+    });
+
+    if (!currentOutlet) {
+      return NextResponse.json(
+        { error: "Outlet/Kedai tidak ditemukan dalam sistem!" },
+        { status: 404 }
+      );
+    }
+    const resolvedOutletId = currentOutlet.id;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
@@ -116,6 +141,12 @@ export async function POST(req: Request) {
 
       totalAmount += effectiveUnitPrice * item.quantity;
 
+      // Jika item merupakan voucher klaim nanti (karena stok teh/gula habis saat order),
+      // jangan kurangi bahan baku fisik (Cup, Gula, dll) sekarang karena belum disajikan.
+      if (item.isPromoVoucher) {
+        continue;
+      }
+
       for (const bom of product.recipes) {
         let requiredAmount = bom.quantity * item.quantity;
 
@@ -158,7 +189,7 @@ export async function POST(req: Request) {
         const boothStock = await tx.boothStock.findUnique({
           where: {
             outlet_id_raw_material_id: {
-              outlet_id: outletId,
+              outlet_id: resolvedOutletId,
               raw_material_id: deduction.rawMaterialId,
             },
           },
@@ -192,7 +223,7 @@ export async function POST(req: Request) {
         const updated = await tx.boothStock.update({
           where: {
             outlet_id_raw_material_id: {
-              outlet_id: outletId,
+              outlet_id: resolvedOutletId,
               raw_material_id: deduction.rawMaterialId,
             },
           },
@@ -215,7 +246,7 @@ export async function POST(req: Request) {
       // Buat Transaksi Penjualan yang terikat dengan Outlet
       const createdTransaction = await tx.transaction.create({
         data: {
-          outlet_id: outletId,
+          outlet_id: resolvedOutletId,
           total_amount: totalAmount,
           payment_method: paymentMethod,
           offline_id: offlineId || null,
@@ -247,6 +278,37 @@ export async function POST(req: Request) {
           },
         },
       });
+
+      // Simpan data voucher promo baru yang diterbitkan di transaksi ini (jika ada)
+      if (body.issuedVouchers && Array.isArray(body.issuedVouchers) && body.issuedVouchers.length > 0) {
+        for (const v of body.issuedVouchers) {
+          await tx.promoVoucher.create({
+            data: {
+              code: v.code.trim().toUpperCase(),
+              outlet_id: resolvedOutletId,
+              product_name: v.productName || "Jasmine Poci Iced Tea (Jumbo)",
+              status: "active",
+              expires_at: new Date(v.expiresAt),
+              notes: v.notes || "Diterbitkan pada pesanan #" + (offlineId || "POS"),
+            },
+          });
+        }
+      }
+
+      // Jika transaksi ini menukarkan voucher, tandai voucher sebagai "redeemed"
+      if (body.redeemedVoucherCode) {
+        await tx.promoVoucher.updateMany({
+          where: {
+            code: body.redeemedVoucherCode.trim().toUpperCase(),
+            status: "active",
+          },
+          data: {
+            status: "redeemed",
+            redeemed_at: new Date(),
+            redeemed_tx_id: createdTransaction.id,
+          },
+        });
+      }
 
       return {
         transaction: createdTransaction,

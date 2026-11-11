@@ -96,6 +96,9 @@ interface CartItem {
   sugarBreakdown?: SugarBreakdown;
   notes?: string;
   isPromoFree?: boolean;
+  isPromoVoucher?: boolean;
+  voucherCode?: string;
+  voucherExpiresAt?: string;
 }
 
 interface RawMaterialStock {
@@ -171,6 +174,7 @@ export default function PosTerminalPage() {
   const [promoCodeInput, setPromoCodeInput] = useState<string>("");
   const [isPromoApplied, setIsPromoApplied] = useState<boolean>(false);
   const [promoMessage, setPromoMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [redeemedVoucherCode, setRedeemedVoucherCode] = useState<string | null>(null);
 
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<"QRIS" | "Cash">("QRIS");
@@ -238,8 +242,10 @@ export default function PosTerminalPage() {
   };
 
   // Helper kalkulasi penggunaan cairan teh per cup: Reguler = 180 ml, Jumbo = 250 ml, Topping = 0 ml
+  // Catatan: Item bertanda isPromoVoucher tidak memotong cairan teh saat ini karena dicetak jadi voucher klaim nanti.
   const calculateCartTeaLiquid = (items: CartItem[]) => {
     return items.reduce((sum, item) => {
+      if (item.isPromoVoucher) return sum;
       const pName = item.product.name.toLowerCase();
       if (pName.includes("topping")) return sum;
       const mlPerCup = pName.includes("reguler") ? 180 : 250;
@@ -923,6 +929,7 @@ export default function PosTerminalPage() {
   const cartMaterialUsage = useMemo(() => {
     const usage = new Map<string, number>();
     for (const item of cart) {
+      if (item.isPromoVoucher) continue; // Item voucher tidak memotong stok bahan fisik saat ini
       for (const recipe of item.product.recipes) {
         const matId = recipe.raw_material.id;
         const matNameLower = recipe.raw_material.name.toLowerCase();
@@ -1254,6 +1261,8 @@ export default function PosTerminalPage() {
       sugarLevel: "normal" | "less" | "tawar";
       notes?: string;
       isPromoFree?: boolean;
+      isPromoVoucher?: boolean;
+      voucherCode?: string;
     }[] = [];
 
     items.forEach((item) => {
@@ -1264,6 +1273,8 @@ export default function PosTerminalPage() {
           sugarLevel: item.sugarLevel || "normal",
           notes: item.notes,
           isPromoFree: item.isPromoFree,
+          isPromoVoucher: item.isPromoVoucher,
+          voucherCode: item.voucherCode,
         });
       } else {
         const { normal, less, tawar } = item.sugarBreakdown;
@@ -1274,6 +1285,8 @@ export default function PosTerminalPage() {
             sugarLevel: "normal",
             notes: item.notes,
             isPromoFree: item.isPromoFree,
+            isPromoVoucher: item.isPromoVoucher,
+            voucherCode: item.voucherCode,
           });
         }
         if (less > 0) {
@@ -1283,6 +1296,8 @@ export default function PosTerminalPage() {
             sugarLevel: "less",
             notes: item.notes,
             isPromoFree: item.isPromoFree,
+            isPromoVoucher: item.isPromoVoucher,
+            voucherCode: item.voucherCode,
           });
         }
         if (tawar > 0) {
@@ -1292,6 +1307,8 @@ export default function PosTerminalPage() {
             sugarLevel: "tawar",
             notes: item.notes,
             isPromoFree: item.isPromoFree,
+            isPromoVoucher: item.isPromoVoucher,
+            voucherCode: item.voucherCode,
           });
         }
       }
@@ -1300,15 +1317,78 @@ export default function PosTerminalPage() {
     return result;
   };
 
-  // Handler Diskon / Promo: Beli minimal 2 varian rasa -> Dapat 1 Ori Jumbo Gratis
-  const handleApplyPromoCode = (customCode?: string) => {
+  // Handler Diskon / Promo: Beli minimal 2 varian rasa -> Dapat 1 Ori Jumbo Gratis, atau Tukar Voucher Struk
+  const handleApplyPromoCode = async (customCode?: string) => {
     const code = (customCode || promoCodeInput).trim().toUpperCase();
     if (!code && !customCode) {
-      setPromoMessage({ type: "error", text: "Silakan masukkan kode diskon / promo." });
+      setPromoMessage({ type: "error", text: "Silakan masukkan kode diskon atau kode voucher struk." });
       setTimeout(() => setPromoMessage(null), 3500);
       return;
     }
 
+    // A. Penukaran Voucher Klaim Struk (Opsi C: Voucher Next Order, format: VCR-POC-XXXXX)
+    if (code.startsWith("VCR-")) {
+      try {
+        const res = await fetch(`/api/vouchers?code=${encodeURIComponent(code)}`);
+        const data = await res.json();
+        if (!res.ok || !data.valid) {
+          setPromoMessage({
+            type: "error",
+            text: data.error || "Kode voucher tidak valid atau sudah kedaluwarsa.",
+          });
+          setTimeout(() => setPromoMessage(null), 4500);
+          return;
+        }
+
+        const oriJumbo = products.find(
+          (p) => p.name.toLowerCase().includes("jasmine") && p.name.toLowerCase().includes("jumbo")
+        );
+        if (!oriJumbo) {
+          setPromoMessage({ type: "error", text: "Menu Teh Poci Ori Jumbo tidak ditemukan di katalog." });
+          setTimeout(() => setPromoMessage(null), 3500);
+          return;
+        }
+
+        // Cek ketersediaan bahan kedai untuk menukar voucher secara fisik sekarang
+        const check = checkCanAddProduct(oriJumbo, 1, "normal");
+        if (!check.canAdd) {
+          setPromoMessage({
+            type: "error",
+            text: check.reason || "Stok bahan kedai belum mencukupi untuk menukar voucher fisik sekarang!",
+          });
+          setTimeout(() => setPromoMessage(null), 4500);
+          return;
+        }
+
+        setCart((prev) => {
+          const voucherItem: CartItem = {
+            id: `redeemed_vcr_${Date.now()}`,
+            product: oriJumbo,
+            quantity: 1,
+            sugarLevel: "normal",
+            isPromoFree: true,
+            isPromoVoucher: false, // Disajikan fisik langsung sekarang
+            notes: `Klaim Voucher: ${code}`,
+          };
+          return [...prev, voucherItem];
+        });
+
+        setRedeemedVoucherCode(code);
+        setPromoCodeInput("");
+        setPromoMessage({
+          type: "success",
+          text: `🎉 Voucher ${code} Berhasil Ditukarkan! 1 Teh Jasmine Jumbo Gratis telah ditambahkan ke keranjang.`,
+        });
+        setTimeout(() => setPromoMessage(null), 4500);
+        return;
+      } catch (err: any) {
+        setPromoMessage({ type: "error", text: "Gagal memverifikasi voucher: " + err.message });
+        setTimeout(() => setPromoMessage(null), 3500);
+        return;
+      }
+    }
+
+    // B. Kode Promo Diskon Biasa
     if (flavoredTeaCount < 2) {
       setPromoMessage({
         type: "error",
@@ -1361,7 +1441,29 @@ export default function PosTerminalPage() {
     setTimeout(() => setPromoMessage(null), 4000);
   };
 
+  // Toggle antara "Sajikan Fisik Sekarang" vs "Cetak Jadi Voucher di Struk" (Opsi C)
+  const togglePromoVoucherMode = (cartId: string) => {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.id !== cartId) return item;
+        const nextIsVoucher = !item.isPromoVoucher;
+        const code = item.voucherCode || `VCR-POC-${Math.floor(100000 + Math.random() * 900000)}`;
+        const expiry = item.voucherExpiresAt || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+        return {
+          ...item,
+          isPromoVoucher: nextIsVoucher,
+          voucherCode: nextIsVoucher ? code : undefined,
+          voucherExpiresAt: nextIsVoucher ? expiry : undefined,
+          notes: nextIsVoucher
+            ? "Voucher Struk (Klaim Kunjungan Berikutnya - Stok Seduhan Habis)"
+            : "Bonus Promo Otomatis",
+        };
+      })
+    );
+  };
+
   // Promo Otomatis: Beli 2 Varian Rasa Gratis 1 Ori Jumbo (Kelipatan Otomatis)
+  // Opsi C: Jika stok teh dispenser/gula/cup kurang, otomatis beralih ke mode Voucher Struk (Klaim Nanti)
   useEffect(() => {
     const eligiblePromoQty = Math.floor(flavoredTeaCount / 2);
 
@@ -1374,6 +1476,46 @@ export default function PosTerminalPage() {
         );
         if (!oriJumbo) return prev;
 
+        // Hitung ketersediaan bahan di kedai untuk menyajikan bonus fisik sekarang
+        const nonPromoItems = prev.filter((i) => !i.isPromoFree);
+        const nonPromoTeaNeeded = calculateCartTeaLiquid(nonPromoItems);
+        const availableTeaForBonus = Math.max(0, brewLiquidMl - nonPromoTeaNeeded);
+
+        const cupJumboMat = rawMaterials.find((m) => m.name === "Cup Jumbo");
+        const gulaCairMat = rawMaterials.find(
+          (m) => m.name.toLowerCase().includes("gula cair") || m.name.toLowerCase() === "gula"
+        );
+
+        let nonPromoCupUsed = 0;
+        let nonPromoGulaUsed = 0;
+        for (const item of nonPromoItems) {
+          for (const r of item.product.recipes) {
+            if (r.raw_material.name === "Cup Jumbo") {
+              nonPromoCupUsed += r.quantity * item.quantity;
+            }
+            if (r.raw_material.name.toLowerCase().includes("gula")) {
+              const sugarMult = item.sugarLevel === "tawar" ? 0 : item.sugarLevel === "less" ? 0.5 : 1;
+              nonPromoGulaUsed += r.quantity * sugarMult * item.quantity;
+            }
+          }
+        }
+
+        const availableCupForBonus = (cupJumboMat?.current_stock || 0) - nonPromoCupUsed;
+        const availableGulaForBonus = (gulaCairMat?.current_stock || 0) - nonPromoGulaUsed;
+
+        const requiredTeaForBonus = eligiblePromoQty * 250;
+        const requiredGulaForBonus = eligiblePromoQty * 40;
+        const requiredCupForBonus = eligiblePromoQty;
+
+        const canServePhysically =
+          availableTeaForBonus >= requiredTeaForBonus &&
+          availableGulaForBonus >= requiredGulaForBonus &&
+          availableCupForBonus >= requiredCupForBonus;
+
+        const isVoucherMode = !canServePhysically;
+        const voucherCode = existingPromoItem?.voucherCode || `VCR-POC-${Math.floor(100000 + Math.random() * 900000)}`;
+        const voucherExpiresAt = existingPromoItem?.voucherExpiresAt || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+
         if (!existingPromoItem) {
           setIsPromoApplied(true);
           return [
@@ -1384,19 +1526,32 @@ export default function PosTerminalPage() {
               quantity: eligiblePromoQty,
               sugarLevel: "normal",
               isPromoFree: true,
-              notes: "Bonus Promo Otomatis",
+              isPromoVoucher: isVoucherMode,
+              voucherCode: isVoucherMode ? voucherCode : undefined,
+              voucherExpiresAt: isVoucherMode ? voucherExpiresAt : undefined,
+              notes: isVoucherMode
+                ? "Voucher Struk (Klaim Kunjungan Berikutnya - Stok Seduhan Habis)"
+                : "Bonus Promo Otomatis",
             },
           ];
         }
 
-        if (existingPromoItem.quantity !== eligiblePromoQty) {
-          setIsPromoApplied(true);
-          return prev.map((item) =>
-            item.isPromoFree ? { ...item, quantity: eligiblePromoQty } : item
-          );
-        }
-
-        return prev;
+        // Jika item promo sudah ada, update quantity dan pertahankan/sesuaikan mode voucher
+        const nextIsVoucher = existingPromoItem.isPromoVoucher !== undefined ? existingPromoItem.isPromoVoucher : isVoucherMode;
+        return prev.map((item) =>
+          item.isPromoFree
+            ? {
+                ...item,
+                quantity: eligiblePromoQty,
+                isPromoVoucher: nextIsVoucher,
+                voucherCode: nextIsVoucher ? (item.voucherCode || voucherCode) : undefined,
+                voucherExpiresAt: nextIsVoucher ? (item.voucherExpiresAt || voucherExpiresAt) : undefined,
+                notes: nextIsVoucher
+                  ? "Voucher Struk (Klaim Kunjungan Berikutnya - Stok Seduhan Habis)"
+                  : "Bonus Promo Otomatis",
+              }
+            : item
+        );
       } else {
         if (existingPromoItem) {
           setIsPromoApplied(false);
@@ -1405,7 +1560,7 @@ export default function PosTerminalPage() {
         return prev;
       }
     });
-  }, [flavoredTeaCount, products]);
+  }, [flavoredTeaCount, products, brewLiquidMl, rawMaterials]);
 
   const clearCart = () => {
     setCart([]);
@@ -1449,6 +1604,19 @@ export default function PosTerminalPage() {
 
     const expandedCart = getExpandedCartItems(cart);
 
+    // Deteksi jika ada item voucher promo (Opsi C: Kupon Struk)
+    const voucherCartItem = cart.find((i) => i.isPromoVoucher);
+    const promoVoucherData = voucherCartItem
+      ? {
+          code: voucherCartItem.voucherCode || `VCR-POC-${Math.floor(100000 + Math.random() * 900000)}`,
+          title: "Gratis 1 Teh Poci Ori Jumbo",
+          validUntil: voucherCartItem.voucherExpiresAt
+            ? new Date(voucherCartItem.voucherExpiresAt).toLocaleDateString("id-ID")
+            : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString("id-ID"),
+          reason: "Klaim promo di struk (stok seduh habis)",
+        }
+      : undefined;
+
     const receiptToPrint: ReceiptData = {
       orderId: orderNumber,
       outletName: currentOutlet?.name || "Es Teh Poci",
@@ -1463,7 +1631,11 @@ export default function PosTerminalPage() {
             : i.sugarLevel === "less"
             ? " (Less Sugar)"
             : "";
-        const promoLabel = i.isPromoFree ? " [PROMO GRATIS]" : "";
+        const promoLabel = i.isPromoVoucher
+          ? " [VOUCHER STRUK]"
+          : i.isPromoFree
+          ? " [PROMO GRATIS]"
+          : "";
         const effectivePrice = i.isPromoFree ? 0 : i.product.price;
         return {
           name: `${formatProductName(i.product.name)}${sugarLabel}${promoLabel}`,
@@ -1479,6 +1651,7 @@ export default function PosTerminalPage() {
       cashChange: changeNum,
       timestamp: new Date().toISOString(),
       isOffline: !isOnline,
+      promoVoucher: promoVoucherData,
     };
 
     startTransition(async () => {
@@ -1490,7 +1663,18 @@ export default function PosTerminalPage() {
         notes: i.notes?.trim() || undefined,
         unitPrice: i.isPromoFree ? 0 : i.product.price,
         isPromoFree: !!i.isPromoFree,
+        isPromoVoucher: !!i.isPromoVoucher,
+        voucherCode: i.voucherCode,
       }));
+
+      const issuedVouchers = cart
+        .filter((i) => i.isPromoVoucher && i.voucherCode)
+        .map((v) => ({
+          code: v.voucherCode!,
+          productName: v.product.name,
+          expiresAt: v.voucherExpiresAt || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+          notes: `Voucher promo order ${orderNumber}`,
+        }));
 
       if (!isOnline) {
         saveOfflineTransaction({
@@ -1504,7 +1688,11 @@ export default function PosTerminalPage() {
                 : i.sugarLevel === "less"
                 ? " (Less Sugar)"
                 : "";
-            const promoLabel = i.isPromoFree ? " [PROMO GRATIS]" : "";
+            const promoLabel = i.isPromoVoucher
+              ? " [VOUCHER STRUK]"
+              : i.isPromoFree
+              ? " [PROMO GRATIS]"
+              : "";
             const effectivePrice = i.isPromoFree ? 0 : i.product.price;
             return {
               productId: i.product.id,
@@ -1536,6 +1724,7 @@ export default function PosTerminalPage() {
         setCart([]);
         setIsPromoApplied(false);
         setPromoMessage(null);
+        setRedeemedVoucherCode(null);
         setIsMobileCartOpen(false);
         return;
       }
@@ -1548,6 +1737,8 @@ export default function PosTerminalPage() {
             outletId: selectedOutletId,
             items: payloadItems,
             paymentMethod,
+            issuedVouchers: issuedVouchers.length > 0 ? issuedVouchers : undefined,
+            redeemedVoucherCode: redeemedVoucherCode || undefined,
           }),
         });
 
@@ -1570,6 +1761,7 @@ export default function PosTerminalPage() {
           setCart([]);
           setIsPromoApplied(false);
           setPromoMessage(null);
+          setRedeemedVoucherCode(null);
           setIsMobileCartOpen(false);
           loadData();
           try {
@@ -2380,22 +2572,53 @@ export default function PosTerminalPage() {
                               <h4 className="font-bold text-xs text-slate-900 truncate">
                                 {formatProductName(item.product.name)}
                               </h4>
-                              {item.isPromoFree && (
+                              {item.isPromoVoucher ? (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-600 text-white shrink-0">
+                                  🎟️ VOUCHER STRUK
+                                </span>
+                              ) : item.isPromoFree ? (
                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500 text-white shrink-0">
                                   PROMO GRATIS
                                 </span>
-                              )}
+                              ) : null}
                             </div>
                             <div className="text-[11px] font-mono mt-0.5">
                               {item.isPromoFree ? (
                                 <>
                                   <span className="line-through text-slate-400 mr-1.5">{formatRupiah(item.product.price)}</span>
-                                  <span className="text-emerald-700 font-black">Rp 0 (GRATIS)</span>
+                                  <span className="text-emerald-700 font-black">
+                                    {item.isPromoVoucher ? "Rp 0 (VOUCHER)" : "Rp 0 (GRATIS)"}
+                                  </span>
                                 </>
                               ) : (
                                 <span className="text-emerald-700 font-semibold">{formatRupiah(item.product.price)}</span>
                               )}
                             </div>
+                            {item.isPromoFree && (
+                              item.isPromoVoucher ? (
+                                <div className="mt-1 p-1 bg-amber-50 border border-amber-300 rounded text-[9px] text-amber-900 flex items-center justify-between gap-1">
+                                  <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong> (Struk)</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => togglePromoVoucherMode(item.id)}
+                                    className="text-emerald-700 font-bold underline shrink-0 hover:text-emerald-900 cursor-pointer"
+                                  >
+                                    Sajikan Fisik?
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="mt-1 flex items-center justify-between text-[9px] text-emerald-800">
+                                  <span>🥤 Disajikan fisik sekarang</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => togglePromoVoucherMode(item.id)}
+                                    className="text-amber-800 font-bold underline shrink-0 hover:text-amber-950 cursor-pointer"
+                                  >
+                                    Ubah Jadi Voucher?
+                                  </button>
+                                </div>
+                              )
+                            )}
                           </div>
 
                           {/* Jika Topping atau Promo: Stepper Qty Biasa */}
@@ -3280,22 +3503,53 @@ export default function PosTerminalPage() {
                           <h4 className="font-bold text-xs text-slate-900 leading-tight">
                             {formatProductName(item.product.name)}
                           </h4>
-                          {item.isPromoFree && (
+                          {item.isPromoVoucher ? (
+                            <span className="px-1.5 py-0.2 rounded text-[8px] font-black bg-amber-600 text-white shrink-0">
+                              🎟️ VOUCHER STRUK
+                            </span>
+                          ) : item.isPromoFree ? (
                             <span className="px-1.5 py-0.2 rounded text-[8px] font-black bg-amber-500 text-white shrink-0">
                               PROMO GRATIS
                             </span>
-                          )}
+                          ) : null}
                         </div>
                         <div className="text-xs font-mono mt-0.5">
                           {item.isPromoFree ? (
                             <>
                               <span className="line-through text-slate-400 mr-1 text-[11px]">{formatRupiah(item.product.price)}</span>
-                              <span className="text-emerald-700 font-black">Rp 0 (GRATIS)</span>
+                              <span className="text-emerald-700 font-black">
+                                {item.isPromoVoucher ? "Rp 0 (VOUCHER)" : "Rp 0 (GRATIS)"}
+                              </span>
                             </>
                           ) : (
                             <span className="text-emerald-700 font-semibold">{formatRupiah(item.product.price)}</span>
                           )}
                         </div>
+                        {item.isPromoFree && (
+                          item.isPromoVoucher ? (
+                            <div className="mt-1 p-1 bg-amber-50 border border-amber-300 rounded text-[9px] text-amber-900 flex items-center justify-between gap-1">
+                              <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong> (Struk)</span>
+                              <button
+                                type="button"
+                                onClick={() => togglePromoVoucherMode(item.id)}
+                                className="text-emerald-700 font-bold underline shrink-0 hover:text-emerald-900 cursor-pointer"
+                              >
+                                Sajikan Fisik?
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="mt-1 flex items-center justify-between text-[9px] text-emerald-800">
+                              <span>🥤 Disajikan fisik sekarang</span>
+                              <button
+                                type="button"
+                                onClick={() => togglePromoVoucherMode(item.id)}
+                                className="text-amber-800 font-bold underline shrink-0 hover:text-amber-950 cursor-pointer"
+                              >
+                                Ubah Jadi Voucher?
+                              </button>
+                            </div>
+                          )
+                        )}
                       </div>
 
                       {item.product.name.includes("Topping") || item.isPromoFree ? (
@@ -3792,6 +4046,27 @@ export default function PosTerminalPage() {
                       <div className="flex justify-between text-[10px] text-amber-700 font-bold">
                         <span>STATUS:</span>
                         <span>[TERCATAT OFFLINE]</span>
+                      </div>
+                    )}
+
+                    {/* Bagian Voucher Promo Klaim Nanti (Opsi C: Kupon Struk) */}
+                    {completedReceipt?.promoVoucher && (
+                      <div className="my-2 p-2.5 bg-amber-50 border-2 border-dashed border-amber-400 rounded-xl space-y-1 text-center">
+                        <div className="text-[9px] font-black uppercase text-amber-800 tracking-wider">
+                          🎟️ VOUCHER KLAIM PROMO KEDAI
+                        </div>
+                        <div className="font-mono text-sm font-black text-amber-950 tracking-wider">
+                          {completedReceipt.promoVoucher.code}
+                        </div>
+                        <div className="text-[10px] font-extrabold text-slate-800">
+                          {completedReceipt.promoVoucher.title}
+                        </div>
+                        <div className="text-[8px] text-slate-600">
+                          Berlaku s/d: {completedReceipt.promoVoucher.validUntil} (3 Hari)
+                        </div>
+                        <div className="text-[8px] text-amber-900 italic pt-0.5">
+                          Tunjukkan struk ini pada kasir saat kunjungan berikutnya untuk klaim
+                        </div>
                       </div>
                     )}
                   </div>
@@ -5183,6 +5458,16 @@ export default function PosTerminalPage() {
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span>STATUS:</span>
                 <span>[OFFLINE RECORD]</span>
+              </div>
+            )}
+
+            {completedReceipt.promoVoucher && (
+              <div style={{ margin: "6px 0", border: "1px dashed #000", padding: "4px", textAlign: "center" }}>
+                <div style={{ fontWeight: "bold", fontSize: "10px" }}>*** VOUCHER PROMO KEDAI ***</div>
+                <div style={{ fontSize: "12px", fontWeight: "bold", letterSpacing: "1px" }}>{completedReceipt.promoVoucher.code}</div>
+                <div style={{ fontWeight: "bold" }}>{completedReceipt.promoVoucher.title}</div>
+                <div style={{ fontSize: "9px" }}>Berlaku s/d: {completedReceipt.promoVoucher.validUntil}</div>
+                <div style={{ fontSize: "8px", fontStyle: "italic" }}>Tunjukkan struk ini untuk klaim</div>
               </div>
             )}
             <div>--------------------------------</div>

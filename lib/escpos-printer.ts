@@ -21,6 +21,12 @@ export interface ReceiptData {
   cashChange?: number;
   timestamp: string;
   isOffline?: boolean;
+  promoVoucher?: {
+    code: string;
+    title: string;
+    validUntil: string;
+    reason?: string;
+  };
 }
 
 // Format 32 kolom untuk kertas struk thermal 58mm standar
@@ -80,6 +86,19 @@ export const generateReceiptText = (data: ReceiptData): string => {
   if (data.isOffline) {
     lines.push(format58mmLine("MODE", "[TERCATAT OFFLINE]"));
   }
+
+  // Bagian Kupon / Voucher Promo Klaim Nanti (Jika Ada)
+  if (data.promoVoucher) {
+    lines.push(doubleLine);
+    lines.push("     *** VOUCHER PROMO ***      ");
+    lines.push(format58mmLine("KODE", data.promoVoucher.code));
+    lines.push(data.promoVoucher.title.substring(0, 32));
+    lines.push(format58mmLine("BERLAKU S/D", data.promoVoucher.validUntil));
+    lines.push("Tunjukkan struk ini di booth");
+    lines.push("untuk klaim 1 Ori Jumbo Gratis");
+    lines.push(doubleLine);
+  }
+
   lines.push(line);
   lines.push("  Terima Kasih Atas Kunjungan   ");
   lines.push("          Anda! ^_^             ");
@@ -161,6 +180,21 @@ export const generateEscPosBuffer = (data: ReceiptData): Uint8Array => {
   bytes.push(...encoder.encode(format58mmLine("STATUS", "LUNAS") + "\n"));
   if (data.isOffline) {
     bytes.push(...encoder.encode(format58mmLine("CATATAN", "[OFFLINE SYNC]") + "\n"));
+  }
+
+  // Bagian Kupon / Voucher Promo Klaim Nanti (Thermal ESC/POS)
+  if (data.promoVoucher) {
+    bytes.push(...encoder.encode("================================\n"));
+    bytes.push(0x1b, 0x61, 0x01); // Center align
+    bytes.push(0x1b, 0x45, 0x01); // Bold on
+    bytes.push(...encoder.encode("*** VOUCHER PROMO KEDAI ***\n"));
+    bytes.push(0x1b, 0x45, 0x00); // Bold off
+    bytes.push(...encoder.encode(`KODE: ${data.promoVoucher.code}\n`));
+    bytes.push(...encoder.encode(`${data.promoVoucher.title}\n`));
+    bytes.push(...encoder.encode(`Berlaku s/d: ${data.promoVoucher.validUntil}\n`));
+    bytes.push(...encoder.encode("Tunjukkan struk ini di booth\nuntuk klaim 1 Ori Jumbo Gratis\n"));
+    bytes.push(0x1b, 0x61, 0x00); // Left align
+    bytes.push(...encoder.encode("================================\n"));
   }
 
   // Footer
