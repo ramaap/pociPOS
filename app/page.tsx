@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition, useMemo } from "react";
+import React, { useState, useEffect, useTransition, useMemo, useRef } from "react";
 import Link from "next/link";
 import {
   ShoppingBag,
@@ -275,6 +275,85 @@ export default function PosTerminalPage() {
       `✅ Dispenser teh berhasil diisi ulang: ${(val / 1000).toFixed(1)}L (${val.toLocaleString("id-ID")} ml) siap disajikan!`
     );
     setTimeout(() => setBrewSuccessToast(null), 4500);
+  };
+
+  // ================= RE-BREWING & STOK GULA CAIR (SIMPLE SYRUP) STATE =================
+  const [isSugarAlertDismissed, setIsSugarAlertDismissed] = useState<boolean>(false);
+  const [isSugarModalOpen, setIsSugarModalOpen] = useState<boolean>(false);
+  const [customSugarInput, setCustomSugarInput] = useState<string>("1600");
+  const [sugarSuccessToast, setSugarSuccessToast] = useState<string | null>(null);
+  const [isSugarRefilling, setIsSugarRefilling] = useState<boolean>(false);
+
+  const handleRefillSugarBatch = async (amount = 1600) => {
+    if (!selectedOutletId) return;
+    setIsSugarRefilling(true);
+    try {
+      const res = await fetch("/api/sugar-refill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          outletId: selectedOutletId,
+          addedMl: amount,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRawMaterials((prev) =>
+          prev.map((m) =>
+            m.id === data.rawMaterialId ? { ...m, current_stock: data.current_stock } : m
+          )
+        );
+        setIsSugarAlertDismissed(false);
+        setIsSugarModalOpen(false);
+        setSugarSuccessToast(
+          `✅ Cairan gula berhasil diisi ulang: +${(amount / 1000).toFixed(1)}L (${amount.toLocaleString("id-ID")} ml). Total stok: ${(data.current_stock / 1000).toFixed(2)}L (~${Math.floor(data.current_stock / 40)} cup Jumbo)!`
+        );
+        setTimeout(() => setSugarSuccessToast(null), 5000);
+      } else {
+        alert(data.error || "Gagal mengisi ulang stok gula.");
+      }
+    } catch (err) {
+      console.error("Gagal refill gula:", err);
+      alert("Terjadi kesalahan koneksi saat refill gula.");
+    } finally {
+      setIsSugarRefilling(false);
+    }
+  };
+
+  const handleSetSugarStock = async (exactMl: number) => {
+    if (!selectedOutletId) return;
+    setIsSugarRefilling(true);
+    try {
+      const res = await fetch("/api/sugar-refill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          outletId: selectedOutletId,
+          setMl: exactMl,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRawMaterials((prev) =>
+          prev.map((m) =>
+            m.id === data.rawMaterialId ? { ...m, current_stock: data.current_stock } : m
+          )
+        );
+        setIsSugarAlertDismissed(false);
+        setIsSugarModalOpen(false);
+        setSugarSuccessToast(
+          `✅ Stok cairan gula diatur: ${(data.current_stock / 1000).toFixed(2)}L (${data.current_stock.toLocaleString("id-ID")} ml, ~${Math.floor(data.current_stock / 40)} cup Jumbo)!`
+        );
+        setTimeout(() => setSugarSuccessToast(null), 5000);
+      } else {
+        alert(data.error || "Gagal menyimpan stok gula.");
+      }
+    } catch (err) {
+      console.error("Gagal set stok gula:", err);
+      alert("Terjadi kesalahan koneksi.");
+    } finally {
+      setIsSugarRefilling(false);
+    }
   };
 
   // Mobile Cart Accordion & Sticky-on-Scroll State
@@ -1555,10 +1634,27 @@ export default function PosTerminalPage() {
   const cupRegMaterial = rawMaterials.find((m) => m.name === "Cup Reguler");
   const cupJumboMaterial = rawMaterials.find((m) => m.name === "Cup Jumbo");
   const teaPremixMaterial = rawMaterials.find((m) => m.name === "Kantong Teh" || m.name === "Liquid Tea Premix");
+  const gulaCairMaterial = rawMaterials.find((m) => m.name.toLowerCase().includes("gula cair") || m.name.toLowerCase() === "gula");
+  const currentGulaInCart = gulaCairMaterial ? (cartMaterialUsage.get(gulaCairMaterial.id) || 0) : 0;
+  const availableGulaStockMl = Math.max(0, (gulaCairMaterial?.current_stock || 0) - currentGulaInCart);
+  // 1 Minuman Jumbo Normal = 40 ml Gula Cair
+  const gulaJumboCupsLeft = Math.floor(availableGulaStockMl / 40);
+  const isGulaLow = Boolean(gulaCairMaterial && gulaJumboCupsLeft <= 6); // Alert jika sisa <= 6 minuman jumbo normal
+  const isGulaCritical = Boolean(gulaCairMaterial && gulaJumboCupsLeft <= 2); // Kritis jika sisa 0 - 2 cup
   const currentOutletObj = outlets.find((o) => o.id === selectedOutletId) || outlets[0];
   const dailyTargetCups = currentOutletObj?.target_cups || 100;
   const initialCash = currentOutletObj?.initial_cash || 0;
   const currentCashBalance = initialCash + todayCashIn - todayExpenseTotal;
+
+  // Notifikasi chime otomatis saat stok gula pertama kali menyentuh zona reminder (<= 6 cup)
+  const prevGulaLowRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (isGulaLow && !prevGulaLowRef.current) {
+      playBrewAlertChime();
+      setIsSugarAlertDismissed(false);
+    }
+    prevGulaLowRef.current = isGulaLow;
+  }, [isGulaLow]);
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
@@ -1857,6 +1953,35 @@ export default function PosTerminalPage() {
                     brewLiquidMl <= 1500 ? "bg-rose-600 animate-bounce" : "bg-amber-600"
                   }`}>
                     Re-Brew!
+                  </span>
+                )}
+              </button>
+
+              {/* Sisa Gula Cair (Simple Syrup) */}
+              <button
+                type="button"
+                onClick={() => setIsSugarModalOpen(true)}
+                title={`Sisa Gula Cair: ${(availableGulaStockMl / 1000).toFixed(2)}L (${Math.round(availableGulaStockMl)} ml) - Cukup untuk ~${gulaJumboCupsLeft} cup Jumbo. Klik untuk kelola / isi ulang seduhan gula`}
+                className={`col-span-2 sm:col-span-1 px-2 py-1 rounded-lg text-xs font-mono font-semibold border flex items-center justify-between sm:justify-start gap-1.5 transition cursor-pointer shadow-2xs ${
+                  isGulaCritical
+                    ? "bg-rose-100 text-rose-800 border-rose-300 font-black animate-pulse"
+                    : isGulaLow
+                    ? "bg-amber-100 text-amber-900 border-amber-300 font-bold"
+                    : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+                }`}
+              >
+                <span className="flex items-center gap-1">
+                  <span className="text-xs">🍯</span>
+                  <span className="text-slate-500">Gula:</span>
+                </span>
+                <strong className={isGulaCritical ? "text-rose-700" : isGulaLow ? "text-amber-800" : "text-emerald-700"}>
+                  {(availableGulaStockMl / 1000).toFixed(1)}L
+                </strong>
+                {isGulaLow && (
+                  <span className={`text-[9px] px-1 py-0.2 rounded font-black uppercase text-white ${
+                    isGulaCritical ? "bg-rose-600 animate-bounce" : "bg-amber-600"
+                  }`}>
+                    Masak Gula!
                   </span>
                 )}
               </button>
@@ -2589,6 +2714,105 @@ export default function PosTerminalPage() {
                 <div
                   className="h-full bg-white rounded-full transition-all duration-300"
                   style={{ width: `${Math.min(100, Math.max(0, (brewLiquidMl / 8000) * 100))}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Toast Sukses Re-Brewing / Isi Ulang Gula Cair */}
+          {sugarSuccessToast && (
+            <div className="p-3 bg-amber-50 border-2 border-amber-500 rounded-xl flex items-center justify-between gap-3 text-amber-950 text-xs font-bold shadow-md animate-in fade-in duration-200">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🍯</span>
+                <span>{sugarSuccessToast}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSugarSuccessToast(null)}
+                className="text-amber-700 hover:text-amber-950 font-black text-sm px-2 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Banner Notifikasi Re-Brewing Gula Cair (Peringatan saat Sisa Gula <= 6 Minuman Jumbo Normal / 240 ml) */}
+          {isGulaLow && !isSugarAlertDismissed && (
+            <div
+              className={`rounded-2xl p-3.5 sm:p-4 border transition-all animate-in fade-in slide-in-from-top-2 ${
+                isGulaCritical
+                  ? "bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white border-rose-500 shadow-lg shadow-rose-600/30 ring-2 ring-rose-400"
+                  : "bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white border-amber-400 shadow-md shadow-amber-500/25"
+              }`}
+            >
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl shrink-0 border border-white/30 shadow-inner">
+                    🍯
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white text-slate-900 shadow-xs">
+                        {isGulaCritical ? "🚨 GULA SANGAT KRITIS" : "⚠️ PERINGATAN RE-BREW GULA CAIR"}
+                      </span>
+                      <span className="text-xs font-mono font-bold text-white/95">
+                        Sisa ~{gulaJumboCupsLeft} Cup Jumbo Normal ({Math.round(availableGulaStockMl)} ml)
+                      </span>
+                    </div>
+
+                    <h3 className="text-sm sm:text-base font-black tracking-tight text-white mt-1">
+                      {isGulaCritical
+                        ? "Gula Cair Hampir Habis! Segera Masak Simple Syrup Sekarang"
+                        : "Waktunya Re-Brew Cairan Gula! Rebus 1 Kg Gula Pasir Sekarang"}
+                    </h3>
+
+                    <p className="text-xs text-white/95 mt-1 leading-snug">
+                      Sisa cairan gula di kedai tinggal <strong>{Math.round(availableGulaStockMl)} ml</strong> (cukup untuk{" "}
+                      <strong>~{gulaJumboCupsLeft} cup Jumbo Normal</strong> @40ml atau{" "}
+                      <strong>~{Math.floor(availableGulaStockMl / 30)} cup Reguler</strong> @30ml).
+                      Standar SOP Poci: Larutkan <strong>1 kg Gula Pasir + 1 Liter Air Panas</strong> (menghasilkan ~1.600 ml sirup kental). Masak sekarang selagi masih ada sisa porsi!
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tombol Aksi di Banner */}
+                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 flex-wrap sm:flex-nowrap pt-1 sm:pt-0">
+                  <button
+                    type="button"
+                    disabled={isSugarRefilling}
+                    onClick={() => handleRefillSugarBatch(1600)}
+                    className="flex-1 sm:flex-initial px-3.5 py-2 bg-white hover:bg-amber-50 text-amber-950 rounded-xl text-xs font-black shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+                    title="Klik jika batch gula baru sudah matang dan siap disajikan (+1.600 ml)"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-amber-600" />
+                    <span>{isSugarRefilling ? "Menyimpan..." : "Selesai Masak (+1.6L)"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsSugarModalOpen(true)}
+                    className="px-2.5 py-2 bg-black/20 hover:bg-black/30 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                    title="Atur takaran atau panduan memasak gula"
+                  >
+                    <span>Atur</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsSugarAlertDismissed(true)}
+                    className="p-2 bg-black/10 hover:bg-black/20 text-white/80 hover:text-white rounded-xl transition cursor-pointer"
+                    title="Sembunyikan sementara (gula sedang dimasak)"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Visual Mini Progress Bar */}
+              <div className="mt-2.5 w-full bg-black/25 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="h-full bg-white rounded-full transition-all duration-300"
+                  style={{ width: `${Math.min(100, Math.max(0, (availableGulaStockMl / 2000) * 100))}%` }}
                 />
               </div>
             </div>
@@ -4254,6 +4478,173 @@ export default function PosTerminalPage() {
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition cursor-pointer"
                 >
                   Simpan
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Re-Brewing & Manajemen Stok Cairan Gula (Simple Syrup) */}
+      {isSugarModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-200 space-y-4 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-md">
+                  🍯
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base sm:text-lg text-slate-900 leading-tight">
+                    Seduhan &amp; Stok Cairan Gula
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Standar SOP: 1 kg Gula Pasir + 1 Liter Air = ~1.600 ml Sirup Kental
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSugarModalOpen(false)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Status Stok Gula Saat Ini */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-600">Sisa Cairan Gula di Kedai:</span>
+                <span className={`text-xs font-black px-2 py-0.5 rounded-full uppercase ${
+                  isGulaCritical
+                    ? "bg-rose-100 text-rose-700"
+                    : isGulaLow
+                    ? "bg-amber-100 text-amber-800"
+                    : "bg-emerald-100 text-emerald-800"
+                }`}>
+                  {isGulaCritical ? "Kritis" : isGulaLow ? "Perlu Re-Brew" : "Stok Aman"}
+                </span>
+              </div>
+
+              <div className="flex items-baseline justify-between">
+                <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900">
+                  {(availableGulaStockMl / 1000).toFixed(2)}{" "}
+                  <span className="text-sm font-bold text-slate-500">Liter</span>
+                </div>
+                <div className="text-xs font-mono font-bold text-slate-500">
+                  {Math.round(availableGulaStockMl).toLocaleString("id-ID")} ml
+                </div>
+              </div>
+
+              {/* Progress Bar (Kapasitas rujukan 2.000 ml) */}
+              <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    isGulaCritical
+                      ? "bg-rose-600"
+                      : isGulaLow
+                      ? "bg-amber-500"
+                      : "bg-emerald-600"
+                  }`}
+                  style={{ width: `${Math.min(100, Math.max(0, (availableGulaStockMl / 2000) * 100))}%` }}
+                />
+              </div>
+
+              {/* Kalkulasi Porsi Cup */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <div className="p-2.5 bg-white rounded-xl border border-slate-200 text-center">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Cup Jumbo Normal (40 ml)</span>
+                  <span className={`text-base font-black font-mono ${isGulaLow ? "text-amber-800" : "text-emerald-800"}`}>
+                    ~{gulaJumboCupsLeft} Cup
+                  </span>
+                </div>
+                <div className="p-2.5 bg-white rounded-xl border border-slate-200 text-center">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Cup Reguler Normal (30 ml)</span>
+                  <span className="text-base font-black font-mono text-slate-800">
+                    ~{Math.floor(availableGulaStockMl / 30)} Cup
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Ringkasan SOP Re-Brewing Gula Cair */}
+            <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200/80 text-[11px] text-amber-950 space-y-1.5">
+              <div className="font-extrabold flex items-center gap-1.5 text-amber-900">
+                <span>⏱️</span>
+                <span>SOP Standar Larutan Gula (Simple Syrup): ~15–20 Menit</span>
+              </div>
+              <ul className="list-disc list-inside space-y-0.5 text-amber-900/90 pl-1">
+                <li><strong>1. Takaran</strong>: 1 kg Gula Pasir + 1 Liter (1.000 ml) Air Bersih.</li>
+                <li><strong>2. Didihkan Air</strong>: Rebus air sampai mendidih (100°C) di panci.</li>
+                <li><strong>3. Tuang &amp; Aduk</strong>: Kecilkan api, tuang gula pasir bertahap sambil diaduk hingga larut bening sempurna tanpa butiran.</li>
+                <li><strong>4. Hasil</strong>: Menghasilkan ~1.600 ml sirup kental (cukup untuk ~40 cup Jumbo normal).</li>
+              </ul>
+            </div>
+
+            {/* Tombol Aksi Isi Ulang Cepat */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                disabled={isSugarRefilling}
+                onClick={() => handleRefillSugarBatch(1600)}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-98 disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-5 h-5 text-amber-200" />
+                <span>{isSugarRefilling ? "Menyimpan ke Sistem..." : "Selesai Masak 1 Batch (Tambah +1.600 ml / 1.6L)"}</span>
+              </button>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={isSugarRefilling}
+                  onClick={() => handleRefillSugarBatch(1600)}
+                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold border border-slate-200 transition cursor-pointer disabled:opacity-50"
+                >
+                  + 1.600 ml (1 Kg Gula)
+                </button>
+                <button
+                  type="button"
+                  disabled={isSugarRefilling}
+                  onClick={() => handleRefillSugarBatch(3200)}
+                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold border border-slate-200 transition cursor-pointer disabled:opacity-50"
+                >
+                  + 3.200 ml (2 Kg Gula)
+                </button>
+              </div>
+            </div>
+
+            {/* Form Penyesuaian Manual (ml) */}
+            <div className="pt-2 border-t border-slate-100">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Atur Total Stok Cairan Gula Fisik (ml):
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="50000"
+                  step="10"
+                  value={customSugarInput}
+                  onChange={(e) => setCustomSugarInput(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                  placeholder="Contoh: 1600"
+                />
+                <button
+                  type="button"
+                  disabled={isSugarRefilling}
+                  onClick={() => {
+                    const num = Number(customSugarInput);
+                    if (isNaN(num) || num < 0) {
+                      alert("Masukkan angka volume cairan gula yang valid (minimal 0 ml).");
+                      return;
+                    }
+                    handleSetSugarStock(num);
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition cursor-pointer disabled:opacity-50"
+                >
+                  {isSugarRefilling ? "..." : "Simpan"}
                 </button>
               </div>
             </div>
