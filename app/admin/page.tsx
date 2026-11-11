@@ -46,6 +46,8 @@ import {
   Target,
   Banknote,
   Coins,
+  Ticket,
+  Copy,
 } from "lucide-react";
 
 interface Outlet {
@@ -165,8 +167,26 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedOutletFilter, setSelectedOutletFilter] = useState<string>("all");
 
-  // Admin Navigation Tabs: "financial" | "stocks" | "outlets" | "master_menus" | "outlet_menus"
-  const [activeAdminTab, setActiveAdminTab] = useState<"financial" | "stocks" | "outlets" | "master_menus" | "outlet_menus">("financial");
+  // Admin Navigation Tabs: "financial" | "stocks" | "outlets" | "master_menus" | "outlet_menus" | "vouchers"
+  const [activeAdminTab, setActiveAdminTab] = useState<"financial" | "stocks" | "outlets" | "master_menus" | "outlet_menus" | "vouchers">("financial");
+
+  // ================= TAB 6: VOUCHER PROMO STATE =================
+  const [vouchersList, setVouchersList] = useState<any[]>([]);
+  const [voucherStats, setVoucherStats] = useState({ total: 0, active: 0, redeemed: 0, expired: 0 });
+  const [voucherLoading, setVoucherLoading] = useState<boolean>(false);
+  const [voucherStatusFilter, setVoucherStatusFilter] = useState<string>("all");
+  const [voucherOutletFilter, setVoucherOutletFilter] = useState<string>("all");
+  const [voucherSearch, setVoucherSearch] = useState<string>("");
+  const [isAddVoucherModalOpen, setIsAddVoucherModalOpen] = useState<boolean>(false);
+  const [newVoucherForm, setNewVoucherForm] = useState({
+    outletId: "",
+    productName: "Jasmine Poci Iced Tea (Jumbo)",
+    expiresInDays: 3,
+    notes: "",
+  });
+  const [voucherActionLoading, setVoucherActionLoading] = useState<boolean>(false);
+  const [voucherMessage, setVoucherMessage] = useState<{ text: string; isError: boolean } | null>(null);
+  const [copiedVoucherCode, setCopiedVoucherCode] = useState<string | null>(null);
 
   // ================= TAB 1: FINANCIAL REPORT STATE =================
   const [financeOutlet, setFinanceOutlet] = useState<string>("all");
@@ -491,6 +511,126 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const loadVouchers = async () => {
+    setVoucherLoading(true);
+    try {
+      const query = new URLSearchParams();
+      if (voucherStatusFilter !== "all") query.set("status", voucherStatusFilter);
+      if (voucherOutletFilter !== "all") query.set("outletId", voucherOutletFilter);
+
+      const res = await fetch(`/api/admin/vouchers?${query.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        setVouchersList(json.vouchers || []);
+        setVoucherStats(json.stats || { total: 0, active: 0, redeemed: 0, expired: 0 });
+      }
+    } catch (e) {
+      console.error("Failed to load vouchers", e);
+    } finally {
+      setVoucherLoading(false);
+    }
+  };
+
+  const handleCreateVoucher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newVoucherForm.outletId) {
+      setVoucherMessage({ text: "Silakan pilih kedai penerbit.", isError: true });
+      return;
+    }
+    setVoucherActionLoading(true);
+    try {
+      const res = await fetch("/api/admin/vouchers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newVoucherForm),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setVoucherMessage({ text: `✅ ${json.message}`, isError: false });
+        setIsAddVoucherModalOpen(false);
+        setNewVoucherForm({
+          outletId: "",
+          productName: "Jasmine Poci Iced Tea (Jumbo)",
+          expiresInDays: 3,
+          notes: "",
+        });
+        loadVouchers();
+      } else {
+        setVoucherMessage({ text: `❌ ${json.error || "Gagal menerbitkan voucher."}`, isError: true });
+      }
+    } catch (e: any) {
+      setVoucherMessage({ text: `❌ Error: ${e.message}`, isError: true });
+    } finally {
+      setVoucherActionLoading(false);
+      setTimeout(() => setVoucherMessage(null), 4000);
+    }
+  };
+
+  const handleUpdateVoucherStatus = async (id: string, nextStatus: "active" | "redeemed" | "expired") => {
+    setVoucherActionLoading(true);
+    try {
+      const res = await fetch("/api/admin/vouchers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: nextStatus }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setVoucherMessage({ text: `✅ ${json.message}`, isError: false });
+        loadVouchers();
+      } else {
+        setVoucherMessage({ text: `❌ ${json.error || "Gagal mengubah status."}`, isError: true });
+      }
+    } catch (e: any) {
+      setVoucherMessage({ text: `❌ Error: ${e.message}`, isError: true });
+    } finally {
+      setVoucherActionLoading(false);
+      setTimeout(() => setVoucherMessage(null), 3500);
+    }
+  };
+
+  const handleDeleteVoucher = async (id: string, code: string) => {
+    if (!window.confirm(`Yakin ingin menghapus voucher ${code}? Tindakan ini permanen.`)) return;
+    setVoucherActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/vouchers?id=${id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setVoucherMessage({ text: `✅ ${json.message}`, isError: false });
+        loadVouchers();
+      } else {
+        setVoucherMessage({ text: `❌ ${json.error || "Gagal menghapus voucher."}`, isError: true });
+      }
+    } catch (e: any) {
+      setVoucherMessage({ text: `❌ Error: ${e.message}`, isError: true });
+    } finally {
+      setVoucherActionLoading(false);
+      setTimeout(() => setVoucherMessage(null), 3500);
+    }
+  };
+
+  const handleCopyVoucherCode = (code: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(code);
+      setCopiedVoucherCode(code);
+      setTimeout(() => setCopiedVoucherCode(null), 2000);
+    }
+  };
+
+  const filteredVouchersList = useMemo(() => {
+    if (!voucherSearch.trim()) return vouchersList;
+    const q = voucherSearch.toLowerCase();
+    return vouchersList.filter(
+      (v) =>
+        v.code.toLowerCase().includes(q) ||
+        v.product_name.toLowerCase().includes(q) ||
+        (v.notes && v.notes.toLowerCase().includes(q)) ||
+        (v.outlet && v.outlet.name.toLowerCase().includes(q))
+    );
+  }, [vouchersList, voucherSearch]);
+
   const refreshData = async (targetFilter?: string, silent: boolean = false) => {
     const savedPin = sessionStorage.getItem("poci_admin_pin") || pin;
     if (!savedPin) return;
@@ -508,6 +648,7 @@ export default function AdminDashboardPage() {
       await loadFinancialReport(financeOutletRef.current, financePeriodRef.current, silent);
       await loadOutlets();
       await loadMenus();
+      await loadVouchers();
       setLastSyncedTime(new Date());
     } finally {
       if (!silent) setLoading(false);
@@ -687,12 +828,19 @@ export default function AdminDashboardPage() {
           loadFinancialReport();
           loadOutlets();
           loadMenus();
+          loadVouchers();
         })
         .catch(() => {
           sessionStorage.removeItem("poci_admin_pin");
         });
     }
   }, []);
+
+  useEffect(() => {
+    if (activeAdminTab === "vouchers" && isAuthenticated) {
+      loadVouchers();
+    }
+  }, [activeAdminTab, voucherStatusFilter, voucherOutletFilter, isAuthenticated]);
 
   // ================= REAL-TIME AUTO SYNC (BROADCAST, STORAGE & HEARTBEAT POLLING) =================
   useEffect(() => {
@@ -1762,6 +1910,21 @@ export default function AdminDashboardPage() {
           >
             <Sliders className="w-4 h-4" />
             <span>🥤 Menu per Kedai</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveAdminTab("vouchers");
+              loadVouchers();
+            }}
+            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${
+              activeAdminTab === "vouchers"
+                ? "bg-emerald-600 text-white shadow-md"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <Ticket className="w-4 h-4" />
+            <span>🎟️ Voucher Promo ({voucherStats.total})</span>
           </button>
         </div>
 
@@ -4180,6 +4343,359 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         )}
+
+        {/* ============================================================== */}
+        {/* TAB 6: MANAJEMEN VOUCHER PROMO KEDAI (REDEEMED & BELUM)       */}
+        {/* ============================================================== */}
+        {activeAdminTab === "vouchers" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Header & Action Bar */}
+            <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  <Ticket className="w-5 h-5 text-emerald-600" />
+                  <span>Manajemen Voucher Promo Kedai</span>
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Pantau voucher promo gratis yang diterbitkan (karena stok teh/gula habis saat order) serta lacak status yang sudah ditukar vs belum ditukar.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={loadVouchers}
+                  disabled={voucherLoading}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${voucherLoading ? "animate-spin" : ""}`} />
+                  <span>Refresh</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const defaultOut = data?.outlets?.[0]?.id || outletsList?.[0]?.id || "";
+                    setNewVoucherForm((prev) => ({ ...prev, outletId: defaultOut }));
+                    setIsAddVoucherModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>+ Terbitkan Voucher Baru</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Notification Toast Message */}
+            {voucherMessage && (
+              <div
+                className={`p-3 rounded-2xl text-xs font-bold shadow-xs animate-in fade-in flex items-center justify-between gap-2 ${
+                  voucherMessage.isError
+                    ? "bg-rose-50 border border-rose-300 text-rose-800"
+                    : "bg-emerald-50 border border-emerald-300 text-emerald-800"
+                }`}
+              >
+                <span>{voucherMessage.text}</span>
+                <button
+                  onClick={() => setVoucherMessage(null)}
+                  className="text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* 4 KPI Summary Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1">
+                <div className="flex items-center justify-between text-slate-500 text-xs font-bold">
+                  <span>Total Voucher</span>
+                  <Ticket className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="text-2xl font-black font-mono text-slate-900">
+                  {voucherStats.total}
+                </div>
+                <p className="text-[10px] text-slate-400 font-medium">Semua kupon yang pernah terbit</p>
+              </div>
+
+              <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200 shadow-2xs space-y-1">
+                <div className="flex items-center justify-between text-amber-800 text-xs font-bold">
+                  <span>Belum Ditukar (Aktif)</span>
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                </div>
+                <div className="text-2xl font-black font-mono text-amber-900">
+                  {voucherStats.active}
+                </div>
+                <p className="text-[10px] text-amber-700 font-medium">Menunggu klaim di booth</p>
+              </div>
+
+              <div className="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200 shadow-2xs space-y-1">
+                <div className="flex items-center justify-between text-emerald-800 text-xs font-bold">
+                  <span>Sudah Ditukar (Redeemed)</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div className="text-2xl font-black font-mono text-emerald-900">
+                  {voucherStats.redeemed}
+                </div>
+                <p className="text-[10px] text-emerald-700 font-medium">Telah dinikmati pelanggan</p>
+              </div>
+
+              <div className="bg-rose-50/70 p-4 rounded-2xl border border-rose-200 shadow-2xs space-y-1">
+                <div className="flex items-center justify-between text-rose-800 text-xs font-bold">
+                  <span>Kedaluwarsa (Expired)</span>
+                  <X className="w-4 h-4 text-rose-600" />
+                </div>
+                <div className="text-2xl font-black font-mono text-rose-900">
+                  {voucherStats.expired}
+                </div>
+                <p className="text-[10px] text-rose-700 font-medium">Lewat dari masa 3 hari</p>
+              </div>
+            </div>
+
+            {/* Filter & Search Bar */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                {/* Status Filter Pills */}
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { id: "all", label: "Semua", count: voucherStats.total },
+                    { id: "active", label: "Belum Ditukar (Aktif)", count: voucherStats.active },
+                    { id: "redeemed", label: "Sudah Ditukar (Redeemed)", count: voucherStats.redeemed },
+                    { id: "expired", label: "Kedaluwarsa (Expired)", count: voucherStats.expired },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setVoucherStatusFilter(tab.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                        voucherStatusFilter === tab.id
+                          ? "bg-slate-900 text-white shadow-2xs"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                        voucherStatusFilter === tab.id ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+                      }`}>
+                        {tab.count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Outlet Filter & Search Input */}
+                <div className="flex items-center gap-2 flex-wrap md:flex-nowrap">
+                  <select
+                    value={voucherOutletFilter}
+                    onChange={(e) => setVoucherOutletFilter(e.target.value)}
+                    className="px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                  >
+                    <option value="all">Semua Cabang Kedai</option>
+                    {(outletsList.length > 0 ? outletsList : (data?.outlets || [])).map((o: any) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name} ({o.code})
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="relative min-w-[200px] flex-1">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Cari kode (VCR-...) / menu..."
+                      value={voucherSearch}
+                      onChange={(e) => setVoucherSearch(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Table of Vouchers */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                    <tr>
+                      <th className="py-3 px-3.5">Kode Voucher</th>
+                      <th className="py-3 px-3.5">Kedai Penerbit</th>
+                      <th className="py-3 px-3.5">Menu Hadiah</th>
+                      <th className="py-3 px-3.5">Status Klaim</th>
+                      <th className="py-3 px-3.5">Tgl Terbit</th>
+                      <th className="py-3 px-3.5">Masa Berlaku</th>
+                      <th className="py-3 px-3.5">Catatan</th>
+                      <th className="py-3 px-3.5 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {voucherLoading ? (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-slate-400">
+                          <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1 text-emerald-600" />
+                          <span>Memuat data voucher promo...</span>
+                        </td>
+                      </tr>
+                    ) : filteredVouchersList.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-slate-400">
+                          <Ticket className="w-8 h-8 mx-auto mb-1.5 stroke-1 text-slate-300" />
+                          <p className="font-semibold text-slate-600">Tidak ada voucher ditemukan.</p>
+                          <p className="text-[11px] text-slate-400">
+                            {voucherSearch
+                              ? "Coba ubah kata kunci pencarian atau filter status."
+                              : "Voucher otomatis terbit jika ada promo saat stok teh/gula habis di kasir."}
+                          </p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredVouchersList.map((v) => {
+                        const isRedeemed = v.effectiveStatus === "redeemed";
+                        const isActive = v.effectiveStatus === "active";
+                        const isExpired = v.effectiveStatus === "expired";
+
+                        return (
+                          <tr key={v.id} className="hover:bg-slate-50/80 transition">
+                            {/* Kode Voucher + Copy Button */}
+                            <td className="py-3 px-3.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-black text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                                  {v.code}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyVoucherCode(v.code)}
+                                  title="Salin Kode Voucher"
+                                  className="p-1 hover:bg-slate-200 text-slate-500 rounded transition cursor-pointer"
+                                >
+                                  {copiedVoucherCode === v.code ? (
+                                    <span className="text-[9px] font-bold text-emerald-700">Tersalin!</span>
+                                  ) : (
+                                    <Copy className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* Kedai */}
+                            <td className="py-3 px-3.5">
+                              <span className="font-bold text-slate-800 block">{v.outlet?.name || "-"}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">{v.outlet?.code}</span>
+                            </td>
+
+                            {/* Menu Hadiah */}
+                            <td className="py-3 px-3.5">
+                              <span className="font-bold text-emerald-900 block">{v.product_name}</span>
+                              <span className="text-[10px] text-emerald-700 font-bold">Gratis (Rp 0)</span>
+                            </td>
+
+                            {/* Status Klaim */}
+                            <td className="py-3 px-3.5">
+                              {isRedeemed ? (
+                                <div>
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                    Sudah Ditukar
+                                  </span>
+                                  {v.redeemed_at && (
+                                    <span className="block text-[9px] text-slate-500 font-mono mt-0.5">
+                                      {new Date(v.redeemed_at).toLocaleString("id-ID", {
+                                        day: "2-digit",
+                                        month: "short",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : isActive ? (
+                                <div>
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                                    <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                    Belum Ditukar (Aktif)
+                                  </span>
+                                  <span className="block text-[9px] text-amber-800 font-medium mt-0.5">
+                                    Sisa ~{Math.max(1, Math.ceil((new Date(v.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} hari
+                                  </span>
+                                </div>
+                              ) : (
+                                <div>
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                                    <X className="w-3 h-3 text-rose-600" />
+                                    Kedaluwarsa
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Tgl Terbit */}
+                            <td className="py-3 px-3.5 font-mono text-[11px] text-slate-600">
+                              {new Date(v.created_at).toLocaleDateString("id-ID", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </td>
+
+                            {/* Masa Berlaku */}
+                            <td className="py-3 px-3.5 font-mono text-[11px]">
+                              <span className={isExpired ? "text-rose-600 line-through" : "text-slate-800 font-bold"}>
+                                {new Date(v.expires_at).toLocaleDateString("id-ID", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                })}
+                              </span>
+                            </td>
+
+                            {/* Catatan */}
+                            <td className="py-3 px-3.5 text-slate-500 max-w-[180px] truncate" title={v.notes || "-"}>
+                              {v.notes || "-"}
+                            </td>
+
+                            {/* Aksi */}
+                            <td className="py-3 px-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {isActive && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateVoucherStatus(v.id, "redeemed")}
+                                    title="Tandai Sudah Ditukar Manual"
+                                    className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-bold border border-emerald-200 transition cursor-pointer"
+                                  >
+                                    Tandai Ditukar
+                                  </button>
+                                )}
+                                {isRedeemed && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateVoucherStatus(v.id, "active")}
+                                    title="Aktifkan Kembali Voucher"
+                                    className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg text-[10px] font-bold border border-amber-200 transition cursor-pointer"
+                                  >
+                                    Batalkan Klaim
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteVoucher(v.id, v.code)}
+                                  title="Hapus Voucher"
+                                  className="p-1 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* ============================================================== */}
@@ -5755,6 +6271,108 @@ export default function AdminDashboardPage() {
                   className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md transition"
                 >
                   {cashFloatLoading ? "Menyimpan..." : "Simpan Uang Cash"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: TERBITKAN VOUCHER PROMO MANUAL                           */}
+      {/* ============================================================== */}
+      {isAddVoucherModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                <Ticket className="w-4 h-4 text-emerald-600" />
+                Terbitkan Voucher Promo Manual
+              </h3>
+              <button
+                onClick={() => setIsAddVoucherModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateVoucher} className="space-y-4 my-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Kedai / Cabang Penerbit <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  required
+                  value={newVoucherForm.outletId}
+                  onChange={(e) => setNewVoucherForm({ ...newVoucherForm, outletId: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                >
+                  <option value="">-- Pilih Cabang Kedai --</option>
+                  {(outletsList.length > 0 ? outletsList : (data?.outlets || [])).map((o: any) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name} ({o.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Menu Hadiah Gratis <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newVoucherForm.productName}
+                  onChange={(e) => setNewVoucherForm({ ...newVoucherForm, productName: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Masa Berlaku (Hari)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="90"
+                  value={newVoucherForm.expiresInDays}
+                  onChange={(e) => setNewVoucherForm({ ...newVoucherForm, expiresInDays: Number(e.target.value) || 3 })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Default 3 hari sesuai standar voucher kedai.</p>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Catatan / Keterangan Tambahan
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Contoh: Kompensasi pelanggan antrean panjang / Promo event"
+                  value={newVoucherForm.notes}
+                  onChange={(e) => setNewVoucherForm({ ...newVoucherForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddVoucherModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={voucherActionLoading}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition flex items-center gap-1.5 shadow cursor-pointer"
+                >
+                  <Ticket className="w-3.5 h-3.5" />
+                  <span>{voucherActionLoading ? "Menerbitkan..." : "Terbitkan Voucher"}</span>
                 </button>
               </div>
             </form>
