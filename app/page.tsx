@@ -954,6 +954,25 @@ export default function PosTerminalPage() {
       return { canAdd: false, reason: "Shift kedai masih tutup. Silakan klik 'Opening Shift' terlebih dahulu." };
     }
 
+    // 1. Cek Ketersediaan Cairan Teh di Dispenser Barrel (Reguler: 180 ml, Jumbo / Varian: 250 ml, Topping: 0 ml)
+    const pName = product.name.toLowerCase();
+    const isTopping = pName.includes("topping");
+    if (!isTopping) {
+      const teaPerCup = pName.includes("reguler") ? 180 : 250;
+      const additionalTeaNeeded = teaPerCup * delta;
+      const currentTeaInCart = calculateCartTeaLiquid(cart);
+      const remainingTeaDispenser = brewLiquidMl - currentTeaInCart;
+
+      if (remainingTeaDispenser < additionalTeaNeeded) {
+        const sisaTeh = Math.max(0, Math.round(remainingTeaDispenser));
+        return {
+          canAdd: false,
+          reason: `Stok teh di dispenser habis/kurang! Sisa: ${sisaTeh} ml (butuh ${additionalTeaNeeded} ml). Silakan Re-Brew teh 8L terlebih dahulu.`,
+        };
+      }
+    }
+
+    // 2. Cek Ketersediaan Bahan Baku Resep (Cup, Gula Pasir/Cair, Perisa Bubuk, dsb)
     for (const recipe of product.recipes) {
       const matId = recipe.raw_material.id;
       const material = rawMaterials.find((m) => m.id === matId);
@@ -1408,6 +1427,15 @@ export default function PosTerminalPage() {
   const handleExecuteCheckout = async () => {
     if (cart.length === 0 || !selectedOutletId) return;
 
+    // Safety check stok teh di dispenser barrel
+    const totalTeaNeeded = calculateCartTeaLiquid(cart);
+    if (totalTeaNeeded > brewLiquidMl) {
+      alert(
+        `Pesanan tidak dapat diproses karena stok teh di dispenser tidak mencukupi!\nButuh: ${totalTeaNeeded} ml, Sisa di Dispenser: ${brewLiquidMl} ml.\nSilakan lakukan Re-Brew teh 8L terlebih dahulu.`
+      );
+      return;
+    }
+
     // Persiapkan data struk nota thermal sebelum cart dikosongkan
     const orderNumber = `#POC-${Date.now().toString().slice(-6)}`;
     const currentOutlet = outlets.find((o) => o.id === selectedOutletId);
@@ -1713,6 +1741,14 @@ export default function PosTerminalPage() {
   const gulaJumboCupsLeft = Math.floor(availableGulaStockMl / 40);
   const isGulaLow = Boolean(gulaCairMaterial && gulaJumboCupsLeft <= 6); // Alert jika sisa <= 6 minuman jumbo normal
   const isGulaCritical = Boolean(gulaCairMaterial && gulaJumboCupsLeft <= 2); // Kritis jika sisa 0 - 2 cup
+
+  // Sisa Teh Dispenser (Batch 8L) reaktif terhadap isi keranjang aktif
+  const currentTeaInCart = calculateCartTeaLiquid(cart);
+  const availableTeaStockMl = Math.max(0, brewLiquidMl - currentTeaInCart);
+  const teaJumboCupsLeft = Math.floor(availableTeaStockMl / 250);
+  const teaRegulerCupsLeft = Math.floor(availableTeaStockMl / 180);
+  const isTeaLow = availableTeaStockMl <= 3000 && availableTeaStockMl > 1500;
+  const isTeaCritical = availableTeaStockMl <= 1500;
   const currentOutletObj = outlets.find((o) => o.id === selectedOutletId) || outlets[0];
   const dailyTargetCups = currentOutletObj?.target_cups || 100;
   const initialCash = currentOutletObj?.initial_cash || 0;
@@ -1727,6 +1763,24 @@ export default function PosTerminalPage() {
     }
     prevGulaLowRef.current = isGulaLow;
   }, [isGulaLow]);
+
+  // Notifikasi chime & buka alert otomatis saat sisa teh dispenser menyentuh zona reminder / kritis
+  const prevTeaLowRef = useRef<boolean>(false);
+  useEffect(() => {
+    if ((isTeaLow || isTeaCritical) && !prevTeaLowRef.current) {
+      playBrewAlertChime();
+      setIsBrewAlertDismissed(false);
+    }
+    prevTeaLowRef.current = isTeaLow || isTeaCritical;
+  }, [isTeaLow, isTeaCritical]);
+
+  const prevTeaCriticalRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (isTeaCritical && !prevTeaCriticalRef.current) {
+      setIsBrewAlertDismissed(false);
+    }
+    prevTeaCriticalRef.current = isTeaCritical;
+  }, [isTeaCritical]);
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
@@ -2013,11 +2067,11 @@ export default function PosTerminalPage() {
               <button
                 type="button"
                 onClick={() => setIsBrewModalOpen(true)}
-                title={`Sisa Teh Dispenser: ${(brewLiquidMl / 1000).toFixed(1)}L / 8L (${Math.round(brewLiquidMl)} ml) - Klik untuk kelola seduhan`}
+                title={`Sisa Teh Dispenser: ${(availableTeaStockMl / 1000).toFixed(1)}L / 8L (${Math.round(availableTeaStockMl)} ml) - Cukup untuk ~${teaJumboCupsLeft} cup Jumbo atau ~${teaRegulerCupsLeft} cup Reguler. Klik untuk kelola seduhan`}
                 className={`col-span-2 sm:col-span-1 px-2 py-1 rounded-lg text-xs font-mono font-semibold border flex items-center justify-between sm:justify-start gap-1.5 transition cursor-pointer shadow-2xs ${
-                  brewLiquidMl <= 1500
+                  isTeaCritical
                     ? "bg-rose-100 text-rose-800 border-rose-300 font-black animate-pulse"
-                    : brewLiquidMl <= 3000
+                    : isTeaLow
                     ? "bg-amber-100 text-amber-900 border-amber-300 font-bold"
                     : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
                 }`}
@@ -2026,12 +2080,12 @@ export default function PosTerminalPage() {
                   <span className="text-xs">🫖</span>
                   <span className="text-slate-500">Dispenser:</span>
                 </span>
-                <strong className={brewLiquidMl <= 1500 ? "text-rose-700" : brewLiquidMl <= 3000 ? "text-amber-800" : "text-emerald-700"}>
-                  {(brewLiquidMl / 1000).toFixed(1)}L
+                <strong className={isTeaCritical ? "text-rose-700" : isTeaLow ? "text-amber-800" : "text-emerald-700"}>
+                  {(availableTeaStockMl / 1000).toFixed(1)}L
                 </strong>
-                {brewLiquidMl <= 3000 && (
+                {(isTeaLow || isTeaCritical) && (
                   <span className={`text-[9px] px-1 py-0.2 rounded font-black uppercase text-white ${
-                    brewLiquidMl <= 1500 ? "bg-rose-600 animate-bounce" : "bg-amber-600"
+                    isTeaCritical ? "bg-rose-600 animate-bounce" : "bg-amber-600"
                   }`}>
                     Re-Brew!
                   </span>
@@ -2723,12 +2777,12 @@ export default function PosTerminalPage() {
 
           {/* Banner Notifikasi Re-Brewing Teh Dispenser */}
           {/* 1. Mode Chip Ramping (Peringatan Awal: Sisa Teh 1.501 - 3.000 ml) */}
-          {brewLiquidMl <= 3000 && brewLiquidMl > 1500 && !isBrewAlertDismissed && (
+          {isTeaLow && !isBrewAlertDismissed && (
             <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-amber-50 border border-amber-300 rounded-xl text-xs font-bold text-amber-950 shadow-xs animate-in fade-in">
               <div className="flex items-center gap-2 min-w-0 truncate">
                 <span className="text-sm shrink-0">🫖</span>
                 <span className="truncate">
-                  Teh sisa <strong>{(brewLiquidMl / 1000).toFixed(1)}L</strong> ({Math.round(brewLiquidMl)} ml / 8L). Mulai panaskan air seduh 8L (~50 mnt).
+                  Teh sisa <strong>{(availableTeaStockMl / 1000).toFixed(1)}L</strong> ({Math.round(availableTeaStockMl)} ml / 8L). Mulai panaskan air seduh 8L (~50 mnt).
                 </span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
@@ -2759,7 +2813,7 @@ export default function PosTerminalPage() {
           )}
 
           {/* 2. Mode Banner Kritis Penuh (Hanya Saat Sisa Teh <= 1.500 ml) */}
-          {brewLiquidMl <= 1500 && !isBrewAlertDismissed && (
+          {isTeaCritical && !isBrewAlertDismissed && (
             <div className="rounded-2xl p-3.5 sm:p-4 border bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white border-rose-500 shadow-lg shadow-rose-600/30 ring-2 ring-rose-400 transition-all animate-in fade-in slide-in-from-top-2">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="flex items-start gap-3 min-w-0">
@@ -2772,7 +2826,7 @@ export default function PosTerminalPage() {
                         🚨 TEH DISPENSER SANGAT KRITIS
                       </span>
                       <span className="text-xs font-mono font-bold text-white/95">
-                        Sisa {(brewLiquidMl / 1000).toFixed(1)} Liter ({Math.round(brewLiquidMl)} ml / 8.000 ml)
+                        Sisa {(availableTeaStockMl / 1000).toFixed(1)} Liter ({Math.round(availableTeaStockMl)} ml / 8.000 ml)
                       </span>
                     </div>
 
@@ -2782,8 +2836,8 @@ export default function PosTerminalPage() {
 
                     <p className="text-xs text-white/95 mt-1 leading-snug">
                       Sisa teh cukup untuk{" "}
-                      <strong>~{Math.floor(brewLiquidMl / 250)} cup Jumbo</strong> (250 ml) atau{" "}
-                      <strong>~{Math.floor(brewLiquidMl / 180)} cup Reguler</strong> (180 ml).
+                      <strong>~{teaJumboCupsLeft} cup Jumbo</strong> (250 ml) atau{" "}
+                      <strong>~{teaRegulerCupsLeft} cup Reguler</strong> (180 ml).
                       Estimasi waktu merebus &amp; mendinginkan 8L teh adalah <strong>~50–60 menit</strong>. Masak air sekarang agar tidak kehabisan stok saat antrean!
                     </p>
                   </div>
@@ -2825,7 +2879,7 @@ export default function PosTerminalPage() {
               <div className="mt-2.5 w-full bg-black/25 rounded-full h-1.5 overflow-hidden">
                 <div
                   className="h-full bg-white rounded-full transition-all duration-300"
-                  style={{ width: `${Math.min(100, Math.max(0, (brewLiquidMl / 8000) * 100))}%` }}
+                  style={{ width: `${Math.min(100, Math.max(0, (availableTeaStockMl / 8000) * 100))}%` }}
                 />
               </div>
             </div>
