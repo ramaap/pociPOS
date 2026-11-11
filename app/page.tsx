@@ -97,6 +97,7 @@ interface CartItem {
   notes?: string;
   isPromoFree?: boolean;
   isPromoVoucher?: boolean;
+  isRedeemedVoucher?: boolean;
   voucherCode?: string;
   voucherExpiresAt?: string;
 }
@@ -1202,6 +1203,12 @@ export default function PosTerminalPage() {
         setTimeout(() => setStockAlertMessage(null), 3500);
         return;
       }
+    } else {
+      if (targetCartItem.isRedeemedVoucher || targetCartItem.voucherCode === redeemedVoucherCode) {
+        if (targetCartItem.quantity + delta <= 0) {
+          setRedeemedVoucherCode(null);
+        }
+      }
     }
 
     setStockAlertMessage(null);
@@ -1262,6 +1269,7 @@ export default function PosTerminalPage() {
       notes?: string;
       isPromoFree?: boolean;
       isPromoVoucher?: boolean;
+      isRedeemedVoucher?: boolean;
       voucherCode?: string;
     }[] = [];
 
@@ -1274,6 +1282,7 @@ export default function PosTerminalPage() {
           notes: item.notes,
           isPromoFree: item.isPromoFree,
           isPromoVoucher: item.isPromoVoucher,
+          isRedeemedVoucher: item.isRedeemedVoucher,
           voucherCode: item.voucherCode,
         });
       } else {
@@ -1286,6 +1295,7 @@ export default function PosTerminalPage() {
             notes: item.notes,
             isPromoFree: item.isPromoFree,
             isPromoVoucher: item.isPromoVoucher,
+            isRedeemedVoucher: item.isRedeemedVoucher,
             voucherCode: item.voucherCode,
           });
         }
@@ -1297,6 +1307,7 @@ export default function PosTerminalPage() {
             notes: item.notes,
             isPromoFree: item.isPromoFree,
             isPromoVoucher: item.isPromoVoucher,
+            isRedeemedVoucher: item.isRedeemedVoucher,
             voucherCode: item.voucherCode,
           });
         }
@@ -1308,6 +1319,7 @@ export default function PosTerminalPage() {
             notes: item.notes,
             isPromoFree: item.isPromoFree,
             isPromoVoucher: item.isPromoVoucher,
+            isRedeemedVoucher: item.isRedeemedVoucher,
             voucherCode: item.voucherCode,
           });
         }
@@ -1319,15 +1331,31 @@ export default function PosTerminalPage() {
 
   // Handler Diskon / Promo: Beli minimal 2 varian rasa -> Dapat 1 Ori Jumbo Gratis, atau Tukar Voucher Struk
   const handleApplyPromoCode = async (customCode?: string) => {
-    const code = (customCode || promoCodeInput).trim().toUpperCase();
+    let code = (customCode || promoCodeInput).trim().toUpperCase();
     if (!code && !customCode) {
       setPromoMessage({ type: "error", text: "Silakan masukkan kode diskon atau kode voucher struk." });
       setTimeout(() => setPromoMessage(null), 3500);
       return;
     }
 
+    // Auto-normalize format input kode voucher kasir: "193654" -> "VCR-POC-193654", "POC-193654" -> "VCR-POC-193654"
+    if (/^\d{6}$/.test(code)) {
+      code = `VCR-POC-${code}`;
+    } else if (code.startsWith("POC-")) {
+      code = `VCR-${code}`;
+    }
+
     // A. Penukaran Voucher Klaim Struk (Opsi C: Voucher Next Order, format: VCR-POC-XXXXX)
     if (code.startsWith("VCR-")) {
+      if (redeemedVoucherCode) {
+        setPromoMessage({
+          type: "error",
+          text: `Voucher ${redeemedVoucherCode} sudah terpasang di keranjang ini. Selesaikan transaksi sebelum menukar voucher berikutnya.`,
+        });
+        setTimeout(() => setPromoMessage(null), 4000);
+        return;
+      }
+
       try {
         const res = await fetch(`/api/vouchers?code=${encodeURIComponent(code)}`);
         const data = await res.json();
@@ -1340,17 +1368,22 @@ export default function PosTerminalPage() {
           return;
         }
 
-        const oriJumbo = products.find(
-          (p) => p.name.toLowerCase().includes("jasmine") && p.name.toLowerCase().includes("jumbo")
-        );
-        if (!oriJumbo) {
+        const targetProductName = data.voucher?.productName;
+        const targetProduct = targetProductName
+          ? products.find((p) => p.name.toLowerCase() === targetProductName.toLowerCase()) ||
+            products.find((p) => p.name.toLowerCase().includes("jasmine") && p.name.toLowerCase().includes("jumbo")) ||
+            products[0]
+          : products.find((p) => p.name.toLowerCase().includes("jasmine") && p.name.toLowerCase().includes("jumbo")) ||
+            products[0];
+
+        if (!targetProduct) {
           setPromoMessage({ type: "error", text: "Menu Teh Poci Ori Jumbo tidak ditemukan di katalog." });
           setTimeout(() => setPromoMessage(null), 3500);
           return;
         }
 
         // Cek ketersediaan bahan kedai untuk menukar voucher secara fisik sekarang
-        const check = checkCanAddProduct(oriJumbo, 1, "normal");
+        const check = checkCanAddProduct(targetProduct, 1, "normal");
         if (!check.canAdd) {
           setPromoMessage({
             type: "error",
@@ -1363,11 +1396,13 @@ export default function PosTerminalPage() {
         setCart((prev) => {
           const voucherItem: CartItem = {
             id: `redeemed_vcr_${Date.now()}`,
-            product: oriJumbo,
+            product: targetProduct,
             quantity: 1,
             sugarLevel: "normal",
             isPromoFree: true,
             isPromoVoucher: false, // Disajikan fisik langsung sekarang
+            isRedeemedVoucher: true,
+            voucherCode: code,
             notes: `Klaim Voucher: ${code}`,
           };
           return [...prev, voucherItem];
@@ -1377,7 +1412,7 @@ export default function PosTerminalPage() {
         setPromoCodeInput("");
         setPromoMessage({
           type: "success",
-          text: `🎉 Voucher ${code} Berhasil Ditukarkan! 1 Teh Jasmine Jumbo Gratis telah ditambahkan ke keranjang.`,
+          text: `🎉 Voucher ${code} Berhasil Ditukarkan! 1 ${targetProduct.name} Gratis telah ditambahkan ke keranjang.`,
         });
         setTimeout(() => setPromoMessage(null), 4500);
         return;
@@ -1468,7 +1503,7 @@ export default function PosTerminalPage() {
     const eligiblePromoQty = Math.floor(flavoredTeaCount / 2);
 
     setCart((prev) => {
-      const existingPromoItem = prev.find((i) => i.isPromoFree);
+      const existingPromoItem = prev.find((i) => i.isPromoFree && !i.isRedeemedVoucher);
 
       if (eligiblePromoQty > 0) {
         const oriJumbo = products.find(
@@ -1477,7 +1512,7 @@ export default function PosTerminalPage() {
         if (!oriJumbo) return prev;
 
         // Hitung ketersediaan bahan di kedai untuk menyajikan bonus fisik sekarang
-        const nonPromoItems = prev.filter((i) => !i.isPromoFree);
+        const nonPromoItems = prev.filter((i) => !i.isPromoFree || i.isRedeemedVoucher);
         const nonPromoTeaNeeded = calculateCartTeaLiquid(nonPromoItems);
         const availableTeaForBonus = Math.max(0, brewLiquidMl - nonPromoTeaNeeded);
 
@@ -1526,6 +1561,7 @@ export default function PosTerminalPage() {
               quantity: eligiblePromoQty,
               sugarLevel: "normal",
               isPromoFree: true,
+              isRedeemedVoucher: false,
               isPromoVoucher: isVoucherMode,
               voucherCode: isVoucherMode ? voucherCode : undefined,
               voucherExpiresAt: isVoucherMode ? voucherExpiresAt : undefined,
@@ -1539,7 +1575,7 @@ export default function PosTerminalPage() {
         // Jika item promo sudah ada, update quantity dan pertahankan/sesuaikan mode voucher
         const nextIsVoucher = existingPromoItem.isPromoVoucher !== undefined ? existingPromoItem.isPromoVoucher : isVoucherMode;
         return prev.map((item) =>
-          item.isPromoFree
+          item.isPromoFree && !item.isRedeemedVoucher
             ? {
                 ...item,
                 quantity: eligiblePromoQty,
@@ -1555,7 +1591,7 @@ export default function PosTerminalPage() {
       } else {
         if (existingPromoItem) {
           setIsPromoApplied(false);
-          return prev.filter((i) => !i.isPromoFree);
+          return prev.filter((i) => !(i.isPromoFree && !i.isRedeemedVoucher));
         }
         return prev;
       }
@@ -1566,6 +1602,7 @@ export default function PosTerminalPage() {
     setCart([]);
     setIsPromoApplied(false);
     setPromoMessage(null);
+    setRedeemedVoucherCode(null);
     setIsMobileCartOpen(false);
   };
 
@@ -2557,7 +2594,7 @@ export default function PosTerminalPage() {
                       <ShoppingBag className="w-8 h-8 mx-auto stroke-1 text-slate-300 mb-1" />
                       <p className="text-xs font-medium">Keranjang masih kosong</p>
                       <p className="text-[10px] text-slate-400">
-                        Pilih menu di bawah untuk menambahkan pesanan
+                        Pilih menu di bawah atau klaim voucher promo
                       </p>
                     </div>
                   ) : (
@@ -2572,7 +2609,11 @@ export default function PosTerminalPage() {
                               <h4 className="font-bold text-xs text-slate-900 truncate">
                                 {formatProductName(item.product.name)}
                               </h4>
-                              {item.isPromoVoucher ? (
+                              {item.isRedeemedVoucher ? (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-700 text-white shrink-0">
+                                  🎟️ KLAIM VOUCHER
+                                </span>
+                              ) : item.isPromoVoucher ? (
                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-600 text-white shrink-0">
                                   🎟️ VOUCHER STRUK
                                 </span>
@@ -2587,7 +2628,7 @@ export default function PosTerminalPage() {
                                 <>
                                   <span className="line-through text-slate-400 mr-1.5">{formatRupiah(item.product.price)}</span>
                                   <span className="text-emerald-700 font-black">
-                                    {item.isPromoVoucher ? "Rp 0 (VOUCHER)" : "Rp 0 (GRATIS)"}
+                                    {item.isPromoVoucher ? "Rp 0 (VOUCHER)" : item.isRedeemedVoucher ? "Rp 0 (KLAIM)" : "Rp 0 (GRATIS)"}
                                   </span>
                                 </>
                               ) : (
@@ -2595,7 +2636,12 @@ export default function PosTerminalPage() {
                               )}
                             </div>
                             {item.isPromoFree && (
-                              item.isPromoVoucher ? (
+                              item.isRedeemedVoucher ? (
+                                <div className="mt-1 p-1 bg-emerald-50 border border-emerald-300 rounded text-[9px] text-emerald-950 flex items-center justify-between gap-1">
+                                  <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong></span>
+                                  <span className="text-emerald-700 font-bold shrink-0">🥤 Disajikan Fisik</span>
+                                </div>
+                              ) : item.isPromoVoucher ? (
                                 <div className="mt-1 p-1 bg-amber-50 border border-amber-300 rounded text-[9px] text-amber-900 flex items-center justify-between gap-1">
                                   <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong> (Struk)</span>
                                   <button
@@ -2864,22 +2910,22 @@ export default function PosTerminalPage() {
                   )}
                 </div>
 
-                {/* Banner Promo Otomatis Mobile */}
-                {cart.length > 0 && (
-                  <div className="space-y-2 pt-2 border-t border-slate-200">
-                    {isPromoApplied ? (
-                      <div className="p-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-900 font-bold shadow-2xs">
-                        <span className="flex items-center gap-1.5">
-                          <span>🎉</span>
-                          <span>
-                            Promo Otomatis: Gratis {cart.find((i) => i.isPromoFree)?.quantity || 1} Teh Ori Jumbo!
-                          </span>
+                {/* Banner Promo Otomatis & Input Voucher/Diskon (Selalu Tampil, Termasuk Saat Keranjang Kosong) */}
+                <div className="space-y-2 pt-2 border-t border-slate-200">
+                  {isPromoApplied ? (
+                    <div className="p-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-900 font-bold shadow-2xs">
+                      <span className="flex items-center gap-1.5">
+                        <span>🎉</span>
+                        <span>
+                          Promo Otomatis: Gratis {cart.find((i) => i.isPromoFree && !i.isRedeemedVoucher)?.quantity || 1} Teh Ori Jumbo!
                         </span>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black shrink-0">
-                          Otomatis
-                        </span>
-                      </div>
-                    ) : flavoredTeaCount === 1 ? (
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black shrink-0">
+                        Otomatis
+                      </span>
+                    </div>
+                  ) : cart.length > 0 ? (
+                    flavoredTeaCount === 1 ? (
                       <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 font-medium flex items-center gap-1.5">
                         <span>💡</span>
                         <span>
@@ -2891,37 +2937,47 @@ export default function PosTerminalPage() {
                         <span>Promo: Beli 2 Varian Rasa Gratis 1 Teh Ori Jumbo</span>
                         <span className="font-bold text-slate-700">({flavoredTeaCount}/2 Cup)</span>
                       </div>
-                    )}
-
-                    <div className="flex gap-1.5">
-                      <input
-                        type="text"
-                        placeholder="Kode Diskon / Promo"
-                        value={promoCodeInput}
-                        onChange={(e) => setPromoCodeInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleApplyPromoCode();
-                          }
-                        }}
-                        className="flex-1 px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg uppercase font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleApplyPromoCode()}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
-                      >
-                        Terapkan
-                      </button>
+                    )
+                  ) : (
+                    <div className="p-2 bg-emerald-50/80 border border-emerald-200/90 rounded-xl flex items-center justify-between text-xs text-emerald-950 font-bold">
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-sm">🎟️</span>
+                        <span>Punya Voucher Promo Struk / Diskon?</span>
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-black shrink-0">
+                        Klaim Gratis
+                      </span>
                     </div>
-                    {promoMessage && (
-                      <p className={`text-[11px] font-bold ${promoMessage.type === "success" ? "text-emerald-700" : "text-rose-600"}`}>
-                        {promoMessage.text}
-                      </p>
-                    )}
+                  )}
+
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="Kode Diskon / Voucher (cth: VCR-...)"
+                      value={promoCodeInput}
+                      onChange={(e) => setPromoCodeInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleApplyPromoCode();
+                        }
+                      }}
+                      className="flex-1 px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg uppercase font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPromoCode()}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
+                    >
+                      Terapkan
+                    </button>
                   </div>
-                )}
+                  {promoMessage && (
+                    <p className={`text-[11px] font-bold ${promoMessage.type === "success" ? "text-emerald-700" : "text-rose-600"}`}>
+                      {promoMessage.text}
+                    </p>
+                  )}
+                </div>
 
                 {/* Summary & Action Buttons */}
                 <div className="pt-2.5 border-t border-slate-200 space-y-2.5">
@@ -3488,7 +3544,7 @@ export default function PosTerminalPage() {
                   <ShoppingBag className="w-10 h-10 stroke-1 text-slate-300 mb-2" />
                   <p className="text-sm font-medium">Keranjang masih kosong</p>
                   <p className="text-xs text-slate-400 mt-1 max-w-[200px]">
-                    Sentuh pilihan menu di samping untuk menambahkan cup
+                    Sentuh menu di samping atau masukkan kode voucher promo di bawah
                   </p>
                 </div>
               ) : (
@@ -3503,7 +3559,11 @@ export default function PosTerminalPage() {
                           <h4 className="font-bold text-xs text-slate-900 leading-tight">
                             {formatProductName(item.product.name)}
                           </h4>
-                          {item.isPromoVoucher ? (
+                          {item.isRedeemedVoucher ? (
+                            <span className="px-1.5 py-0.2 rounded text-[8px] font-black bg-emerald-700 text-white shrink-0">
+                              🎟️ KLAIM VOUCHER
+                            </span>
+                          ) : item.isPromoVoucher ? (
                             <span className="px-1.5 py-0.2 rounded text-[8px] font-black bg-amber-600 text-white shrink-0">
                               🎟️ VOUCHER STRUK
                             </span>
@@ -3518,7 +3578,7 @@ export default function PosTerminalPage() {
                             <>
                               <span className="line-through text-slate-400 mr-1 text-[11px]">{formatRupiah(item.product.price)}</span>
                               <span className="text-emerald-700 font-black">
-                                {item.isPromoVoucher ? "Rp 0 (VOUCHER)" : "Rp 0 (GRATIS)"}
+                                {item.isPromoVoucher ? "Rp 0 (VOUCHER)" : item.isRedeemedVoucher ? "Rp 0 (KLAIM)" : "Rp 0 (GRATIS)"}
                               </span>
                             </>
                           ) : (
@@ -3526,7 +3586,12 @@ export default function PosTerminalPage() {
                           )}
                         </div>
                         {item.isPromoFree && (
-                          item.isPromoVoucher ? (
+                          item.isRedeemedVoucher ? (
+                            <div className="mt-1 p-1 bg-emerald-50 border border-emerald-300 rounded text-[9px] text-emerald-950 flex items-center justify-between gap-1">
+                              <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong></span>
+                              <span className="text-emerald-700 font-bold shrink-0">🥤 Disajikan Fisik</span>
+                            </div>
+                          ) : item.isPromoVoucher ? (
                             <div className="mt-1 p-1 bg-amber-50 border border-amber-300 rounded text-[9px] text-amber-900 flex items-center justify-between gap-1">
                               <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong> (Struk)</span>
                               <button
@@ -3795,22 +3860,22 @@ export default function PosTerminalPage() {
               )}
             </div>
 
-            {/* Banner Promo Otomatis Desktop */}
-            {cart.length > 0 && (
-              <div className="shrink-0 pt-2 border-t border-slate-100 space-y-1.5">
-                {isPromoApplied ? (
-                  <div className="p-2 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-900 font-bold shadow-2xs">
-                    <span className="flex items-center gap-1.5 truncate">
-                      <span className="text-sm">🎉</span>
-                      <span className="truncate">
-                        Promo: Gratis {cart.find((i) => i.isPromoFree)?.quantity || 1} Teh Ori Jumbo!
-                      </span>
+            {/* Banner Promo Otomatis & Input Voucher/Diskon (Selalu Tampil, Termasuk Saat Keranjang Kosong) */}
+            <div className="shrink-0 pt-2 border-t border-slate-100 space-y-1.5">
+              {isPromoApplied ? (
+                <div className="p-2 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-900 font-bold shadow-2xs">
+                  <span className="flex items-center gap-1.5 truncate">
+                    <span className="text-sm">🎉</span>
+                    <span className="truncate">
+                      Promo: Gratis {cart.find((i) => i.isPromoFree && !i.isRedeemedVoucher)?.quantity || 1} Teh Ori Jumbo!
                     </span>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black shrink-0">
-                      Otomatis Aktif
-                    </span>
-                  </div>
-                ) : flavoredTeaCount === 1 ? (
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black shrink-0">
+                    Otomatis Aktif
+                  </span>
+                </div>
+              ) : cart.length > 0 ? (
+                flavoredTeaCount === 1 ? (
                   <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-900 font-medium flex items-center gap-1.5">
                     <span className="text-sm shrink-0">💡</span>
                     <span>
@@ -3822,37 +3887,47 @@ export default function PosTerminalPage() {
                     <span>Promo: Beli 2 Varian Rasa Gratis 1 Teh Ori Jumbo</span>
                     <span className="font-bold text-slate-700">({flavoredTeaCount}/2 Cup)</span>
                   </div>
-                )}
-
-                <div className="flex gap-1.5">
-                  <input
-                    type="text"
-                    placeholder="Kode Diskon / Promo"
-                    value={promoCodeInput}
-                    onChange={(e) => setPromoCodeInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleApplyPromoCode();
-                      }
-                    }}
-                    className="flex-1 px-2.5 py-1 text-[11px] border border-slate-300 rounded-lg uppercase font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleApplyPromoCode()}
-                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-[11px] font-bold transition shadow-xs cursor-pointer shrink-0"
-                  >
-                    Terapkan
-                  </button>
+                )
+              ) : (
+                <div className="p-1.5 bg-emerald-50/80 border border-emerald-200/90 rounded-xl flex items-center justify-between text-[11px] text-emerald-950 font-bold">
+                  <span className="flex items-center gap-1.5 truncate">
+                    <span className="text-sm">🎟️</span>
+                    <span className="truncate">Punya Voucher Promo Struk / Diskon?</span>
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-black shrink-0">
+                    Klaim Gratis
+                  </span>
                 </div>
-                {promoMessage && (
-                  <p className={`text-[10px] font-bold ${promoMessage.type === "success" ? "text-emerald-700" : "text-rose-600"}`}>
-                    {promoMessage.text}
-                  </p>
-                )}
+              )}
+
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  placeholder="Kode Diskon / Voucher (cth: VCR-...)"
+                  value={promoCodeInput}
+                  onChange={(e) => setPromoCodeInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleApplyPromoCode();
+                    }
+                  }}
+                  className="flex-1 px-2.5 py-1 text-[11px] border border-slate-300 rounded-lg uppercase font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleApplyPromoCode()}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-[11px] font-bold transition shadow-xs cursor-pointer shrink-0"
+                >
+                  Terapkan
+                </button>
               </div>
-            )}
+              {promoMessage && (
+                <p className={`text-[10px] font-bold ${promoMessage.type === "success" ? "text-emerald-700" : "text-rose-600"}`}>
+                  {promoMessage.text}
+                </p>
+              )}
+            </div>
 
             {/* Cart Summary & Checkout Action */}
             <div className="shrink-0 pt-2.5 border-t border-slate-100">
