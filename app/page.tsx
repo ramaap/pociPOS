@@ -2671,7 +2671,7 @@ export default function PosTerminalPage() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-2.5">
               {filteredFlavors.map((item) => {
                 const { baseName, meta, reguler, jumbo } = item;
 
@@ -2689,35 +2689,38 @@ export default function PosTerminalPage() {
                         addToCart(defaultProd);
                       }
                     }}
-                    className={`bg-white rounded-xl p-2.5 sm:p-3 shadow-2xs hover:shadow-md border border-slate-200/90 flex flex-col justify-between relative overflow-hidden transition select-none ${
+                    className={`bg-white rounded-xl p-2 sm:p-2.5 shadow-2xs hover:shadow-md border border-slate-200/90 flex flex-col justify-between relative overflow-hidden transition select-none ${
                       isSingleSize && checkDefault.canAdd
                         ? "cursor-pointer active:scale-[0.98] hover:border-emerald-500"
                         : ""
                     }`}
                   >
-                    {baseName.toLowerCase().includes("jasmine") ? (
-                      <div className="absolute top-1.5 right-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full shadow-2xs flex items-center gap-0.5">
-                        <span>⭐</span>
-                        <span>Utama</span>
-                      </div>
-                    ) : null}
-
                     <div>
-                      <div className="flex items-center space-x-2 sm:space-x-2.5 mb-2">
+                      <div className="flex items-start gap-1.5 sm:gap-2 mb-1.5">
                         <div
-                          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl ${meta.circleBg} text-white flex items-center justify-center text-base sm:text-lg shadow-inner flex-shrink-0`}
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg ${meta.circleBg} text-white flex items-center justify-center text-sm sm:text-base shadow-inner shrink-0 mt-0.5`}
                         >
                           {meta.icon}
                         </div>
-                        <div className="min-w-0 flex-1 pr-6">
-                          <span className={`px-1.5 py-0.2 rounded text-[8px] sm:text-[9px] font-bold ${meta.badgeBg} ${meta.badgeText}`}>
-                            {meta.category === "original"
-                              ? "Original"
-                              : meta.category === "milky"
-                              ? "Milky"
-                              : "Fruit"}
-                          </span>
-                          <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 leading-tight mt-0.5 truncate" title={baseName}>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className={`px-1.5 py-0.2 rounded text-[8px] sm:text-[9px] font-bold ${meta.badgeBg} ${meta.badgeText}`}>
+                              {meta.category === "original"
+                                ? "Original"
+                                : meta.category === "milky"
+                                ? "Milky"
+                                : "Fruit"}
+                            </span>
+                            {baseName.toLowerCase().includes("jasmine") && (
+                              <span className="bg-emerald-600 text-white text-[7px] sm:text-[8px] font-black uppercase px-1 py-0.2 rounded shadow-2xs">
+                                ⭐ Utama
+                              </span>
+                            )}
+                          </div>
+                          <h3
+                            className="font-extrabold text-[11px] sm:text-xs text-slate-900 leading-tight mt-0.5 line-clamp-2 min-h-[2rem] flex items-center"
+                            title={baseName}
+                          >
                             {baseName}
                           </h3>
                         </div>
@@ -2812,385 +2815,383 @@ export default function PosTerminalPage() {
           )}
         </div>
 
-        {/* Right Column: Active Cart & Checkout (Desktop Only) */}
-        <div className="hidden lg:flex lg:col-span-4 flex-col lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)]">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex-1 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <ShoppingBag className="w-5 h-5 text-emerald-700" />
-                  <h2 className="font-bold text-slate-900 text-base">
-                    Pesanan Aktif ({currentOutletObj?.code})
-                  </h2>
-                </div>
-                {cart.length > 0 && (
-                  <button
-                    onClick={clearCart}
-                    className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 transition"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Reset
-                  </button>
-                )}
+        {/* Right Column: Active Cart & Checkout (Desktop Only - Dynamic Full Height) */}
+        <div className="hidden lg:flex lg:col-span-4 flex-col lg:sticky lg:top-14 lg:h-[calc(100vh-4.5rem)]">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3.5 sm:p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
+            {/* Header: Pesanan Aktif */}
+            <div className="shrink-0 flex items-center justify-between pb-2.5 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5 text-emerald-700" />
+                <h2 className="font-bold text-slate-900 text-sm sm:text-base">
+                  Pesanan Aktif ({currentOutletObj?.code})
+                </h2>
               </div>
-
-              {/* Cart List */}
-              <div className="mt-4 space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-                {cart.length === 0 ? (
-                  <div className="py-12 text-center text-slate-400">
-                    <ShoppingBag className="w-10 h-10 mx-auto stroke-1 text-slate-300 mb-2" />
-                    <p className="text-sm font-medium">Keranjang masih kosong</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Sentuh pilihan menu di samping untuk menambahkan cup
-                    </p>
-                  </div>
-                ) : (
-                  cart.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-3 bg-slate-50 rounded-xl border border-slate-200 shadow-2xs space-y-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 mr-2">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <h4 className="font-bold text-xs text-slate-900 leading-tight">
-                              {formatProductName(item.product.name)}
-                            </h4>
-                            {item.isPromoFree && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500 text-white shrink-0">
-                                PROMO GRATIS
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs font-mono mt-0.5">
-                            {item.isPromoFree ? (
-                              <>
-                                <span className="line-through text-slate-400 mr-1 text-[11px]">{formatRupiah(item.product.price)}</span>
-                                <span className="text-emerald-700 font-black">Rp 0 (GRATIS)</span>
-                              </>
-                            ) : (
-                              <span className="text-emerald-700 font-semibold">{formatRupiah(item.product.price)}</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {item.product.name.includes("Topping") || item.isPromoFree ? (
-                          /* Counter Biasa untuk Topping & Promo Gratis */
-                          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => updateQuantity(item.id, -1)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 active:scale-90 transition font-black shadow-2xs cursor-pointer"
-                              title="Kurangi 1 cup"
-                            >
-                              <Minus className="w-4 h-4 stroke-[2.5]" />
-                            </button>
-                            <span className="w-7 text-center font-mono font-black text-xs text-slate-900">
-                              {item.quantity}
-                            </span>
-                            <button
-                              type="button"
-                              disabled={item.isPromoFree}
-                              onClick={() => updateQuantity(item.id, 1)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                              title="Tambah 1 cup"
-                            >
-                              <Plus className="w-4 h-4 stroke-[2.5]" />
-                            </button>
-                          </div>
-                        ) : (
-                          /* Untuk Minuman Teh: Badge Total Qty & Tombol Hapus */
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-mono font-black text-xs border border-emerald-200 shadow-2xs">
-                              {item.quantity} cup
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => updateQuantity(item.id, -item.quantity)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                              title="Hapus produk ini dari keranjang"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Opsi B: Multi-Counter Level Gula (Normal / Less / Tawar) */}
-                      {!item.product.name.includes("Topping") && !item.isPromoFree && (
-                        <div className="pt-2 border-t border-slate-100 space-y-1.5">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-slate-500 font-bold">Porsi Gula:</span>
-                            <span className="text-[10px] text-slate-400 font-mono font-bold">
-                              {(() => {
-                                const b = item.sugarBreakdown || {
-                                  normal: item.sugarLevel === "normal" ? item.quantity : 0,
-                                  less: item.sugarLevel === "less" ? item.quantity : 0,
-                                  tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
-                                };
-                                const parts: string[] = [];
-                                if (b.normal > 0) parts.push(`${b.normal} Normal`);
-                                if (b.less > 0) parts.push(`${b.less} Less`);
-                                if (b.tawar > 0) parts.push(`${b.tawar} Tawar`);
-                                return parts.join(", ") || `${item.quantity} Normal`;
-                              })()}
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-                            {/* Kolom Normal */}
-                            {(() => {
-                              const b = item.sugarBreakdown || {
-                                normal: item.sugarLevel === "normal" ? item.quantity : 0,
-                                less: item.sugarLevel === "less" ? item.quantity : 0,
-                                tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
-                              };
-                              const count = b.normal;
-                              return (
-                                <div
-                                  className={`flex flex-col items-center justify-between p-1.5 rounded-lg border transition ${
-                                    count > 0
-                                      ? "bg-white border-emerald-300 shadow-2xs"
-                                      : "bg-white/60 border-slate-200 opacity-60"
-                                  }`}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (item.quantity === 1) setSingleSugarLevel(item.id, "normal");
-                                    }}
-                                    className={`text-[11px] font-black cursor-pointer leading-tight ${
-                                      count > 0 ? "text-emerald-800" : "text-slate-500"
-                                    }`}
-                                  >
-                                    Normal
-                                  </button>
-                                  <span className="text-[9px] text-slate-400 font-mono mb-1">100%</span>
-
-                                  <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-slate-100">
-                                    <button
-                                      type="button"
-                                      disabled={count === 0}
-                                      onClick={() => updateSugarBreakdown(item.id, "normal", -1)}
-                                      className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
-                                    >
-                                      <Minus className="w-3 h-3 stroke-[2.5]" />
-                                    </button>
-                                    <span className={`font-mono font-black text-xs ${count > 0 ? "text-emerald-700" : "text-slate-400"}`}>
-                                      {count}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => updateSugarBreakdown(item.id, "normal", 1)}
-                                      className="w-6 h-6 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
-                                    >
-                                      <Plus className="w-3 h-3 stroke-[2.5]" />
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })()}
-
-                            {/* Kolom Less */}
-                            {(() => {
-                              const b = item.sugarBreakdown || {
-                                normal: item.sugarLevel === "normal" ? item.quantity : 0,
-                                less: item.sugarLevel === "less" ? item.quantity : 0,
-                                tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
-                              };
-                              const count = b.less;
-                              return (
-                                <div
-                                  className={`flex flex-col items-center justify-between p-1.5 rounded-lg border transition ${
-                                    count > 0
-                                      ? "bg-white border-amber-300 shadow-2xs"
-                                      : "bg-white/60 border-slate-200 opacity-60"
-                                  }`}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (item.quantity === 1) setSingleSugarLevel(item.id, "less");
-                                    }}
-                                    className={`text-[11px] font-black cursor-pointer leading-tight ${
-                                      count > 0 ? "text-amber-800" : "text-slate-500"
-                                    }`}
-                                  >
-                                    Less
-                                  </button>
-                                  <span className="text-[9px] text-slate-400 font-mono mb-1">50%</span>
-
-                                  <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-slate-100">
-                                    <button
-                                      type="button"
-                                      disabled={count === 0}
-                                      onClick={() => updateSugarBreakdown(item.id, "less", -1)}
-                                      className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
-                                    >
-                                      <Minus className="w-3 h-3 stroke-[2.5]" />
-                                    </button>
-                                    <span className={`font-mono font-black text-xs ${count > 0 ? "text-amber-700" : "text-slate-400"}`}>
-                                      {count}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => updateSugarBreakdown(item.id, "less", 1)}
-                                      className="w-6 h-6 rounded flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
-                                    >
-                                      <Plus className="w-3 h-3 stroke-[2.5]" />
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })()}
-
-                            {/* Kolom Tawar */}
-                            {(() => {
-                              const b = item.sugarBreakdown || {
-                                normal: item.sugarLevel === "normal" ? item.quantity : 0,
-                                less: item.sugarLevel === "less" ? item.quantity : 0,
-                                tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
-                              };
-                              const count = b.tawar;
-                              return (
-                                <div
-                                  className={`flex flex-col items-center justify-between p-1.5 rounded-lg border transition ${
-                                    count > 0
-                                      ? "bg-white border-slate-400 shadow-2xs"
-                                      : "bg-white/60 border-slate-200 opacity-60"
-                                  }`}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (item.quantity === 1) setSingleSugarLevel(item.id, "tawar");
-                                    }}
-                                    className={`text-[11px] font-black cursor-pointer leading-tight ${
-                                      count > 0 ? "text-slate-900" : "text-slate-500"
-                                    }`}
-                                  >
-                                    Tawar
-                                  </button>
-                                  <span className="text-[9px] text-slate-400 font-mono mb-1">0%</span>
-
-                                  <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-slate-100">
-                                    <button
-                                      type="button"
-                                      disabled={count === 0}
-                                      onClick={() => updateSugarBreakdown(item.id, "tawar", -1)}
-                                      className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
-                                    >
-                                      <Minus className="w-3 h-3 stroke-[2.5]" />
-                                    </button>
-                                    <span className={`font-mono font-black text-xs ${count > 0 ? "text-slate-900" : "text-slate-400"}`}>
-                                      {count}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => updateSugarBreakdown(item.id, "tawar", 1)}
-                                      className="w-6 h-6 rounded flex items-center justify-center bg-slate-800 hover:bg-slate-900 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
-                                    >
-                                      <Plus className="w-3 h-3 stroke-[2.5]" />
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Kolom Catatan Permintaan Khusus */}
-                      {!item.isPromoFree && (
-                        <div className="pt-2 border-t border-slate-200">
-                          <input
-                            type="text"
-                            placeholder="Catatan khusus (cth: es sedikit, pisah cup)..."
-                            value={item.notes || ""}
-                            onChange={(e) => updateItemNotes(item.id, e.target.value)}
-                            className="w-full px-2.5 py-1.5 text-[11px] bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-400 font-medium"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Banner Promo Otomatis Desktop */}
               {cart.length > 0 && (
-                <div className="mt-4 space-y-2 pt-3 border-t border-slate-100">
-                  {isPromoApplied ? (
-                    <div className="p-3 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-900 font-bold shadow-2xs">
-                      <span className="flex items-center gap-1.5">
-                        <span className="text-base">🎉</span>
-                        <span>
-                          Promo Otomatis: Gratis {cart.find((i) => i.isPromoFree)?.quantity || 1} Teh Ori Jumbo!
-                        </span>
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black shrink-0">
-                        Otomatis Aktif
-                      </span>
-                    </div>
-                  ) : flavoredTeaCount === 1 ? (
-                    <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 font-medium flex items-center gap-2">
-                      <span className="text-base shrink-0">💡</span>
-                      <span>
-                        Tambah <strong>1 Teh Varian Rasa</strong> lagi untuk dapat bonus <strong>1 Teh Ori Jumbo GRATIS</strong> otomatis!
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] text-slate-500 flex items-center justify-between">
-                      <span>Promo: Beli 2 Varian Rasa Gratis 1 Teh Ori Jumbo</span>
-                      <span className="font-bold text-slate-700">({flavoredTeaCount}/2 Cup)</span>
-                    </div>
-                  )}
-
-                  <div className="space-y-1">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Kode Diskon / Promo"
-                        value={promoCodeInput}
-                        onChange={(e) => setPromoCodeInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleApplyPromoCode();
-                          }
-                        }}
-                        className="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded-lg uppercase font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleApplyPromoCode()}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
-                      >
-                        Terapkan
-                      </button>
-                    </div>
-                    {promoMessage && (
-                      <p className={`text-[11px] font-bold ${promoMessage.type === "success" ? "text-emerald-700" : "text-rose-600"}`}>
-                        {promoMessage.text}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={clearCart}
+                  className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 transition cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Reset
+                </button>
               )}
             </div>
 
+            {/* Cart List - Dynamic Flex-1 Height (Memanjang Otomatis Sesuai Tinggi Layar, Tidak Terpotong) */}
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1 py-1 space-y-2 mt-2">
+              {cart.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center py-12 text-center text-slate-400">
+                  <ShoppingBag className="w-10 h-10 stroke-1 text-slate-300 mb-2" />
+                  <p className="text-sm font-medium">Keranjang masih kosong</p>
+                  <p className="text-xs text-slate-400 mt-1 max-w-[200px]">
+                    Sentuh pilihan menu di samping untuk menambahkan cup
+                  </p>
+                </div>
+              ) : (
+                cart.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 shadow-2xs space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between gap-1.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <h4 className="font-bold text-xs text-slate-900 leading-tight">
+                            {formatProductName(item.product.name)}
+                          </h4>
+                          {item.isPromoFree && (
+                            <span className="px-1.5 py-0.2 rounded text-[8px] font-black bg-amber-500 text-white shrink-0">
+                              PROMO GRATIS
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs font-mono mt-0.5">
+                          {item.isPromoFree ? (
+                            <>
+                              <span className="line-through text-slate-400 mr-1 text-[11px]">{formatRupiah(item.product.price)}</span>
+                              <span className="text-emerald-700 font-black">Rp 0 (GRATIS)</span>
+                            </>
+                          ) : (
+                            <span className="text-emerald-700 font-semibold">{formatRupiah(item.product.price)}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {item.product.name.includes("Topping") || item.isPromoFree ? (
+                        /* Counter Biasa untuk Topping & Promo Gratis */
+                        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(item.id, -1)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 active:scale-90 transition font-black shadow-2xs cursor-pointer"
+                            title="Kurangi 1 cup"
+                          >
+                            <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
+                          </button>
+                          <span className="w-6 text-center font-mono font-black text-xs text-slate-900">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={item.isPromoFree}
+                            onClick={() => updateQuantity(item.id, 1)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            title="Tambah 1 cup"
+                          >
+                            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                          </button>
+                        </div>
+                      ) : (
+                        /* Untuk Minuman Teh: Badge Total Qty & Tombol Hapus */
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 font-mono font-black text-xs border border-emerald-200 shadow-2xs">
+                            {item.quantity} cup
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(item.id, -item.quantity)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                            title="Hapus produk ini dari keranjang"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Opsi B: Multi-Counter Level Gula (Normal / Less / Tawar) */}
+                    {!item.product.name.includes("Topping") && !item.isPromoFree && (
+                      <div className="pt-1.5 border-t border-slate-200/80 space-y-1">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-slate-500 font-bold">Porsi Gula:</span>
+                          <span className="text-[10px] text-slate-400 font-mono font-bold truncate ml-1">
+                            {(() => {
+                              const b = item.sugarBreakdown || {
+                                normal: item.sugarLevel === "normal" ? item.quantity : 0,
+                                less: item.sugarLevel === "less" ? item.quantity : 0,
+                                tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+                              };
+                              const parts: string[] = [];
+                              if (b.normal > 0) parts.push(`${b.normal} Normal`);
+                              if (b.less > 0) parts.push(`${b.less} Less`);
+                              if (b.tawar > 0) parts.push(`${b.tawar} Tawar`);
+                              return parts.join(", ") || `${item.quantity} Normal`;
+                            })()}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                          {/* Kolom Normal */}
+                          {(() => {
+                            const b = item.sugarBreakdown || {
+                              normal: item.sugarLevel === "normal" ? item.quantity : 0,
+                              less: item.sugarLevel === "less" ? item.quantity : 0,
+                              tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+                            };
+                            const count = b.normal;
+                            return (
+                              <div
+                                className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${
+                                  count > 0
+                                    ? "bg-white border-emerald-300 shadow-2xs"
+                                    : "bg-white/60 border-slate-200 opacity-60"
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (item.quantity === 1) setSingleSugarLevel(item.id, "normal");
+                                  }}
+                                  className={`text-[10px] sm:text-[11px] font-black cursor-pointer leading-tight ${
+                                    count > 0 ? "text-emerald-800" : "text-slate-500"
+                                  }`}
+                                >
+                                  Normal
+                                </button>
+                                <span className="text-[9px] text-slate-400 font-mono mb-0.5">100%</span>
+
+                                <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
+                                  <button
+                                    type="button"
+                                    disabled={count === 0}
+                                    onClick={() => updateSugarBreakdown(item.id, "normal", -1)}
+                                    className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
+                                  >
+                                    <Minus className="w-3 h-3 stroke-[2.5]" />
+                                  </button>
+                                  <span className={`font-mono font-black text-xs ${count > 0 ? "text-emerald-700" : "text-slate-400"}`}>
+                                    {count}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateSugarBreakdown(item.id, "normal", 1)}
+                                    className="w-6 h-6 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
+                                  >
+                                    <Plus className="w-3 h-3 stroke-[2.5]" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Kolom Less */}
+                          {(() => {
+                            const b = item.sugarBreakdown || {
+                              normal: item.sugarLevel === "normal" ? item.quantity : 0,
+                              less: item.sugarLevel === "less" ? item.quantity : 0,
+                              tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+                            };
+                            const count = b.less;
+                            return (
+                              <div
+                                className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${
+                                  count > 0
+                                    ? "bg-white border-amber-300 shadow-2xs"
+                                    : "bg-white/60 border-slate-200 opacity-60"
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (item.quantity === 1) setSingleSugarLevel(item.id, "less");
+                                  }}
+                                  className={`text-[10px] sm:text-[11px] font-black cursor-pointer leading-tight ${
+                                    count > 0 ? "text-amber-800" : "text-slate-500"
+                                  }`}
+                                >
+                                  Less
+                                </button>
+                                <span className="text-[9px] text-slate-400 font-mono mb-0.5">50%</span>
+
+                                <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
+                                  <button
+                                    type="button"
+                                    disabled={count === 0}
+                                    onClick={() => updateSugarBreakdown(item.id, "less", -1)}
+                                    className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
+                                  >
+                                    <Minus className="w-3 h-3 stroke-[2.5]" />
+                                  </button>
+                                  <span className={`font-mono font-black text-xs ${count > 0 ? "text-amber-700" : "text-slate-400"}`}>
+                                    {count}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateSugarBreakdown(item.id, "less", 1)}
+                                    className="w-6 h-6 rounded flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
+                                  >
+                                    <Plus className="w-3 h-3 stroke-[2.5]" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Kolom Tawar */}
+                          {(() => {
+                            const b = item.sugarBreakdown || {
+                              normal: item.sugarLevel === "normal" ? item.quantity : 0,
+                              less: item.sugarLevel === "less" ? item.quantity : 0,
+                              tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+                            };
+                            const count = b.tawar;
+                            return (
+                              <div
+                                className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${
+                                  count > 0
+                                    ? "bg-white border-slate-400 shadow-2xs"
+                                    : "bg-white/60 border-slate-200 opacity-60"
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (item.quantity === 1) setSingleSugarLevel(item.id, "tawar");
+                                  }}
+                                  className={`text-[10px] sm:text-[11px] font-black cursor-pointer leading-tight ${
+                                    count > 0 ? "text-slate-900" : "text-slate-500"
+                                  }`}
+                                >
+                                  Tawar
+                                </button>
+                                <span className="text-[9px] text-slate-400 font-mono mb-0.5">0%</span>
+
+                                <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
+                                  <button
+                                    type="button"
+                                    disabled={count === 0}
+                                    onClick={() => updateSugarBreakdown(item.id, "tawar", -1)}
+                                    className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
+                                  >
+                                    <Minus className="w-3 h-3 stroke-[2.5]" />
+                                  </button>
+                                  <span className={`font-mono font-black text-xs ${count > 0 ? "text-slate-900" : "text-slate-400"}`}>
+                                    {count}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateSugarBreakdown(item.id, "tawar", 1)}
+                                    className="w-6 h-6 rounded flex items-center justify-center bg-slate-800 hover:bg-slate-900 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
+                                  >
+                                    <Plus className="w-3 h-3 stroke-[2.5]" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Kolom Catatan Permintaan Khusus */}
+                    {!item.isPromoFree && (
+                      <div className="pt-1.5 border-t border-slate-200/80">
+                        <input
+                          type="text"
+                          placeholder="Catatan khusus (cth: es sedikit, pisah cup)..."
+                          value={item.notes || ""}
+                          onChange={(e) => updateItemNotes(item.id, e.target.value)}
+                          className="w-full px-2 py-1 text-[11px] bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-400 font-medium"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Banner Promo Otomatis Desktop */}
+            {cart.length > 0 && (
+              <div className="shrink-0 pt-2 border-t border-slate-100 space-y-1.5">
+                {isPromoApplied ? (
+                  <div className="p-2 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-900 font-bold shadow-2xs">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <span className="text-sm">🎉</span>
+                      <span className="truncate">
+                        Promo: Gratis {cart.find((i) => i.isPromoFree)?.quantity || 1} Teh Ori Jumbo!
+                      </span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black shrink-0">
+                      Otomatis Aktif
+                    </span>
+                  </div>
+                ) : flavoredTeaCount === 1 ? (
+                  <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-900 font-medium flex items-center gap-1.5">
+                    <span className="text-sm shrink-0">💡</span>
+                    <span>
+                      Tambah <strong>1 Teh Varian Rasa</strong> lagi untuk dapat bonus <strong>1 Teh Ori Jumbo GRATIS</strong>!
+                    </span>
+                  </div>
+                ) : (
+                  <div className="p-1.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] text-slate-500 flex items-center justify-between">
+                    <span>Promo: Beli 2 Varian Rasa Gratis 1 Teh Ori Jumbo</span>
+                    <span className="font-bold text-slate-700">({flavoredTeaCount}/2 Cup)</span>
+                  </div>
+                )}
+
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    placeholder="Kode Diskon / Promo"
+                    value={promoCodeInput}
+                    onChange={(e) => setPromoCodeInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleApplyPromoCode();
+                      }
+                    }}
+                    className="flex-1 px-2.5 py-1 text-[11px] border border-slate-300 rounded-lg uppercase font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleApplyPromoCode()}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-[11px] font-bold transition shadow-xs cursor-pointer shrink-0"
+                  >
+                    Terapkan
+                  </button>
+                </div>
+                {promoMessage && (
+                  <p className={`text-[10px] font-bold ${promoMessage.type === "success" ? "text-emerald-700" : "text-rose-600"}`}>
+                    {promoMessage.text}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Cart Summary & Checkout Action */}
-            <div className="mt-6 pt-4 border-t border-slate-100">
-              <div className="space-y-1.5 mb-4">
+            <div className="shrink-0 pt-2.5 border-t border-slate-100">
+              <div className="space-y-1 mb-2.5">
                 <div className="flex justify-between text-xs text-slate-500">
                   <span>Total Cup Minuman</span>
                   <span className="font-mono font-bold text-slate-800">
                     {totalCupsCount} cup
                   </span>
                 </div>
-                <div className="flex justify-between text-base font-extrabold text-slate-900 pt-1">
+                <div className="flex justify-between text-sm sm:text-base font-extrabold text-slate-900">
                   <span>Total Tagihan:</span>
-                  <span className="text-xl font-black text-emerald-800 font-mono">
+                  <span className="text-lg sm:text-xl font-black text-emerald-800 font-mono">
                     {formatRupiah(totalAmount)}
                   </span>
                 </div>
@@ -3205,9 +3206,9 @@ export default function PosTerminalPage() {
                     setCashReceivedInput(String(totalAmount));
                     setIsCheckoutModalOpen(true);
                   }}
-                  className="py-3.5 px-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow-md hover:shadow-lg disabled:shadow-none transition flex items-center justify-center gap-2 text-xs sm:text-sm active:scale-[0.98] cursor-pointer"
+                  className="py-2.5 sm:py-3 px-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow-md hover:shadow-lg disabled:shadow-none transition flex items-center justify-center gap-1.5 text-xs sm:text-sm active:scale-[0.98] cursor-pointer"
                 >
-                  <Banknote className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
+                  <Banknote className="w-4 h-4 text-emerald-400" />
                   <span>Bayar Tunai</span>
                 </button>
 
@@ -3218,9 +3219,9 @@ export default function PosTerminalPage() {
                     setPaymentMethod("QRIS");
                     setIsCheckoutModalOpen(true);
                   }}
-                  className="py-3.5 px-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow-md hover:shadow-lg disabled:shadow-none transition flex items-center justify-center gap-2 text-xs sm:text-sm active:scale-[0.98] cursor-pointer"
+                  className="py-2.5 sm:py-3 px-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-xl shadow-md hover:shadow-lg disabled:shadow-none transition flex items-center justify-center gap-1.5 text-xs sm:text-sm active:scale-[0.98] cursor-pointer"
                 >
-                  <QrCode className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  <QrCode className="w-4 h-4 text-white" />
                   <span>Bayar QRIS</span>
                 </button>
               </div>
