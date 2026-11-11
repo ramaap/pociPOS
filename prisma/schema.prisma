@@ -197,3 +197,18 @@ model PromoVoucher {
 
   @@map("promo_vouchers")
 }
+
+model PromoCampaign {
+  id                String    @id @default("buy2_get1")
+  name              String    @default("Promo Beli 2 Varian Rasa Gratis 1 Teh Ori Jumbo")
+  is_active         Boolean   @default(true)
+  start_at          DateTime?
+  end_at            DateTime?
+  min_flavored_qty  Int       @default(2)
+  free_product_name String    @default("Jasmine Poci Iced Tea (Jumbo)")
+  target_outlet_id  String?   // null = berlaku di semua kedai
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("promo_campaigns")
+}

@@ -177,6 +177,26 @@ export default function PosTerminalPage() {
   const [promoMessage, setPromoMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [redeemedVoucherCode, setRedeemedVoucherCode] = useState<string | null>(null);
 
+  // Kampanye Promo Beli 2 Gratis 1 (Diatur Waktu & Status Terbatas oleh Admin)
+  const [promoCampaign, setPromoCampaign] = useState<{
+    id?: string;
+    name?: string;
+    is_active?: boolean;
+    start_at?: string | null;
+    end_at?: string | null;
+    min_flavored_qty?: number;
+    free_product_name?: string;
+    target_outlet_id?: string | null;
+    isCurrentlyActive?: boolean;
+    status?: "active" | "scheduled" | "expired" | "inactive" | "outlet_not_targeted";
+  }>({
+    is_active: true,
+    isCurrentlyActive: true,
+    status: "active",
+    min_flavored_qty: 2,
+    free_product_name: "Jasmine Poci Iced Tea (Jumbo)",
+  });
+
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<"QRIS" | "Cash">("QRIS");
   const [cashReceivedInput, setCashReceivedInput] = useState<string>("");
@@ -696,6 +716,9 @@ export default function PosTerminalPage() {
         setOutlets(validOutlets);
         setProducts(data.products || []);
         setRawMaterials(data.rawMaterials || []);
+        if (data.promoCampaign) {
+          setPromoCampaign(data.promoCampaign);
+        }
 
         // Validasi outlet: Pastikan outlet terpilih ada di daftar outlet aktif
         const lockedId = typeof window !== "undefined" ? localStorage.getItem("poci_locked_outlet_id") : null;
@@ -1500,7 +1523,16 @@ export default function PosTerminalPage() {
   // Promo Otomatis: Beli 2 Varian Rasa Gratis 1 Ori Jumbo (Kelipatan Otomatis)
   // Opsi C: Jika stok teh dispenser/gula/cup kurang, otomatis beralih ke mode Voucher Struk (Klaim Nanti)
   useEffect(() => {
-    const eligiblePromoQty = Math.floor(flavoredTeaCount / 2);
+    // Evaluasi apakah kampanye promo sedang aktif dan dalam batas waktu yang ditentukan admin
+    const isCampaignActive =
+      promoCampaign.isCurrentlyActive !== false &&
+      promoCampaign.status !== "inactive" &&
+      promoCampaign.status !== "expired" &&
+      promoCampaign.status !== "scheduled" &&
+      promoCampaign.status !== "outlet_not_targeted";
+
+    const minQty = promoCampaign.min_flavored_qty || 2;
+    const eligiblePromoQty = isCampaignActive ? Math.floor(flavoredTeaCount / minQty) : 0;
 
     setCart((prev) => {
       const existingPromoItem = prev.find((i) => i.isPromoFree && !i.isRedeemedVoucher);
@@ -1596,7 +1628,7 @@ export default function PosTerminalPage() {
         return prev;
       }
     });
-  }, [flavoredTeaCount, products, brewLiquidMl, rawMaterials]);
+  }, [flavoredTeaCount, products, brewLiquidMl, rawMaterials, promoCampaign]);
 
   const clearCart = () => {
     setCart([]);
@@ -2916,16 +2948,44 @@ export default function PosTerminalPage() {
                     <div className="p-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-900 font-bold shadow-2xs">
                       <span className="flex items-center gap-1.5">
                         <span>🎉</span>
-                        <span>
-                          Promo Otomatis: Gratis {cart.find((i) => i.isPromoFree && !i.isRedeemedVoucher)?.quantity || 1} Teh Ori Jumbo!
-                        </span>
+                        <div>
+                          <span>
+                            Promo Otomatis: Gratis {cart.find((i) => i.isPromoFree && !i.isRedeemedVoucher)?.quantity || 1} Teh Ori Jumbo!
+                          </span>
+                          {promoCampaign?.end_at && (
+                            <span className="text-[9px] text-emerald-700 font-semibold block">
+                              ⏳ Batas Promo: {new Date(promoCampaign.end_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          )}
+                        </div>
                       </span>
                       <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black shrink-0">
                         Otomatis
                       </span>
                     </div>
                   ) : cart.length > 0 ? (
-                    flavoredTeaCount === 1 ? (
+                    promoCampaign.status === "expired" ? (
+                      <div className="p-2 bg-slate-100 border border-slate-200 rounded-xl text-[10px] text-slate-500 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <span>⏳</span>
+                          <span>Promo Beli 2 Gratis 1 Telah Berakhir</span>
+                        </span>
+                        <span className="text-[9px] font-bold text-slate-400">Periode Selesai</span>
+                      </div>
+                    ) : promoCampaign.status === "scheduled" ? (
+                      <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-900 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <span>⏳</span>
+                          <span>Promo Beli 2 Gratis 1 Segera Dimulai</span>
+                        </span>
+                        <span className="text-[9px] font-bold text-amber-700">Terjadwal</span>
+                      </div>
+                    ) : promoCampaign.status === "inactive" ? (
+                      <div className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] text-slate-400 flex items-center justify-between">
+                        <span>Promo Otomatis Beli 2 Gratis 1: Nonaktif</span>
+                        <span className="text-[9px] font-bold text-slate-400">Admin OFF</span>
+                      </div>
+                    ) : flavoredTeaCount === 1 ? (
                       <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 font-medium flex items-center gap-1.5">
                         <span>💡</span>
                         <span>
@@ -2934,7 +2994,14 @@ export default function PosTerminalPage() {
                       </div>
                     ) : (
                       <div className="p-2 bg-slate-100 border border-slate-200 rounded-xl text-[10px] text-slate-500 flex items-center justify-between">
-                        <span>Promo: Beli 2 Varian Rasa Gratis 1 Teh Ori Jumbo</span>
+                        <div>
+                          <span>Promo: Beli 2 Varian Rasa Gratis 1 Teh Ori Jumbo</span>
+                          {promoCampaign?.end_at && (
+                            <span className="text-[9px] text-slate-400 block font-normal">
+                              Batas: {new Date(promoCampaign.end_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          )}
+                        </div>
                         <span className="font-bold text-slate-700">({flavoredTeaCount}/2 Cup)</span>
                       </div>
                     )
@@ -3866,16 +3933,44 @@ export default function PosTerminalPage() {
                 <div className="p-2 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-900 font-bold shadow-2xs">
                   <span className="flex items-center gap-1.5 truncate">
                     <span className="text-sm">🎉</span>
-                    <span className="truncate">
-                      Promo: Gratis {cart.find((i) => i.isPromoFree && !i.isRedeemedVoucher)?.quantity || 1} Teh Ori Jumbo!
-                    </span>
+                    <div className="truncate">
+                      <span className="truncate">
+                        Promo: Gratis {cart.find((i) => i.isPromoFree && !i.isRedeemedVoucher)?.quantity || 1} Teh Ori Jumbo!
+                      </span>
+                      {promoCampaign?.end_at && (
+                        <span className="text-[9px] text-emerald-700 font-semibold block truncate">
+                          ⏳ Batas: {new Date(promoCampaign.end_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      )}
+                    </div>
                   </span>
                   <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black shrink-0">
                     Otomatis Aktif
                   </span>
                 </div>
               ) : cart.length > 0 ? (
-                flavoredTeaCount === 1 ? (
+                promoCampaign.status === "expired" ? (
+                  <div className="p-1.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] text-slate-500 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <span>⏳</span>
+                      <span>Promo Beli 2 Gratis 1 Telah Berakhir</span>
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-400">Periode Selesai</span>
+                  </div>
+                ) : promoCampaign.status === "scheduled" ? (
+                  <div className="p-1.5 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-900 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <span>⏳</span>
+                      <span>Promo Beli 2 Gratis 1 Segera Dimulai</span>
+                    </span>
+                    <span className="text-[9px] font-bold text-amber-700">Terjadwal</span>
+                  </div>
+                ) : promoCampaign.status === "inactive" ? (
+                  <div className="p-1.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] text-slate-400 flex items-center justify-between">
+                    <span>Promo Otomatis Beli 2 Gratis 1: Nonaktif</span>
+                    <span className="text-[9px] font-bold text-slate-400">Admin OFF</span>
+                  </div>
+                ) : flavoredTeaCount === 1 ? (
                   <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-900 font-medium flex items-center gap-1.5">
                     <span className="text-sm shrink-0">💡</span>
                     <span>
@@ -3884,7 +3979,14 @@ export default function PosTerminalPage() {
                   </div>
                 ) : (
                   <div className="p-1.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] text-slate-500 flex items-center justify-between">
-                    <span>Promo: Beli 2 Varian Rasa Gratis 1 Teh Ori Jumbo</span>
+                    <div>
+                      <span>Promo: Beli 2 Varian Rasa Gratis 1 Teh Ori Jumbo</span>
+                      {promoCampaign?.end_at && (
+                        <span className="text-[9px] text-slate-400 block font-normal">
+                          Batas: {new Date(promoCampaign.end_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      )}
+                    </div>
                     <span className="font-bold text-slate-700">({flavoredTeaCount}/2 Cup)</span>
                   </div>
                 )

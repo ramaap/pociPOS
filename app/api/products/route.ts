@@ -143,6 +143,42 @@ export async function GET(req: Request) {
     const initialCash = selectedOutletObj?.initial_cash || 0;
     const todayCashBalance = initialCash + todayCashIn - todayExpenseTotal;
 
+    // 6. Ambil status kampanye promo waktu terbatas (Beli 2 Varian Rasa Gratis 1 Teh Ori Jumbo)
+    let promoCampaignData: any = await prisma.promoCampaign.findUnique({
+      where: { id: "buy2_get1" },
+    });
+    if (!promoCampaignData) {
+      const now = new Date();
+      promoCampaignData = await prisma.promoCampaign.create({
+        data: {
+          id: "buy2_get1",
+          name: "Promo Beli 2 Varian Rasa Gratis 1 Teh Ori Jumbo",
+          is_active: true,
+          start_at: now,
+          end_at: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000),
+          min_flavored_qty: 2,
+          free_product_name: "Jasmine Poci Iced Tea (Jumbo)",
+        },
+      });
+    }
+
+    const now = new Date();
+    let isCampaignActive = promoCampaignData.is_active;
+    let campaignStatus: "active" | "scheduled" | "expired" | "inactive" | "outlet_not_targeted" = "active";
+    if (!promoCampaignData.is_active) {
+      campaignStatus = "inactive";
+      isCampaignActive = false;
+    } else if (promoCampaignData.start_at && now < new Date(promoCampaignData.start_at)) {
+      campaignStatus = "scheduled";
+      isCampaignActive = false;
+    } else if (promoCampaignData.end_at && now > new Date(promoCampaignData.end_at)) {
+      campaignStatus = "expired";
+      isCampaignActive = false;
+    } else if (promoCampaignData.target_outlet_id && promoCampaignData.target_outlet_id !== selectedOutletId) {
+      campaignStatus = "outlet_not_targeted";
+      isCampaignActive = false;
+    }
+
     return NextResponse.json({
       outlets,
       selectedOutletId,
@@ -156,6 +192,11 @@ export async function GET(req: Request) {
       shift_status: selectedOutletObj?.shift_status || "open",
       last_opened_at: selectedOutletObj?.last_opened_at || null,
       last_closed_at: selectedOutletObj?.last_closed_at || null,
+      promoCampaign: {
+        ...promoCampaignData,
+        isCurrentlyActive: isCampaignActive,
+        status: campaignStatus,
+      },
     });
   } catch (error) {
     console.error("Failed to fetch products and outlet stock:", error);

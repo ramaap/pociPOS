@@ -170,7 +170,19 @@ export default function AdminDashboardPage() {
   // Admin Navigation Tabs: "financial" | "stocks" | "outlets" | "master_menus" | "outlet_menus" | "vouchers"
   const [activeAdminTab, setActiveAdminTab] = useState<"financial" | "stocks" | "outlets" | "master_menus" | "outlet_menus" | "vouchers">("financial");
 
-  // ================= TAB 6: VOUCHER PROMO STATE =================
+  // ================= TAB 6: VOUCHER PROMO & KAMPANYE PROMO STATE =================
+  const [promoCampaignData, setPromoCampaignData] = useState<any>(null);
+  const [campaignForm, setCampaignForm] = useState({
+    isActive: true,
+    startAt: "",
+    endAt: "",
+    targetOutletId: "",
+    minFlavoredQty: 2,
+    freeProductName: "Jasmine Poci Iced Tea (Jumbo)",
+  });
+  const [campaignLoading, setCampaignLoading] = useState<boolean>(false);
+  const [campaignMessage, setCampaignMessage] = useState<{ text: string; isError: boolean } | null>(null);
+
   const [vouchersList, setVouchersList] = useState<any[]>([]);
   const [voucherStats, setVoucherStats] = useState({ total: 0, active: 0, redeemed: 0, expired: 0 });
   const [voucherLoading, setVoucherLoading] = useState<boolean>(false);
@@ -531,6 +543,89 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const loadPromoCampaign = async (silent: boolean = false) => {
+    if (!silent) setCampaignLoading(true);
+    try {
+      const res = await fetch("/api/admin/promo-campaign");
+      if (res.ok) {
+        const json = await res.json();
+        setPromoCampaignData(json);
+        const c = json.campaign;
+        const formatLocalDT = (dStr?: string) => {
+          if (!dStr) return "";
+          const d = new Date(dStr);
+          const pad = (n: number) => String(n).padStart(2, "0");
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        };
+        setCampaignForm({
+          isActive: Boolean(c.is_active),
+          startAt: formatLocalDT(c.start_at),
+          endAt: formatLocalDT(c.end_at),
+          targetOutletId: c.target_outlet_id || "",
+          minFlavoredQty: c.min_flavored_qty || 2,
+          freeProductName: c.free_product_name || "Jasmine Poci Iced Tea (Jumbo)",
+        });
+      }
+    } catch (e: any) {
+      console.error("Failed to load promo campaign", e);
+    } finally {
+      if (!silent) setCampaignLoading(false);
+    }
+  };
+
+  const handleSavePromoCampaign = async (customPayload?: any) => {
+    setCampaignLoading(true);
+    setCampaignMessage(null);
+    try {
+      const payload = customPayload || {
+        is_active: campaignForm.isActive,
+        start_at: campaignForm.startAt ? new Date(campaignForm.startAt).toISOString() : null,
+        end_at: campaignForm.endAt ? new Date(campaignForm.endAt).toISOString() : null,
+        target_outlet_id: campaignForm.targetOutletId || null,
+        min_flavored_qty: campaignForm.minFlavoredQty,
+        free_product_name: campaignForm.freeProductName,
+      };
+
+      const res = await fetch("/api/admin/promo-campaign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setCampaignMessage({ text: "✅ Pengaturan promo berhasil disimpan & disinkronkan ke kasir!", isError: false });
+        await loadPromoCampaign(true);
+        try {
+          localStorage.setItem("poci_sync_event", String(Date.now()));
+          const ch = new BroadcastChannel("poci_pos_sync");
+          ch.postMessage({ type: "PROMO_CAMPAIGN_UPDATED", timestamp: Date.now() });
+          ch.close();
+        } catch (_) {}
+      } else {
+        setCampaignMessage({ text: `❌ ${json.error || "Gagal menyimpan promo."}`, isError: true });
+      }
+    } catch (err: any) {
+      setCampaignMessage({ text: `❌ Error: ${err.message}`, isError: true });
+    } finally {
+      setCampaignLoading(false);
+    }
+  };
+
+  const applyPresetDuration = (days: number) => {
+    const now = new Date();
+    const future = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const formatLocal = (d: Date) =>
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+    setCampaignForm((prev) => ({
+      ...prev,
+      isActive: true,
+      startAt: formatLocal(now),
+      endAt: formatLocal(future),
+    }));
+  };
+
   const handleCreateVoucher = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newVoucherForm.outletId) {
@@ -649,6 +744,7 @@ export default function AdminDashboardPage() {
       await loadOutlets();
       await loadMenus();
       await loadVouchers(silent);
+      await loadPromoCampaign(silent);
       setLastSyncedTime(new Date());
     } finally {
       if (!silent) setLoading(false);
@@ -829,6 +925,7 @@ export default function AdminDashboardPage() {
           loadOutlets();
           loadMenus();
           loadVouchers();
+          loadPromoCampaign();
         })
         .catch(() => {
           sessionStorage.removeItem("poci_admin_pin");
@@ -839,6 +936,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (activeAdminTab === "vouchers" && isAuthenticated) {
       loadVouchers();
+      loadPromoCampaign();
     }
   }, [activeAdminTab, voucherStatusFilter, voucherOutletFilter, isAuthenticated]);
 
@@ -4384,6 +4482,201 @@ export default function AdminDashboardPage() {
                   <span>+ Terbitkan Voucher Baru</span>
                 </button>
               </div>
+            </div>
+
+            {/* ============================================================== */}
+            {/* CARD: PENGATURAN KAMPANYE PROMO BELI 2 GRATIS 1 (TERBATAS WAKTU) */}
+            {/* ============================================================== */}
+            <div className="bg-gradient-to-br from-white via-emerald-50/30 to-teal-50/20 rounded-3xl p-5 sm:p-6 shadow-sm border border-emerald-200/90 space-y-5">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-emerald-100">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-xs">
+                      🎁
+                    </span>
+                    <h3 className="text-base font-extrabold text-slate-900">
+                      Promo Beli 2 Varian Rasa Gratis 1 Teh Ori Jumbo
+                    </h3>
+                    {/* Live Status Badge */}
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border shadow-2xs ${
+                        promoCampaignData?.badgeColor || "bg-slate-100 text-slate-700 border-slate-300"
+                      }`}
+                    >
+                      {promoCampaignData?.isCurrentlyActive && (
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                        </span>
+                      )}
+                      <span>{promoCampaignData?.statusLabel || "Memuat Status..."}</span>
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600">
+                    Atur batas waktu berlakunya promo otomatis ini. Ketika batas waktu habis atau dimatikan oleh admin, kasir tidak akan memberikan cup gratis otomatis.
+                    {promoCampaignData?.remainingText && (
+                      <span className="font-bold text-emerald-800 ml-1.5 bg-emerald-100/80 px-2 py-0.5 rounded-md inline-block">
+                        ⏱️ {promoCampaignData.remainingText}
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                {/* Switch Toggle Aktifkan / Nonaktifkan */}
+                <div className="flex items-center gap-3 bg-white p-2.5 rounded-2xl border border-slate-200 shadow-2xs shrink-0">
+                  <span className="text-xs font-bold text-slate-700">Status Promo:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !campaignForm.isActive;
+                      setCampaignForm((p) => ({ ...p, isActive: next }));
+                      handleSavePromoCampaign({
+                        is_active: next,
+                        start_at: campaignForm.startAt ? new Date(campaignForm.startAt).toISOString() : null,
+                        end_at: campaignForm.endAt ? new Date(campaignForm.endAt).toISOString() : null,
+                        target_outlet_id: campaignForm.targetOutletId || null,
+                        min_flavored_qty: campaignForm.minFlavoredQty,
+                        free_product_name: campaignForm.freeProductName,
+                      });
+                    }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      campaignForm.isActive ? "bg-emerald-600" : "bg-slate-300"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        campaignForm.isActive ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                  <span className={`text-xs font-black ${campaignForm.isActive ? "text-emerald-700" : "text-slate-400"}`}>
+                    {campaignForm.isActive ? "AKTIF" : "MATI"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Form Input Periode Waktu & Presets */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Waktu Mulai */}
+                <div className="space-y-1.5 bg-white p-3 rounded-2xl border border-slate-200/90 shadow-2xs">
+                  <label className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
+                    <span>📅 Waktu Mulai Promo</span>
+                    <span className="text-[10px] text-slate-400 font-normal">(Start Date & Time)</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={campaignForm.startAt}
+                    onChange={(e) => setCampaignForm((p) => ({ ...p, startAt: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-slate-50/50 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <p className="text-[10px] text-slate-400">Kasir hanya memicu promo jika waktu mulai telah tiba.</p>
+                </div>
+
+                {/* Waktu Selesai (Batas Waktu) */}
+                <div className="space-y-1.5 bg-white p-3 rounded-2xl border border-slate-200/90 shadow-2xs">
+                  <label className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
+                    <span>⏳ Batas Waktu Selesai</span>
+                    <span className="text-[10px] text-rose-500 font-bold">(Waktu Berakhir)</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={campaignForm.endAt}
+                    onChange={(e) => setCampaignForm((p) => ({ ...p, endAt: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-slate-50/50 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-900"
+                  />
+                  <p className="text-[10px] text-slate-400">Setelah jam/tanggal ini lewat, promo otomatis berhenti di kasir.</p>
+                </div>
+
+                {/* Target Cabang Kedai */}
+                <div className="space-y-1.5 bg-white p-3 rounded-2xl border border-slate-200/90 shadow-2xs">
+                  <label className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
+                    <span>🏬 Target Cabang Kedai</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Lokasi</span>
+                  </label>
+                  <select
+                    value={campaignForm.targetOutletId}
+                    onChange={(e) => setCampaignForm((p) => ({ ...p, targetOutletId: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-slate-50/50 font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800"
+                  >
+                    <option value="">Semua Kedai (Berlaku Multi-Kedai)</option>
+                    {(outletsList.length > 0 ? outletsList : data?.outlets || []).map((o: any) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name} ({o.code})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-400">Pilih jika promo hanya berlaku di cabang tertentu.</p>
+                </div>
+              </div>
+
+              {/* Quick Preset Buttons & Save Button */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-slate-500 mr-1">⚡ Preset Batas Waktu:</span>
+                  <button
+                    type="button"
+                    onClick={() => applyPresetDuration(1)}
+                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer"
+                  >
+                    +24 Jam (1 Hari)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPresetDuration(3)}
+                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer"
+                  >
+                    +3 Hari
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPresetDuration(7)}
+                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer"
+                  >
+                    +1 Minggu (7 Hari)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCampaignForm((p) => ({ ...p, endAt: "" }));
+                    }}
+                    className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-500 border border-slate-200 rounded-lg text-xs font-medium transition shadow-2xs cursor-pointer"
+                  >
+                    Tanpa Batas Waktu
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleSavePromoCampaign()}
+                    disabled={campaignLoading}
+                    className="px-4 py-2 bg-slate-900 hover:bg-emerald-700 text-white rounded-xl font-extrabold text-xs flex items-center gap-2 transition shadow-md cursor-pointer disabled:opacity-50"
+                  >
+                    {campaignLoading ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Menyimpan...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>💾 Simpan Batas Waktu Promo</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {campaignMessage && (
+                <div
+                  className={`p-3 rounded-xl text-xs font-bold border transition ${
+                    campaignMessage.isError
+                      ? "bg-rose-50 text-rose-800 border-rose-200"
+                      : "bg-emerald-50 text-emerald-900 border-emerald-300"
+                  }`}
+                >
+                  {campaignMessage.text}
+                </div>
+              )}
             </div>
 
             {/* Notification Toast Message */}
