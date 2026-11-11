@@ -1152,48 +1152,90 @@ export default function PosTerminalPage() {
     level: "normal" | "less" | "tawar",
     delta: number
   ) => {
-    const targetCartItem = cart.find((i) => i.id === cartId);
-    if (!targetCartItem) return;
-
-    if (delta > 0) {
-      const check = checkCanAddProduct(targetCartItem.product, delta, level);
-      if (!check.canAdd) {
-        setStockAlertMessage(check.reason || "Stok kedai tidak mencukupi!");
-        setTimeout(() => setStockAlertMessage(null), 3500);
-        return;
-      }
-    }
-
-    setStockAlertMessage(null);
     setCart((prev) =>
-      prev
-        .map((item) => {
-          if (item.id !== cartId) return item;
-          const currentBreakdown: SugarBreakdown = item.sugarBreakdown || {
-            normal: item.sugarLevel === "normal" ? item.quantity : 0,
-            less: item.sugarLevel === "less" ? item.quantity : 0,
-            tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
-          };
-          const nextCount = Math.max(0, currentBreakdown[level] + delta);
-          const nextBreakdown: SugarBreakdown = {
-            ...currentBreakdown,
-            [level]: nextCount,
-          };
-          const nextTotal = nextBreakdown.normal + nextBreakdown.less + nextBreakdown.tawar;
-          if (nextTotal <= 0) return null;
-          return {
-            ...item,
-            quantity: nextTotal,
-            sugarBreakdown: nextBreakdown,
-            sugarLevel:
-              nextBreakdown.tawar > 0 && nextBreakdown.normal === 0 && nextBreakdown.less === 0
-                ? "tawar"
-                : nextBreakdown.less > 0 && nextBreakdown.normal === 0 && nextBreakdown.tawar === 0
-                ? "less"
-                : "normal",
-          };
-        })
-        .filter(Boolean) as CartItem[]
+      prev.map((item) => {
+        if (item.id !== cartId) return item;
+
+        const totalQty = item.quantity;
+        const currentBreakdown: SugarBreakdown = {
+          normal: item.sugarBreakdown?.normal ?? (item.sugarLevel === "normal" ? totalQty : 0),
+          less: item.sugarBreakdown?.less ?? (item.sugarLevel === "less" ? totalQty : 0),
+          tawar: item.sugarBreakdown?.tawar ?? (item.sugarLevel === "tawar" ? totalQty : 0),
+        };
+
+        // Pastikan jumlah alokasi sama persis dengan total kuantitas item
+        const sum = currentBreakdown.normal + currentBreakdown.less + currentBreakdown.tawar;
+        if (sum !== totalQty) {
+          currentBreakdown.normal = Math.max(0, totalQty - currentBreakdown.less - currentBreakdown.tawar);
+        }
+
+        const nextBreakdown = { ...currentBreakdown };
+
+        if (delta > 0) {
+          if (level === "less") {
+            // Kurangi dari normal terlebih dahulu agar total item di cart tidak bertambah
+            if (nextBreakdown.normal > 0) {
+              nextBreakdown.normal -= 1;
+              nextBreakdown.less += 1;
+            } else if (nextBreakdown.tawar > 0) {
+              nextBreakdown.tawar -= 1;
+              nextBreakdown.less += 1;
+            }
+          } else if (level === "tawar") {
+            // Kurangi dari normal terlebih dahulu agar total item di cart tidak bertambah
+            if (nextBreakdown.normal > 0) {
+              nextBreakdown.normal -= 1;
+              nextBreakdown.tawar += 1;
+            } else if (nextBreakdown.less > 0) {
+              nextBreakdown.less -= 1;
+              nextBreakdown.tawar += 1;
+            }
+          } else if (level === "normal") {
+            // Tambah porsi normal, ambil dari less atau tawar
+            if (nextBreakdown.less > 0) {
+              nextBreakdown.less -= 1;
+              nextBreakdown.normal += 1;
+            } else if (nextBreakdown.tawar > 0) {
+              nextBreakdown.tawar -= 1;
+              nextBreakdown.normal += 1;
+            }
+          }
+        } else if (delta < 0) {
+          if (level === "less") {
+            // Kurangi less, kembalikan ke porsi normal
+            if (nextBreakdown.less > 0) {
+              nextBreakdown.less -= 1;
+              nextBreakdown.normal += 1;
+            }
+          } else if (level === "tawar") {
+            // Kurangi tawar, kembalikan ke porsi normal
+            if (nextBreakdown.tawar > 0) {
+              nextBreakdown.tawar -= 1;
+              nextBreakdown.normal += 1;
+            }
+          } else if (level === "normal") {
+            // Kurangi normal, alihkan ke less jika ada
+            if (nextBreakdown.normal > 0) {
+              nextBreakdown.normal -= 1;
+              nextBreakdown.less += 1;
+            }
+          }
+        }
+
+        const sugarLevel =
+          nextBreakdown.tawar > 0 && nextBreakdown.normal === 0 && nextBreakdown.less === 0
+            ? "tawar"
+            : nextBreakdown.less > 0 && nextBreakdown.normal === 0 && nextBreakdown.tawar === 0
+            ? "less"
+            : "normal";
+
+        return {
+          ...item,
+          quantity: totalQty, // Tetap sama persis, tidak bertambah di keranjang
+          sugarBreakdown: nextBreakdown,
+          sugarLevel,
+        };
+      })
     );
   };
 
@@ -3232,8 +3274,9 @@ export default function PosTerminalPage() {
                                   <span className={`font-mono font-black text-xs ${b.normal > 0 ? "text-emerald-700" : "text-slate-400"}`}>{b.normal}</span>
                                   <button
                                     type="button"
+                                    disabled={b.normal >= item.quantity || (b.less === 0 && b.tawar === 0)}
                                     onClick={() => updateSugarBreakdown(item.id, "normal", 1)}
-                                    className="w-5 h-5 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white transition font-black cursor-pointer shadow-2xs"
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white transition font-black cursor-pointer shadow-2xs disabled:opacity-30 disabled:cursor-not-allowed"
                                   >
                                     <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
                                   </button>
@@ -3255,8 +3298,9 @@ export default function PosTerminalPage() {
                                   <span className={`font-mono font-black text-xs ${b.less > 0 ? "text-amber-700" : "text-slate-400"}`}>{b.less}</span>
                                   <button
                                     type="button"
+                                    disabled={b.less >= item.quantity || (b.normal === 0 && b.tawar === 0)}
                                     onClick={() => updateSugarBreakdown(item.id, "less", 1)}
-                                    className="w-5 h-5 rounded flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white transition font-black cursor-pointer shadow-2xs"
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white transition font-black cursor-pointer shadow-2xs disabled:opacity-30 disabled:cursor-not-allowed"
                                   >
                                     <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
                                   </button>
@@ -3278,8 +3322,9 @@ export default function PosTerminalPage() {
                                   <span className={`font-mono font-black text-xs ${b.tawar > 0 ? "text-slate-900" : "text-slate-400"}`}>{b.tawar}</span>
                                   <button
                                     type="button"
+                                    disabled={b.tawar >= item.quantity || (b.normal === 0 && b.less === 0)}
                                     onClick={() => updateSugarBreakdown(item.id, "tawar", 1)}
-                                    className="w-5 h-5 rounded flex items-center justify-center bg-slate-700 hover:bg-slate-800 text-white transition font-black cursor-pointer shadow-2xs"
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-slate-700 hover:bg-slate-800 text-white transition font-black cursor-pointer shadow-2xs disabled:opacity-30 disabled:cursor-not-allowed"
                                   >
                                     <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
                                   </button>
@@ -3752,8 +3797,9 @@ export default function PosTerminalPage() {
                                   <span className={`font-mono font-black text-xs ${b.normal > 0 ? "text-emerald-700" : "text-slate-400"}`}>{b.normal}</span>
                                   <button
                                     type="button"
+                                    disabled={b.normal >= item.quantity || (b.less === 0 && b.tawar === 0)}
                                     onClick={() => updateSugarBreakdown(item.id, "normal", 1)}
-                                    className="w-5 h-5 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white transition font-black cursor-pointer shadow-2xs"
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white transition font-black cursor-pointer shadow-2xs disabled:opacity-30 disabled:cursor-not-allowed"
                                   >
                                     <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
                                   </button>
@@ -3775,8 +3821,9 @@ export default function PosTerminalPage() {
                                   <span className={`font-mono font-black text-xs ${b.less > 0 ? "text-amber-700" : "text-slate-400"}`}>{b.less}</span>
                                   <button
                                     type="button"
+                                    disabled={b.less >= item.quantity || (b.normal === 0 && b.tawar === 0)}
                                     onClick={() => updateSugarBreakdown(item.id, "less", 1)}
-                                    className="w-5 h-5 rounded flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white transition font-black cursor-pointer shadow-2xs"
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white transition font-black cursor-pointer shadow-2xs disabled:opacity-30 disabled:cursor-not-allowed"
                                   >
                                     <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
                                   </button>
@@ -3798,8 +3845,9 @@ export default function PosTerminalPage() {
                                   <span className={`font-mono font-black text-xs ${b.tawar > 0 ? "text-slate-900" : "text-slate-400"}`}>{b.tawar}</span>
                                   <button
                                     type="button"
+                                    disabled={b.tawar >= item.quantity || (b.normal === 0 && b.less === 0)}
                                     onClick={() => updateSugarBreakdown(item.id, "tawar", 1)}
-                                    className="w-5 h-5 rounded flex items-center justify-center bg-slate-700 hover:bg-slate-800 text-white transition font-black cursor-pointer shadow-2xs"
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-slate-700 hover:bg-slate-800 text-white transition font-black cursor-pointer shadow-2xs disabled:opacity-30 disabled:cursor-not-allowed"
                                   >
                                     <Plus className="w-2.5 h-2.5 stroke-[2.5]" />
                                   </button>
