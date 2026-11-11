@@ -26,8 +26,33 @@ export interface ReceiptData {
     title: string;
     validUntil: string;
     reason?: string;
+    outletName?: string;
+    outletAddress?: string;
   };
 }
+
+// Helper untuk membungkus teks panjang agar pas pada batas kolom kertas thermal 58mm (default 32 karakter)
+export const wrapText58mm = (text: string, maxLen = 32): string[] => {
+  if (!text) return [];
+  const words = text.trim().split(/\s+/);
+  const result: string[] = [];
+  let currentLine = "";
+
+  for (const word of words) {
+    if (!currentLine) {
+      currentLine = word;
+    } else if ((currentLine + " " + word).length <= maxLen) {
+      currentLine += " " + word;
+    } else {
+      result.push(currentLine);
+      currentLine = word;
+    }
+  }
+  if (currentLine) {
+    result.push(currentLine);
+  }
+  return result;
+};
 
 // Format 32 kolom untuk kertas struk thermal 58mm standar
 export const format58mmLine = (left: string, right: string, maxLen = 32): string => {
@@ -90,12 +115,22 @@ export const generateReceiptText = (data: ReceiptData): string => {
   // Bagian Kupon / Voucher Promo Klaim Nanti (Jika Ada)
   if (data.promoVoucher) {
     lines.push(doubleLine);
-    lines.push("     *** VOUCHER PROMO ***      ");
+    lines.push("   *** VOUCHER PROMO KEDAI ***  ");
     lines.push(format58mmLine("KODE", data.promoVoucher.code));
     lines.push(data.promoVoucher.title.substring(0, 32));
     lines.push(format58mmLine("BERLAKU S/D", data.promoVoucher.validUntil));
-    lines.push("Tunjukkan struk ini di booth");
-    lines.push("untuk klaim 1 Ori Jumbo Gratis");
+    lines.push(line);
+    lines.push(" * HANYA BERLAKU DI KEDAI INI * ");
+    const oName = data.promoVoucher.outletName || data.outletName;
+    const oAddr = data.promoVoucher.outletAddress || data.outletAddress;
+    if (oName) {
+      wrapText58mm(oName, 32).forEach((l) => lines.push(l));
+    }
+    if (oAddr) {
+      wrapText58mm(oAddr, 32).forEach((l) => lines.push(l));
+    }
+    lines.push(line);
+    lines.push("Tunjukkan struk ini untuk klaim");
     lines.push(doubleLine);
   }
 
@@ -192,7 +227,20 @@ export const generateEscPosBuffer = (data: ReceiptData): Uint8Array => {
     bytes.push(...encoder.encode(`KODE: ${data.promoVoucher.code}\n`));
     bytes.push(...encoder.encode(`${data.promoVoucher.title}\n`));
     bytes.push(...encoder.encode(`Berlaku s/d: ${data.promoVoucher.validUntil}\n`));
-    bytes.push(...encoder.encode("Tunjukkan struk ini di booth\nuntuk klaim 1 Ori Jumbo Gratis\n"));
+    bytes.push(...encoder.encode("--------------------------------\n"));
+    bytes.push(0x1b, 0x45, 0x01); // Bold on
+    bytes.push(...encoder.encode("* HANYA BERLAKU DI KEDAI INI *\n"));
+    bytes.push(0x1b, 0x45, 0x00); // Bold off
+    const oName = data.promoVoucher.outletName || data.outletName;
+    const oAddr = data.promoVoucher.outletAddress || data.outletAddress;
+    if (oName) {
+      wrapText58mm(oName, 32).forEach((l) => bytes.push(...encoder.encode(l + "\n")));
+    }
+    if (oAddr) {
+      wrapText58mm(oAddr, 32).forEach((l) => bytes.push(...encoder.encode(l + "\n")));
+    }
+    bytes.push(...encoder.encode("--------------------------------\n"));
+    bytes.push(...encoder.encode("Tunjukkan struk ini untuk klaim\n"));
     bytes.push(0x1b, 0x61, 0x00); // Left align
     bytes.push(...encoder.encode("================================\n"));
   }

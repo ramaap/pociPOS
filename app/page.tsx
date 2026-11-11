@@ -1683,6 +1683,8 @@ export default function PosTerminalPage() {
             ? new Date(voucherCartItem.voucherExpiresAt).toLocaleDateString("id-ID")
             : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString("id-ID"),
           reason: "Klaim promo di struk (stok seduh habis)",
+          outletName: currentOutlet?.name || "Es Teh Poci",
+          outletAddress: currentOutlet?.address || undefined,
         }
       : undefined;
 
@@ -4241,7 +4243,20 @@ export default function PosTerminalPage() {
                         <div className="text-[8px] text-slate-600">
                           Berlaku s/d: {completedReceipt.promoVoucher.validUntil} (3 Hari)
                         </div>
-                        <div className="text-[8px] text-amber-900 italic pt-0.5">
+                        <div className="pt-1 mt-1 border-t border-dashed border-amber-300">
+                          <p className="text-[8px] font-black text-amber-900 tracking-wide uppercase">
+                            ⚠️ Hanya Berlaku di Kedai Ini:
+                          </p>
+                          <p className="text-[9.5px] font-black text-emerald-950">
+                            {completedReceipt.promoVoucher.outletName || completedReceipt.outletName}
+                          </p>
+                          {(completedReceipt.promoVoucher.outletAddress || completedReceipt.outletAddress) && (
+                            <p className="text-[8px] text-slate-600 leading-tight mt-0.5">
+                              {completedReceipt.promoVoucher.outletAddress || completedReceipt.outletAddress}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-[8px] text-amber-900 italic pt-0.5 border-t border-dashed border-amber-200">
                           Tunjukkan struk ini pada kasir saat kunjungan berikutnya untuk klaim
                         </div>
                       </div>
@@ -5639,11 +5654,24 @@ export default function PosTerminalPage() {
             )}
 
             {completedReceipt.promoVoucher && (
-              <div style={{ margin: "6px 0", border: "1px dashed #000", padding: "4px", textAlign: "center" }}>
+              <div style={{ margin: "6px 0", border: "1px dashed #000", padding: "5px 4px", textAlign: "center", lineHeight: "1.35" }}>
                 <div style={{ fontWeight: "bold", fontSize: "10px" }}>*** VOUCHER PROMO KEDAI ***</div>
-                <div style={{ fontSize: "12px", fontWeight: "bold", letterSpacing: "1px" }}>{completedReceipt.promoVoucher.code}</div>
-                <div style={{ fontWeight: "bold" }}>{completedReceipt.promoVoucher.title}</div>
+                <div style={{ fontSize: "12px", fontWeight: "bold", letterSpacing: "1px", margin: "2px 0" }}>
+                  {completedReceipt.promoVoucher.code}
+                </div>
+                <div style={{ fontWeight: "bold", fontSize: "10px" }}>{completedReceipt.promoVoucher.title}</div>
                 <div style={{ fontSize: "9px" }}>Berlaku s/d: {completedReceipt.promoVoucher.validUntil}</div>
+                <div style={{ borderTop: "1px dashed #000", margin: "4px 0 3px 0" }}></div>
+                <div style={{ fontSize: "8.5px", fontWeight: "bold" }}>* HANYA BERLAKU DI KEDAI INI *</div>
+                <div style={{ fontSize: "9.5px", fontWeight: "bold" }}>
+                  {completedReceipt.promoVoucher.outletName || completedReceipt.outletName}
+                </div>
+                {(completedReceipt.promoVoucher.outletAddress || completedReceipt.outletAddress) && (
+                  <div style={{ fontSize: "8.5px", color: "#111" }}>
+                    {completedReceipt.promoVoucher.outletAddress || completedReceipt.outletAddress}
+                  </div>
+                )}
+                <div style={{ borderTop: "1px dashed #000", margin: "4px 0 3px 0" }}></div>
                 <div style={{ fontSize: "8px", fontStyle: "italic" }}>Tunjukkan struk ini untuk klaim</div>
               </div>
             )}
