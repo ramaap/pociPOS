@@ -157,6 +157,20 @@ export async function GET(req: Request) {
       }
     }
 
+    const sugarLogs = await prisma.sugarRefillLog.findMany({
+      orderBy: { created_at: "desc" },
+      take: 50,
+      include: {
+        outlet: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      },
+    });
+
     return NextResponse.json({
       outlets,
       summary: {
@@ -173,6 +187,7 @@ export async function GET(req: Request) {
       closings,
       boothStocks,
       todayTransactions,
+      sugarLogs,
     }, {
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",

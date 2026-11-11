@@ -100,6 +100,22 @@ interface BoothStockRecord {
   };
 }
 
+interface SugarRefillLogRecord {
+  id: string;
+  outlet_id: string;
+  amount_ml: number;
+  stock_before: number;
+  stock_after: number;
+  type: string;
+  notes: string | null;
+  created_at: string;
+  outlet: {
+    id: string;
+    name: string;
+    code: string;
+  };
+}
+
 interface AdminData {
   outlets: Outlet[];
   summary: {
@@ -115,6 +131,7 @@ interface AdminData {
   };
   closings: ShiftClosingRecord[];
   boothStocks: BoothStockRecord[];
+  sugarLogs?: SugarRefillLogRecord[];
 }
 
 export default function AdminDashboardPage() {
@@ -3559,6 +3576,91 @@ export default function AdminDashboardPage() {
                           </tr>
                         );
                       })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Audit Log Refill & Masak Gula Cair (Anti-Manipulasi Selisih) */}
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <Droplets className="w-5 h-5 text-amber-600" />
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">
+                      Audit Log Masak &amp; Bawa Gula Cair (Simple Syrup)
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Rekam jejak setiap kali kasir menekan tombol masak gula (+1.6L), bawa sirup saat buka shift, atau penyesuaian stok
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                  Total Log: {data?.sugarLogs?.length || 0} Aktivitas
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                      <th className="py-2.5 px-3">Waktu</th>
+                      <th className="py-2.5 px-3">Kedai</th>
+                      <th className="py-2.5 px-3">Jenis Refill</th>
+                      <th className="py-2.5 px-3">Volume Masuk</th>
+                      <th className="py-2.5 px-3">Stok Sebelum &rarr; Sesudah</th>
+                      <th className="py-2.5 px-3">Catatan Kasir / Audit</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {!data?.sugarLogs || data.sugarLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-6 text-center text-slate-400 italic">
+                          Belum ada aktivitas masak atau isi ulang gula cair yang tercatat.
+                        </td>
+                      </tr>
+                    ) : (
+                      data.sugarLogs.map((s: SugarRefillLogRecord) => (
+                        <tr key={s.id} className="hover:bg-slate-50 transition font-mono">
+                          <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
+                            {new Date(s.created_at).toLocaleString("id-ID", {
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                          <td className="py-2.5 px-3 font-sans font-bold text-slate-800">
+                            {s.outlet?.name || s.outlet_id}
+                          </td>
+                          <td className="py-2.5 px-3 font-sans">
+                            {s.type === "brew" ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                🍯 Masak di Kedai (+1.6L)
+                              </span>
+                            ) : s.type === "opening_brought" ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300">
+                                🌅 Bawa saat Buka Kedai
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
+                                ⚙️ Penyesuaian Manual
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 font-bold text-emerald-700">
+                            +{Math.round(s.amount_ml).toLocaleString("id-ID")} ml
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600">
+                            {Math.round(s.stock_before).toLocaleString("id-ID")} ml &rarr;{" "}
+                            <strong className="text-slate-900">{Math.round(s.stock_after).toLocaleString("id-ID")} ml</strong>
+                          </td>
+                          <td className="py-2.5 px-3 font-sans text-slate-600 italic">
+                            {s.notes || "-"}
+                          </td>
+                        </tr>
+                      ))
                     )}
                   </tbody>
                 </table>

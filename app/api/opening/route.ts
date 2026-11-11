@@ -48,6 +48,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Kedai wajib dipilih" }, { status: 400 });
     }
 
+    const outlet = await prisma.outlet.findFirst({
+      where: {
+        OR: [
+          { id: outlet_id },
+          { code: outlet_id },
+        ],
+      },
+    });
+
+    if (!outlet) {
+      return NextResponse.json({ error: "Kedai tidak ditemukan" }, { status: 404 });
+    }
+
+    const resolvedOutletId = outlet.id;
+
     const cashFloatNum = Number(cash_float);
     if (isNaN(cashFloatNum) || cashFloatNum < 0) {
       return NextResponse.json(
@@ -63,7 +78,7 @@ export async function POST(req: Request) {
           await prisma.boothStock.upsert({
             where: {
               outlet_id_raw_material_id: {
-                outlet_id,
+                outlet_id: resolvedOutletId,
                 raw_material_id: item.raw_material_id,
               },
             },
@@ -71,7 +86,7 @@ export async function POST(req: Request) {
               current_stock: item.current_stock,
             },
             create: {
-              outlet_id,
+              outlet_id: resolvedOutletId,
               raw_material_id: item.raw_material_id,
               current_stock: item.current_stock,
             },
@@ -80,9 +95,64 @@ export async function POST(req: Request) {
       }
     }
 
-    // 2. Update status kedai: Buka Shift (Open), set cash float, dan rekam waktu opening
+    // 2. Tambahan cairan gula yang dibawa kasir saat buka shift (misal sirup matang dari rumah/central kitchen)
+    const addedSugarMl = Number(body.added_sugar_brought_ml) || 0;
+    if (addedSugarMl > 0) {
+      let gulaCairMat = await prisma.rawMaterial.findFirst({
+        where: { name: { contains: "Gula Cair" } },
+      });
+      if (!gulaCairMat) {
+        gulaCairMat = await prisma.rawMaterial.create({
+          data: { name: "Gula Cair", unit: "ml" },
+        });
+      }
+
+      const existingSugarStock = await prisma.boothStock.findUnique({
+        where: {
+          outlet_id_raw_material_id: {
+            outlet_id: resolvedOutletId,
+            raw_material_id: gulaCairMat.id,
+          },
+        },
+      });
+
+      const stockBefore = existingSugarStock?.current_stock || 0;
+      const stockAfter = stockBefore + addedSugarMl;
+
+      await prisma.boothStock.upsert({
+        where: {
+          outlet_id_raw_material_id: {
+            outlet_id: resolvedOutletId,
+            raw_material_id: gulaCairMat.id,
+          },
+        },
+        update: {
+          current_stock: stockAfter,
+        },
+        create: {
+          outlet_id: resolvedOutletId,
+          raw_material_id: gulaCairMat.id,
+          current_stock: stockAfter,
+        },
+      });
+
+      await prisma.sugarRefillLog.create({
+        data: {
+          outlet_id: resolvedOutletId,
+          amount_ml: addedSugarMl,
+          stock_before: stockBefore,
+          stock_after: stockAfter,
+          type: "opening_brought",
+          notes: notes
+            ? `Bawa gula cair saat buka shift: ${notes}`
+            : `Bawa sirup gula matang saat buka shift (+${addedSugarMl} ml)`,
+        },
+      });
+    }
+
+    // 3. Update status kedai: Buka Shift (Open), set cash float, dan rekam waktu opening
     const updatedOutlet = await prisma.outlet.update({
-      where: { id: outlet_id },
+      where: { id: resolvedOutletId },
       data: {
         initial_cash: cashFloatNum,
         shift_status: "open",

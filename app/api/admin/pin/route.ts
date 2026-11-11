@@ -16,9 +16,18 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { currentPin, newPin } = body;
+    const { currentPin, newPin, action, pin } = body;
 
     const activePin = getAdminPin();
+
+    // Verifikasi PIN saja (misal untuk ganti outlet di kasir)
+    if (action === "verify" || (!newPin && (pin || currentPin))) {
+      const pinToTest = String(pin || currentPin || "").trim();
+      if (pinToTest === activePin) {
+        return NextResponse.json({ success: true, verified: true });
+      }
+      return NextResponse.json({ error: "PIN Admin salah. Akses ditolak." }, { status: 401 });
+    }
 
     if (!currentPin || String(currentPin).trim() !== activePin) {
       return NextResponse.json(

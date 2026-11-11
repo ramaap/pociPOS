@@ -12,6 +12,21 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Outlet ID diperlukan" }, { status: 400 });
     }
 
+    const outlet = await prisma.outlet.findFirst({
+      where: {
+        OR: [
+          { id: outletId },
+          { code: outletId },
+        ],
+      },
+    });
+
+    if (!outlet) {
+      return NextResponse.json({ error: "Outlet tidak ditemukan" }, { status: 404 });
+    }
+
+    const resolvedOutletId = outlet.id;
+
     const gulaCairMat = await prisma.rawMaterial.findFirst({
       where: {
         name: {
@@ -27,7 +42,7 @@ export async function GET(req: Request) {
     const boothStock = await prisma.boothStock.findUnique({
       where: {
         outlet_id_raw_material_id: {
-          outlet_id: outletId,
+          outlet_id: resolvedOutletId,
           raw_material_id: gulaCairMat.id,
         },
       },
@@ -36,12 +51,20 @@ export async function GET(req: Request) {
     const currentStock = boothStock?.current_stock || 0;
     const cupsJumboLeft = Math.floor(currentStock / 40);
 
+    const recentLogs = await prisma.sugarRefillLog.findMany({
+      where: { outlet_id: resolvedOutletId },
+      orderBy: { created_at: "desc" },
+      take: 10,
+    });
+
     return NextResponse.json({
       success: true,
+      outletId: resolvedOutletId,
       rawMaterialId: gulaCairMat.id,
       current_stock: currentStock,
       cupsJumboLeft,
       isLow: cupsJumboLeft <= 6,
+      recentLogs,
     });
   } catch (error: any) {
     console.error("Gagal mengambil stok gula cair:", error);
@@ -52,11 +75,26 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { outletId, addedMl, setMl } = body;
+    const { outletId, addedMl, setMl, type, notes } = body;
 
     if (!outletId) {
       return NextResponse.json({ error: "Outlet ID wajib disertakan" }, { status: 400 });
     }
+
+    const outlet = await prisma.outlet.findFirst({
+      where: {
+        OR: [
+          { id: outletId },
+          { code: outletId },
+        ],
+      },
+    });
+
+    if (!outlet) {
+      return NextResponse.json({ error: "Outlet tidak ditemukan" }, { status: 404 });
+    }
+
+    const resolvedOutletId = outlet.id;
 
     let gulaCairMat = await prisma.rawMaterial.findFirst({
       where: {
@@ -78,13 +116,14 @@ export async function POST(req: Request) {
     const existingStock = await prisma.boothStock.findUnique({
       where: {
         outlet_id_raw_material_id: {
-          outlet_id: outletId,
+          outlet_id: resolvedOutletId,
           raw_material_id: gulaCairMat.id,
         },
       },
     });
 
-    let newStock = existingStock?.current_stock || 0;
+    const stockBefore = existingStock?.current_stock || 0;
+    let newStock = stockBefore;
 
     if (typeof setMl === "number") {
       newStock = Math.max(0, Math.round(setMl));
@@ -94,10 +133,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "addedMl atau setMl wajib disertakan" }, { status: 400 });
     }
 
+    const deltaMl = newStock - stockBefore;
+
     const updated = await prisma.boothStock.upsert({
       where: {
         outlet_id_raw_material_id: {
-          outlet_id: outletId,
+          outlet_id: resolvedOutletId,
           raw_material_id: gulaCairMat.id,
         },
       },
@@ -105,17 +146,34 @@ export async function POST(req: Request) {
         current_stock: newStock,
       },
       create: {
-        outlet_id: outletId,
+        outlet_id: resolvedOutletId,
         raw_material_id: gulaCairMat.id,
         current_stock: newStock,
       },
     });
 
+    // Rekam ke SugarRefillLog untuk audit log Owner
+    const logType = type || (typeof addedMl === "number" ? "brew" : "manual_adjust");
+    const logNotes = notes || (logType === "brew" ? `Selesai masak sirup gula di kedai (+${deltaMl} ml)` : "Penyesuaian stok gula cair");
+
+    const auditLog = await prisma.sugarRefillLog.create({
+      data: {
+        outlet_id: resolvedOutletId,
+        amount_ml: deltaMl,
+        stock_before: stockBefore,
+        stock_after: newStock,
+        type: logType,
+        notes: logNotes,
+      },
+    });
+
     return NextResponse.json({
       success: true,
+      outletId: resolvedOutletId,
       rawMaterialId: gulaCairMat.id,
       current_stock: updated.current_stock,
       cupsJumboLeft: Math.floor(updated.current_stock / 40),
+      auditLog,
       message: `Stok cairan gula berhasil diperbarui menjadi ${updated.current_stock} ml`,
     });
   } catch (error: any) {

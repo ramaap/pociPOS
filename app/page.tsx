@@ -38,6 +38,8 @@ import {
   TrendingUp,
   Sunrise,
   AlertTriangle,
+  ShieldCheck,
+  KeyRound,
 } from "lucide-react";
 import {
   getPendingTransactions,
@@ -284,7 +286,58 @@ export default function PosTerminalPage() {
   const [sugarSuccessToast, setSugarSuccessToast] = useState<string | null>(null);
   const [isSugarRefilling, setIsSugarRefilling] = useState<boolean>(false);
 
-  const handleRefillSugarBatch = async (amount = 1600) => {
+  // Modal Konfirmasi Masak Gula (+1.6L dsb) & Audit Log
+  const [isSugarConfirmModalOpen, setIsSugarConfirmModalOpen] = useState<boolean>(false);
+  const [sugarRefillPendingAmount, setSugarRefillPendingAmount] = useState<number>(1600);
+  const [sugarRefillNotes, setSugarRefillNotes] = useState<string>("");
+
+  const promptSugarRefillConfirm = (amount: number) => {
+    setSugarRefillPendingAmount(amount);
+    setSugarRefillNotes("");
+    setIsSugarConfirmModalOpen(true);
+  };
+
+  // Modal Konfirmasi Selesai Brew Teh (8L)
+  const [isBrewConfirmModalOpen, setIsBrewConfirmModalOpen] = useState<boolean>(false);
+
+  // Penguncian Outlet Per Perangkat & Modal PIN Admin
+  const [isOutletPinModalOpen, setIsOutletPinModalOpen] = useState<boolean>(false);
+  const [outletPinInput, setOutletPinInput] = useState<string>("");
+  const [outletPinError, setOutletPinError] = useState<string | null>(null);
+  const [isOutletPinVerified, setIsOutletPinVerified] = useState<boolean>(false);
+  const [tempSwitchOutletId, setTempSwitchOutletId] = useState<string>("");
+
+  const handleVerifyOutletPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOutletPinError(null);
+    try {
+      const res = await fetch("/api/admin/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify", pin: outletPinInput }),
+      });
+      const data = await res.json();
+      if (res.ok && data.verified) {
+        setIsOutletPinVerified(true);
+      } else {
+        setOutletPinError(data.error || "PIN Admin salah.");
+      }
+    } catch {
+      setOutletPinError("Gagal memverifikasi PIN Admin.");
+    }
+  };
+
+  const handleApplyLockedOutletSwitch = () => {
+    if (tempSwitchOutletId && tempSwitchOutletId !== selectedOutletId) {
+      localStorage.setItem("poci_locked_outlet_id", tempSwitchOutletId);
+      handleOutletChange(tempSwitchOutletId);
+    }
+    setIsOutletPinModalOpen(false);
+    setIsOutletPinVerified(false);
+    setOutletPinInput("");
+  };
+
+  const handleRefillSugarBatch = async (amount = 1600, notes?: string) => {
     if (!selectedOutletId) return;
     setIsSugarRefilling(true);
     try {
@@ -294,6 +347,8 @@ export default function PosTerminalPage() {
         body: JSON.stringify({
           outletId: selectedOutletId,
           addedMl: amount,
+          type: "brew",
+          notes: notes || `Selesai masak sirup gula di kedai (+${amount} ml)`,
         }),
       });
       const data = await res.json();
@@ -451,6 +506,7 @@ export default function PosTerminalPage() {
   const [isOpeningModalOpen, setIsOpeningModalOpen] = useState<boolean>(false);
   const [openingCashFloat, setOpeningCashFloat] = useState<number>(0);
   const [openingStockValues, setOpeningStockValues] = useState<Record<string, number>>({});
+  const [openingAddedSugarMl, setOpeningAddedSugarMl] = useState<number>(0);
   const [openingLoading, setOpeningLoading] = useState<boolean>(false);
   const [openingMessage, setOpeningMessage] = useState<string | null>(null);
 
@@ -458,6 +514,7 @@ export default function PosTerminalPage() {
     const activeId = targetOutletId || selectedOutletId;
     const currentOutlet = outlets.find((o) => o.id === activeId);
     setOpeningCashFloat(currentOutlet?.initial_cash || 0);
+    setOpeningAddedSugarMl(0);
 
     const initialStocks: Record<string, number> = {};
     rawMaterials.forEach((rm) => {
@@ -494,6 +551,7 @@ export default function PosTerminalPage() {
           outlet_id: selectedOutletId,
           cash_float: cashNum,
           stocks: stocksPayload,
+          added_sugar_brought_ml: Number(openingAddedSugarMl) || 0,
         }),
       });
 
@@ -633,14 +691,21 @@ export default function PosTerminalPage() {
         setRawMaterials(data.rawMaterials || []);
 
         // Validasi outlet: Pastikan outlet terpilih ada di daftar outlet aktif
+        const lockedId = typeof window !== "undefined" ? localStorage.getItem("poci_locked_outlet_id") : null;
+        const savedId = typeof window !== "undefined" ? localStorage.getItem("poci_selected_outlet_id") : null;
+        const preferredId = targetOutletId || lockedId || savedId || activeId;
+
         const matchingOutlet = validOutlets.find(
-          (o) => o.id === data.selectedOutletId || o.id === activeId || o.id === targetOutletId
+          (o) => o.id === preferredId || o.id === data.selectedOutletId
         );
         const finalOutletId = matchingOutlet ? matchingOutlet.id : validOutlets[0]?.id || "";
 
         setSelectedOutletId(finalOutletId);
         if (finalOutletId) {
           localStorage.setItem("poci_selected_outlet_id", finalOutletId);
+          if (!localStorage.getItem("poci_locked_outlet_id")) {
+            localStorage.setItem("poci_locked_outlet_id", finalOutletId);
+          }
           loadTodayExpenses(finalOutletId);
         }
 
@@ -666,7 +731,10 @@ export default function PosTerminalPage() {
     } catch {
       const cachedOutlets = localStorage.getItem("cached_poci_outlets");
       const cachedProds = localStorage.getItem("cached_poci_products");
-      const savedOutletId = localStorage.getItem("poci_selected_outlet_id") || "";
+      const savedOutletId =
+        (typeof window !== "undefined"
+          ? localStorage.getItem("poci_locked_outlet_id") || localStorage.getItem("poci_selected_outlet_id")
+          : "") || "";
       const cachedMats = localStorage.getItem("cached_poci_materials_" + savedOutletId);
       const cachedCups = localStorage.getItem("cached_poci_today_cups_" + savedOutletId);
       const cachedCashIn = localStorage.getItem("cached_poci_today_cash_in_" + savedOutletId);
@@ -688,6 +756,7 @@ export default function PosTerminalPage() {
   const handleOutletChange = (newOutletId: string) => {
     setSelectedOutletId(newOutletId);
     localStorage.setItem("poci_selected_outlet_id", newOutletId);
+    localStorage.setItem("poci_locked_outlet_id", newOutletId);
     setCart([]); // Reset keranjang ketika berpindah kedai
     setLoading(true);
     loadData(newOutletId);
@@ -705,7 +774,10 @@ export default function PosTerminalPage() {
   };
 
   useEffect(() => {
-    const savedOutlet = localStorage.getItem("poci_selected_outlet_id") || "";
+    const savedOutlet =
+      (typeof window !== "undefined"
+        ? localStorage.getItem("poci_locked_outlet_id") || localStorage.getItem("poci_selected_outlet_id")
+        : "") || "";
     loadData(savedOutlet);
     setPendingSyncCount(getPendingTransactions().length);
 
@@ -1756,20 +1828,29 @@ export default function PosTerminalPage() {
 
           {/* Row 2 di Mobile & Tablet (<lg) / Sisi Kanan di Desktop (lg+) */}
           <div className="flex items-center justify-between lg:justify-end gap-1.5 sm:gap-2 flex-nowrap min-w-0">
-            {/* Selector Kedai / Outlet */}
-            <div className="flex-1 sm:flex-initial flex items-center bg-emerald-950/80 border border-emerald-600/50 rounded-lg sm:rounded-xl px-2 py-1 text-xs min-w-0 max-w-[170px] xs:max-w-[220px] sm:max-w-[280px] lg:max-w-none">
-              <Store className="w-3.5 h-3.5 text-amber-400 mr-1.5 shrink-0" />
-              <select
-                value={selectedOutletId || outlets[0]?.id || ""}
-                onChange={(e) => handleOutletChange(e.target.value)}
-                className="bg-transparent text-white font-bold text-xs focus:outline-none cursor-pointer pr-1 w-full truncate"
+            {/* Badge Outlet Terkunci Per Perangkat */}
+            <div className="flex-1 sm:flex-initial flex items-center justify-between bg-emerald-950/80 border border-emerald-600/50 rounded-lg sm:rounded-xl px-2.5 py-1 text-xs min-w-0 max-w-[210px] xs:max-w-[260px] sm:max-w-[320px] lg:max-w-none gap-1.5 shadow-2xs">
+              <div className="flex items-center min-w-0 gap-1.5 truncate">
+                <Store className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="font-extrabold text-white text-xs truncate" title={currentOutletObj?.name || "Kedai Teh Poci"}>
+                  {currentOutletObj?.name || "Kedai Cap Poci"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setOutletPinInput("");
+                  setOutletPinError(null);
+                  setIsOutletPinVerified(false);
+                  setTempSwitchOutletId(selectedOutletId);
+                  setIsOutletPinModalOpen(true);
+                }}
+                className="shrink-0 px-1.5 py-0.5 hover:bg-emerald-800/80 text-emerald-300 hover:text-white rounded-md transition flex items-center gap-1 text-[10px] font-bold border border-emerald-700/60 cursor-pointer"
+                title="Outlet dikunci di perangkat ini. Klik untuk ganti kedai (Butuh PIN Admin)"
               >
-                {outlets.map((o) => (
-                  <option key={o.id} value={o.id} className="text-slate-900 font-semibold">
-                    {o.name}
-                  </option>
-                ))}
-              </select>
+                <Lock className="w-2.5 h-2.5 text-amber-400" />
+                <span className="hidden xs:inline">Ubah</span>
+              </button>
             </div>
 
             {/* Status Online/Offline */}
@@ -1974,16 +2055,18 @@ export default function PosTerminalPage() {
                   <span className="text-xs">🍯</span>
                   <span className="text-slate-500">Gula:</span>
                 </span>
-                <strong className={isGulaCritical ? "text-rose-700" : isGulaLow ? "text-amber-800" : "text-emerald-700"}>
-                  {(availableGulaStockMl / 1000).toFixed(1)}L
+                <strong className={isGulaCritical ? "text-rose-700 font-black" : isGulaLow ? "text-amber-800 font-bold" : "text-emerald-700"}>
+                  {Math.round(availableGulaStockMl)} ml
                 </strong>
-                {isGulaLow && (
-                  <span className={`text-[9px] px-1 py-0.2 rounded font-black uppercase text-white ${
-                    isGulaCritical ? "bg-rose-600 animate-bounce" : "bg-amber-600"
-                  }`}>
-                    Masak Gula!
+                {isGulaCritical ? (
+                  <span className="text-[9px] px-1 py-0.2 rounded font-black uppercase text-white bg-rose-600 animate-bounce">
+                    Kritis!
                   </span>
-                )}
+                ) : isGulaLow ? (
+                  <span className="text-[9px] px-1 py-0.2 rounded font-black uppercase text-white bg-amber-600">
+                    Masak!
+                  </span>
+                ) : null}
               </button>
 
               {/* Cup Terjual Hari Ini */}
@@ -2638,15 +2721,46 @@ export default function PosTerminalPage() {
             </div>
           )}
 
-          {/* Banner Notifikasi Re-Brewing (Peringatan saat Sisa Teh Dispenser <= 3.000 ml / 2-3 Liter) */}
-          {brewLiquidMl <= 3000 && !isBrewAlertDismissed && (
-            <div
-              className={`rounded-2xl p-3.5 sm:p-4 border transition-all animate-in fade-in slide-in-from-top-2 ${
-                brewLiquidMl <= 1500
-                  ? "bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white border-rose-500 shadow-lg shadow-rose-600/30 ring-2 ring-rose-400"
-                  : "bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white border-amber-400 shadow-md shadow-amber-500/25"
-              }`}
-            >
+          {/* Banner Notifikasi Re-Brewing Teh Dispenser */}
+          {/* 1. Mode Chip Ramping (Peringatan Awal: Sisa Teh 1.501 - 3.000 ml) */}
+          {brewLiquidMl <= 3000 && brewLiquidMl > 1500 && !isBrewAlertDismissed && (
+            <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-amber-50 border border-amber-300 rounded-xl text-xs font-bold text-amber-950 shadow-xs animate-in fade-in">
+              <div className="flex items-center gap-2 min-w-0 truncate">
+                <span className="text-sm shrink-0">🫖</span>
+                <span className="truncate">
+                  Teh sisa <strong>{(brewLiquidMl / 1000).toFixed(1)}L</strong> ({Math.round(brewLiquidMl)} ml / 8L). Mulai panaskan air seduh 8L (~50 mnt).
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsBrewConfirmModalOpen(true)}
+                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer active:scale-95"
+                >
+                  Selesai Brew (8L)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsBrewModalOpen(true)}
+                  className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  Atur
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsBrewAlertDismissed(true)}
+                  className="p-1 text-amber-700 hover:text-amber-950 cursor-pointer"
+                  title="Sembunyikan sementara"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 2. Mode Banner Kritis Penuh (Hanya Saat Sisa Teh <= 1.500 ml) */}
+          {brewLiquidMl <= 1500 && !isBrewAlertDismissed && (
+            <div className="rounded-2xl p-3.5 sm:p-4 border bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white border-rose-500 shadow-lg shadow-rose-600/30 ring-2 ring-rose-400 transition-all animate-in fade-in slide-in-from-top-2">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="flex items-start gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl shrink-0 border border-white/30 shadow-inner">
@@ -2654,8 +2768,8 @@ export default function PosTerminalPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white text-slate-900 shadow-xs">
-                        {brewLiquidMl <= 1500 ? "🚨 SANGAT KRITIS" : "⚠️ PERINGATAN RE-BREWING"}
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white text-rose-800 shadow-xs">
+                        🚨 TEH DISPENSER SANGAT KRITIS
                       </span>
                       <span className="text-xs font-mono font-bold text-white/95">
                         Sisa {(brewLiquidMl / 1000).toFixed(1)} Liter ({Math.round(brewLiquidMl)} ml / 8.000 ml)
@@ -2663,9 +2777,7 @@ export default function PosTerminalPage() {
                     </div>
 
                     <h3 className="text-sm sm:text-base font-black tracking-tight text-white mt-1">
-                      {brewLiquidMl <= 1500
-                        ? "Teh di Dispenser Barrel Hampir Habis! Segera Isi Ulang"
-                        : "Waktunya Re-Brewing! Mulai Rebus Air 8L Sekarang"}
+                      Teh di Dispenser Barrel Hampir Habis! Segera Isi Ulang
                     </h3>
 
                     <p className="text-xs text-white/95 mt-1 leading-snug">
@@ -2681,7 +2793,7 @@ export default function PosTerminalPage() {
                 <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 flex-wrap sm:flex-nowrap pt-1 sm:pt-0">
                   <button
                     type="button"
-                    onClick={() => handleRefillBrewBatch(8000)}
+                    onClick={() => setIsBrewConfirmModalOpen(true)}
                     className="flex-1 sm:flex-initial px-3.5 py-2 bg-white hover:bg-emerald-50 text-emerald-950 rounded-xl text-xs font-black shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
                     title="Klik jika batch teh 8L baru sudah selesai diseduh dan dituang ke dispenser"
                   >
@@ -2736,15 +2848,47 @@ export default function PosTerminalPage() {
             </div>
           )}
 
-          {/* Banner Notifikasi Re-Brewing Gula Cair (Peringatan saat Sisa Gula <= 6 Minuman Jumbo Normal / 240 ml) */}
-          {isGulaLow && !isSugarAlertDismissed && (
-            <div
-              className={`rounded-2xl p-3.5 sm:p-4 border transition-all animate-in fade-in slide-in-from-top-2 ${
-                isGulaCritical
-                  ? "bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white border-rose-500 shadow-lg shadow-rose-600/30 ring-2 ring-rose-400"
-                  : "bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white border-amber-400 shadow-md shadow-amber-500/25"
-              }`}
-            >
+          {/* Banner Notifikasi Re-Brewing Gula Cair */}
+          {/* 1. Mode Chip Ramping (Peringatan Awal: Sisa Gula 3 - 6 Cup Jumbo / 120 - 240 ml) */}
+          {isGulaLow && !isGulaCritical && !isSugarAlertDismissed && (
+            <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-amber-50 border border-amber-300 rounded-xl text-xs font-bold text-amber-950 shadow-xs animate-in fade-in">
+              <div className="flex items-center gap-2 min-w-0 truncate">
+                <span className="text-sm shrink-0">🍯</span>
+                <span className="truncate">
+                  Gula sisa <strong>{Math.round(availableGulaStockMl)} ml</strong> (~{gulaJumboCupsLeft} cup jumbo). Masak 1 kg gula pasir sekarang.
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  disabled={isSugarRefilling}
+                  onClick={() => promptSugarRefillConfirm(1600)}
+                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
+                >
+                  Selesai Masak (+1.6L)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsSugarModalOpen(true)}
+                  className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  Atur
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsSugarAlertDismissed(true)}
+                  className="p-1 text-amber-700 hover:text-amber-950 cursor-pointer"
+                  title="Sembunyikan sementara"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 2. Mode Banner Kritis Penuh (Hanya Saat Sisa Gula <= 2 Cup Jumbo / <= 80 ml) */}
+          {isGulaCritical && !isSugarAlertDismissed && (
+            <div className="rounded-2xl p-3.5 sm:p-4 border bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white border-rose-500 shadow-lg shadow-rose-600/30 ring-2 ring-rose-400 transition-all animate-in fade-in slide-in-from-top-2">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="flex items-start gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl shrink-0 border border-white/30 shadow-inner">
@@ -2752,8 +2896,8 @@ export default function PosTerminalPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white text-slate-900 shadow-xs">
-                        {isGulaCritical ? "🚨 GULA SANGAT KRITIS" : "⚠️ PERINGATAN RE-BREW GULA CAIR"}
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white text-rose-800 shadow-xs">
+                        🚨 GULA CAIR SANGAT KRITIS
                       </span>
                       <span className="text-xs font-mono font-bold text-white/95">
                         Sisa ~{gulaJumboCupsLeft} Cup Jumbo Normal ({Math.round(availableGulaStockMl)} ml)
@@ -2761,16 +2905,14 @@ export default function PosTerminalPage() {
                     </div>
 
                     <h3 className="text-sm sm:text-base font-black tracking-tight text-white mt-1">
-                      {isGulaCritical
-                        ? "Gula Cair Hampir Habis! Segera Masak Simple Syrup Sekarang"
-                        : "Waktunya Re-Brew Cairan Gula! Rebus 1 Kg Gula Pasir Sekarang"}
+                      Gula Cair Hampir Habis! Segera Masak Simple Syrup Sekarang
                     </h3>
 
                     <p className="text-xs text-white/95 mt-1 leading-snug">
-                      Sisa cairan gula di kedai tinggal <strong>{Math.round(availableGulaStockMl)} ml</strong> (cukup untuk{" "}
-                      <strong>~{gulaJumboCupsLeft} cup Jumbo Normal</strong> @40ml atau{" "}
+                      Sisa cairan gula tinggal <strong>{Math.round(availableGulaStockMl)} ml</strong> (cukup untuk{" "}
+                      <strong>~{gulaJumboCupsLeft} cup Jumbo</strong> @40ml atau{" "}
                       <strong>~{Math.floor(availableGulaStockMl / 30)} cup Reguler</strong> @30ml).
-                      Standar SOP Poci: Larutkan <strong>1 kg Gula Pasir + 1 Liter Air Panas</strong> (menghasilkan ~1.600 ml sirup kental). Masak sekarang selagi masih ada sisa porsi!
+                      Standar SOP Poci: Larutkan <strong>1 kg Gula Pasir + 1 Liter Air Panas</strong> (menghasilkan ~1.600 ml sirup kental).
                     </p>
                   </div>
                 </div>
@@ -2780,7 +2922,7 @@ export default function PosTerminalPage() {
                   <button
                     type="button"
                     disabled={isSugarRefilling}
-                    onClick={() => handleRefillSugarBatch(1600)}
+                    onClick={() => promptSugarRefillConfirm(1600)}
                     className="flex-1 sm:flex-initial px-3.5 py-2 bg-white hover:bg-amber-50 text-amber-950 rounded-xl text-xs font-black shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
                     title="Klik jika batch gula baru sudah matang dan siap disajikan (+1.600 ml)"
                   >
@@ -4588,7 +4730,7 @@ export default function PosTerminalPage() {
               <button
                 type="button"
                 disabled={isSugarRefilling}
-                onClick={() => handleRefillSugarBatch(1600)}
+                onClick={() => promptSugarRefillConfirm(1600)}
                 className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-98 disabled:opacity-50"
               >
                 <CheckCircle2 className="w-5 h-5 text-amber-200" />
@@ -4599,7 +4741,7 @@ export default function PosTerminalPage() {
                 <button
                   type="button"
                   disabled={isSugarRefilling}
-                  onClick={() => handleRefillSugarBatch(1600)}
+                  onClick={() => promptSugarRefillConfirm(1600)}
                   className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold border border-slate-200 transition cursor-pointer disabled:opacity-50"
                 >
                   + 1.600 ml (1 Kg Gula)
@@ -4607,7 +4749,7 @@ export default function PosTerminalPage() {
                 <button
                   type="button"
                   disabled={isSugarRefilling}
-                  onClick={() => handleRefillSugarBatch(3200)}
+                  onClick={() => promptSugarRefillConfirm(3200)}
                   className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold border border-slate-200 transition cursor-pointer disabled:opacity-50"
                 >
                   + 3.200 ml (2 Kg Gula)
@@ -4648,6 +4790,278 @@ export default function PosTerminalPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: KONFIRMASI MASAK GULA (+1.6L) BER-AUDIT LOG             */}
+      {/* ============================================================== */}
+      {isSugarConfirmModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-amber-200 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-amber-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-900 flex items-center justify-center text-xl shadow-xs">
+                  🍯
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">Konfirmasi Masak Gula</h3>
+                  <p className="text-xs text-amber-700 font-semibold">Audit Log Anti-Manipulasi Stok</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSugarConfirmModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-xl hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <div className="p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200 space-y-2 text-xs">
+                <div className="flex justify-between items-center text-slate-600">
+                  <span>Stok Gula Saat Ini:</span>
+                  <span className="font-mono font-bold text-slate-900">{Math.round(availableGulaStockMl)} ml</span>
+                </div>
+                <div className="flex justify-between items-center text-amber-800 font-bold">
+                  <span>Penambahan Masak:</span>
+                  <span className="font-mono text-amber-700 font-black text-sm">+{sugarRefillPendingAmount.toLocaleString("id-ID")} ml</span>
+                </div>
+                <div className="pt-2 border-t border-amber-200 flex justify-between items-center text-emerald-800 font-bold">
+                  <span>Estimasi Stok Baru:</span>
+                  <span className="font-mono text-emerald-700 font-black text-base">
+                    {Math.round(availableGulaStockMl + sugarRefillPendingAmount).toLocaleString("id-ID")} ml
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 pt-1 border-t border-amber-100">
+                  Estimasi porsi: ~{Math.floor((availableGulaStockMl + sugarRefillPendingAmount) / 40)} cup Jumbo Normal (@40ml)
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600 flex items-start gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>
+                  Tindakan ini akan <strong>terekam permanen di log audit sistem</strong> beserta jam dan identitas kedai, untuk mencocokkan selisih fisik saat tutup shift oleh Owner.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Catatan Masak (Opsional):
+                </label>
+                <input
+                  type="text"
+                  value={sugarRefillNotes}
+                  onChange={(e) => setSugarRefillNotes(e.target.value)}
+                  placeholder="Contoh: Batch 1 pagi, gula gulaku 1kg..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSugarConfirmModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={isSugarRefilling}
+                  onClick={async () => {
+                    await handleRefillSugarBatch(sugarRefillPendingAmount, sugarRefillNotes);
+                    setIsSugarConfirmModalOpen(false);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{isSugarRefilling ? "Menyimpan..." : `Ya, Tambah +${(sugarRefillPendingAmount / 1000).toFixed(1)}L`}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: KONFIRMASI SELESAI BREW TEH (8L)                        */}
+      {/* ============================================================== */}
+      {isBrewConfirmModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-emerald-200 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-emerald-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-900 flex items-center justify-center text-xl shadow-xs">
+                  🫖
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">Konfirmasi Seduhan Teh</h3>
+                  <p className="text-xs text-emerald-700 font-semibold">Isi Ulang Dispenser Barrel (8L)</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBrewConfirmModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-xl hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4 text-xs">
+              <p className="text-slate-600 leading-relaxed">
+                Apakah batch seduhan teh 8 Liter baru sudah selesai dimasak, dingin, dan dituangkan penuh ke dispenser barrel?
+              </p>
+
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 space-y-1">
+                <div className="flex justify-between font-bold text-emerald-900">
+                  <span>Volume Baru Dispenser:</span>
+                  <span className="font-mono">8.000 ml (8 Liter)</span>
+                </div>
+                <div className="text-[11px] text-emerald-700">
+                  Estimasi porsi: ~32 cup Jumbo atau ~44 cup Reguler
+                </div>
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsBrewConfirmModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleRefillBrewBatch(8000);
+                    setIsBrewConfirmModalOpen(false);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Ya, Set Dispenser 8L</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: KUNCI OUTLET & PIN ADMIN PER PERANGKAT                   */}
+      {/* ============================================================== */}
+      {isOutletPinModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900">Ubah Outlet Perangkat</h3>
+                  <p className="text-[11px] text-slate-500">Perlu otorisasi PIN Admin</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOutletPinModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {!isOutletPinVerified ? (
+              <form onSubmit={handleVerifyOutletPin} className="mt-4 space-y-4">
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Outlet pada perangkat ini dikunci untuk mencegah manipulasi data kasir. Masukkan <strong>PIN Admin</strong> (Default: <code>1234</code>) untuk mengubah kedai aktif:
+                </p>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    PIN Admin
+                  </label>
+                  <input
+                    type="password"
+                    autoFocus
+                    required
+                    maxLength={10}
+                    value={outletPinInput}
+                    onChange={(e) => setOutletPinInput(e.target.value)}
+                    placeholder="Masukkan PIN Admin..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-center font-mono text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  {outletPinError && (
+                    <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      {outletPinError}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsOutletPinModalOpen(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition cursor-pointer"
+                  >
+                    Verifikasi PIN
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="mt-4 space-y-4">
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>PIN terverifikasi. Pilih kedai untuk dikunci pada perangkat ini:</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Pilih Outlet / Kedai
+                  </label>
+                  <select
+                    value={tempSwitchOutletId}
+                    onChange={(e) => setTempSwitchOutletId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    {outlets.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name} ({o.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsOutletPinModalOpen(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApplyLockedOutletSwitch}
+                    className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition cursor-pointer"
+                  >
+                    Kunci di Perangkat Ini
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -23,6 +23,7 @@ model Outlet {
   shiftClosings  ShiftClosing[]
   outletProducts OutletProduct[]
   expenses       Expense[]
+  sugarRefillLogs SugarRefillLog[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -164,4 +165,18 @@ model Expense {
   outlet      Outlet?  @relation(fields: [outlet_id], references: [id], onDelete: SetNull)
 
   @@map("expenses")
+}
+
+model SugarRefillLog {
+  id           String   @id @default(cuid())
+  outlet_id    String
+  amount_ml    Float
+  stock_before Float
+  stock_after  Float
+  type         String   @default("brew") // "brew" (masak di kedai) | "opening_brought" (gula dibawa saat buka kedai) | "manual_adjust"
+  notes        String?
+  created_at   DateTime @default(now())
+  outlet       Outlet   @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+
+  @@map("sugar_refill_logs")
 }
