@@ -5,6 +5,7 @@ export interface ReceiptItem {
   quantity: number;
   price: number;
   subtotal: number;
+  notes?: string;
 }
 
 export interface ReceiptData {
@@ -59,6 +60,9 @@ export const generateReceiptText = (data: ReceiptData): string => {
   data.items.forEach((item) => {
     // Baris 1: Nama produk
     lines.push(item.name.substring(0, 32));
+    if (item.notes) {
+      lines.push(` * Note: ${item.notes}`.substring(0, 32));
+    }
     // Baris 2: Qty x Harga = Subtotal
     const qtyPrice = ` ${item.quantity}x @${item.price.toLocaleString("id-ID")}`;
     const subtotalStr = `Rp ${item.subtotal.toLocaleString("id-ID")}`;
@@ -134,6 +138,9 @@ export const generateEscPosBuffer = (data: ReceiptData): Uint8Array => {
   // Daftar item
   data.items.forEach((item) => {
     bytes.push(...encoder.encode(`${item.name}\n`));
+    if (item.notes) {
+      bytes.push(...encoder.encode(`  * Note: ${item.notes}\n`));
+    }
     const qtyPrice = ` ${item.quantity}x @${item.price.toLocaleString("id-ID")}`;
     const subtotalStr = `Rp ${item.subtotal.toLocaleString("id-ID")}`;
     bytes.push(...encoder.encode(format58mmLine(qtyPrice, subtotalStr) + "\n"));
