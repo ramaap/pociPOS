@@ -80,11 +80,18 @@ interface Product {
   recipes: BOMRecipe[];
 }
 
+export interface SugarBreakdown {
+  normal: number;
+  less: number;
+  tawar: number;
+}
+
 interface CartItem {
   id: string;
   product: Product;
   quantity: number;
   sugarLevel: "normal" | "less" | "tawar";
+  sugarBreakdown?: SugarBreakdown;
   notes?: string;
   isPromoFree?: boolean;
 }
@@ -860,32 +867,145 @@ export default function PosTerminalPage() {
 
     setStockAlertMessage(null);
     setCart((prev) => {
-      // Cari apakah sudah ada item persis sama (produk sama, level gula sama, dan non-promo)
+      // Untuk topping: item tanpa level gula
+      if (product.name.includes("Topping")) {
+        const existingIndex = prev.findIndex(
+          (item) => item.product.id === product.id && !item.isPromoFree
+        );
+        if (existingIndex > -1) {
+          return prev.map((item, idx) =>
+            idx === existingIndex ? { ...item, quantity: item.quantity + 1 } : item
+          );
+        }
+        const newItem: CartItem = {
+          id: `${product.id}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          product,
+          quantity: 1,
+          sugarLevel: "normal",
+          notes: "",
+          isPromoFree: false,
+        };
+        return [...prev, newItem];
+      }
+
+      // Untuk minuman teh: gabung dalam 1 kartu per varian produk dengan sugarBreakdown (Opsi B)
       const existingIndex = prev.findIndex(
-        (item) => item.product.id === product.id && item.sugarLevel === sugarLevel && !item.isPromoFree
+        (item) => item.product.id === product.id && !item.isPromoFree
       );
 
       if (existingIndex > -1) {
-        return prev.map((item, idx) =>
-          idx === existingIndex ? { ...item, quantity: item.quantity + 1 } : item
-        );
+        return prev.map((item, idx) => {
+          if (idx !== existingIndex) return item;
+          const currentBreakdown: SugarBreakdown = item.sugarBreakdown || {
+            normal: item.sugarLevel === "normal" ? item.quantity : 0,
+            less: item.sugarLevel === "less" ? item.quantity : 0,
+            tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+          };
+          const nextBreakdown: SugarBreakdown = {
+            ...currentBreakdown,
+            [sugarLevel]: currentBreakdown[sugarLevel] + 1,
+          };
+          const nextTotal = nextBreakdown.normal + nextBreakdown.less + nextBreakdown.tawar;
+          return {
+            ...item,
+            quantity: nextTotal,
+            sugarBreakdown: nextBreakdown,
+            sugarLevel:
+              nextBreakdown.tawar > 0 && nextBreakdown.normal === 0 && nextBreakdown.less === 0
+                ? "tawar"
+                : nextBreakdown.less > 0 && nextBreakdown.normal === 0 && nextBreakdown.tawar === 0
+                ? "less"
+                : "normal",
+          };
+        });
       }
 
       const newItem: CartItem = {
-        id: `${product.id}_${sugarLevel}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        id: `${product.id}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         product,
         quantity: 1,
+        sugarBreakdown: {
+          normal: sugarLevel === "normal" ? 1 : 0,
+          less: sugarLevel === "less" ? 1 : 0,
+          tawar: sugarLevel === "tawar" ? 1 : 0,
+        },
         sugarLevel,
+        notes: "",
         isPromoFree: false,
       };
       return [...prev, newItem];
     });
   };
 
-  const updateSugarLevel = (cartId: string, level: "normal" | "less" | "tawar") => {
+  const updateSugarBreakdown = (
+    cartId: string,
+    level: "normal" | "less" | "tawar",
+    delta: number
+  ) => {
+    const targetCartItem = cart.find((i) => i.id === cartId);
+    if (!targetCartItem) return;
+
+    if (delta > 0) {
+      const check = checkCanAddProduct(targetCartItem.product, delta, level);
+      if (!check.canAdd) {
+        setStockAlertMessage(check.reason || "Stok kedai tidak mencukupi!");
+        setTimeout(() => setStockAlertMessage(null), 3500);
+        return;
+      }
+    }
+
+    setStockAlertMessage(null);
     setCart((prev) =>
-      prev.map((item) => (item.id === cartId ? { ...item, sugarLevel: level } : item))
+      prev
+        .map((item) => {
+          if (item.id !== cartId) return item;
+          const currentBreakdown: SugarBreakdown = item.sugarBreakdown || {
+            normal: item.sugarLevel === "normal" ? item.quantity : 0,
+            less: item.sugarLevel === "less" ? item.quantity : 0,
+            tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+          };
+          const nextCount = Math.max(0, currentBreakdown[level] + delta);
+          const nextBreakdown: SugarBreakdown = {
+            ...currentBreakdown,
+            [level]: nextCount,
+          };
+          const nextTotal = nextBreakdown.normal + nextBreakdown.less + nextBreakdown.tawar;
+          if (nextTotal <= 0) return null;
+          return {
+            ...item,
+            quantity: nextTotal,
+            sugarBreakdown: nextBreakdown,
+            sugarLevel:
+              nextBreakdown.tawar > 0 && nextBreakdown.normal === 0 && nextBreakdown.less === 0
+                ? "tawar"
+                : nextBreakdown.less > 0 && nextBreakdown.normal === 0 && nextBreakdown.tawar === 0
+                ? "less"
+                : "normal",
+          };
+        })
+        .filter(Boolean) as CartItem[]
     );
+  };
+
+  const setSingleSugarLevel = (cartId: string, level: "normal" | "less" | "tawar") => {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.id !== cartId) return item;
+        return {
+          ...item,
+          sugarLevel: level,
+          sugarBreakdown: {
+            normal: level === "normal" ? item.quantity : 0,
+            less: level === "less" ? item.quantity : 0,
+            tawar: level === "tawar" ? item.quantity : 0,
+          },
+        };
+      })
+    );
+  };
+
+  const updateSugarLevel = (cartId: string, level: "normal" | "less" | "tawar") => {
+    setSingleSugarLevel(cartId, level);
   };
 
   const updateItemNotes = (cartId: string, notes: string) => {
@@ -895,15 +1015,15 @@ export default function PosTerminalPage() {
   };
 
   const updateQuantity = (cartId: string, delta: number) => {
+    const targetCartItem = cart.find((i) => i.id === cartId);
+    if (!targetCartItem) return;
+
     if (delta > 0) {
-      const targetCartItem = cart.find((i) => i.id === cartId);
-      if (targetCartItem) {
-        const check = checkCanAddProduct(targetCartItem.product, delta, targetCartItem.sugarLevel);
-        if (!check.canAdd) {
-          setStockAlertMessage(check.reason || "Stok kedai tidak mencukupi!");
-          setTimeout(() => setStockAlertMessage(null), 3500);
-          return;
-        }
+      const check = checkCanAddProduct(targetCartItem.product, delta, targetCartItem.sugarLevel);
+      if (!check.canAdd) {
+        setStockAlertMessage(check.reason || "Stok kedai tidak mencukupi!");
+        setTimeout(() => setStockAlertMessage(null), 3500);
+        return;
       }
     }
 
@@ -911,14 +1031,103 @@ export default function PosTerminalPage() {
     setCart((prev) =>
       prev
         .map((item) => {
-          if (item.id === cartId) {
-            const newQty = item.quantity + delta;
-            return newQty > 0 ? { ...item, quantity: newQty } : null;
+          if (item.id !== cartId) return item;
+          if (item.sugarBreakdown) {
+            const b = { ...item.sugarBreakdown };
+            if (delta > 0) {
+              b.normal += delta;
+            } else {
+              let toReduce = Math.abs(delta);
+              if (b.normal >= toReduce) {
+                b.normal -= toReduce;
+                toReduce = 0;
+              } else {
+                toReduce -= b.normal;
+                b.normal = 0;
+              }
+              if (toReduce > 0 && b.less >= toReduce) {
+                b.less -= toReduce;
+                toReduce = 0;
+              } else if (toReduce > 0) {
+                toReduce -= b.less;
+                b.less = 0;
+              }
+              if (toReduce > 0 && b.tawar >= toReduce) {
+                b.tawar -= toReduce;
+                toReduce = 0;
+              } else if (toReduce > 0) {
+                toReduce -= b.tawar;
+                b.tawar = 0;
+              }
+            }
+            const nextTotal = b.normal + b.less + b.tawar;
+            if (nextTotal <= 0) return null;
+            return {
+              ...item,
+              quantity: nextTotal,
+              sugarBreakdown: b,
+            };
           }
-          return item;
+
+          const newQty = item.quantity + delta;
+          return newQty > 0 ? { ...item, quantity: newQty } : null;
         })
         .filter(Boolean) as CartItem[]
     );
+  };
+
+  // Helper untuk memecah cart item dengan variasi level gula menjadi rincian terpisah di struk / checkout
+  const getExpandedCartItems = (items: CartItem[]) => {
+    const result: {
+      product: Product;
+      quantity: number;
+      sugarLevel: "normal" | "less" | "tawar";
+      notes?: string;
+      isPromoFree?: boolean;
+    }[] = [];
+
+    items.forEach((item) => {
+      if (item.product.name.includes("Topping") || !item.sugarBreakdown) {
+        result.push({
+          product: item.product,
+          quantity: item.quantity,
+          sugarLevel: item.sugarLevel || "normal",
+          notes: item.notes,
+          isPromoFree: item.isPromoFree,
+        });
+      } else {
+        const { normal, less, tawar } = item.sugarBreakdown;
+        if (normal > 0) {
+          result.push({
+            product: item.product,
+            quantity: normal,
+            sugarLevel: "normal",
+            notes: item.notes,
+            isPromoFree: item.isPromoFree,
+          });
+        }
+        if (less > 0) {
+          result.push({
+            product: item.product,
+            quantity: less,
+            sugarLevel: "less",
+            notes: item.notes,
+            isPromoFree: item.isPromoFree,
+          });
+        }
+        if (tawar > 0) {
+          result.push({
+            product: item.product,
+            quantity: tawar,
+            sugarLevel: "tawar",
+            notes: item.notes,
+            isPromoFree: item.isPromoFree,
+          });
+        }
+      }
+    });
+
+    return result;
   };
 
   // Handler Diskon / Promo: Beli minimal 2 varian rasa -> Dapat 1 Ori Jumbo Gratis
@@ -1059,12 +1268,14 @@ export default function PosTerminalPage() {
       ? (receivedNum - totalAmount)
       : (receivedNum !== undefined ? 0 : undefined);
 
+    const expandedCart = getExpandedCartItems(cart);
+
     const receiptToPrint: ReceiptData = {
       orderId: orderNumber,
       outletName: currentOutlet?.name || "Es Teh Poci",
       outletCode: currentOutlet?.code || "OUT-01",
       outletAddress: currentOutlet?.address || "Booth Minimarket",
-      items: cart.map((i) => {
+      items: expandedCart.map((i) => {
         const sugarLabel =
           i.product.name.includes("Topping")
             ? ""
@@ -1092,8 +1303,8 @@ export default function PosTerminalPage() {
     };
 
     startTransition(async () => {
-      const totalCartCups = cart.reduce((acc, curr) => acc + curr.quantity, 0);
-      const payloadItems = cart.map((i) => ({
+      const totalCartCups = expandedCart.reduce((acc, curr) => acc + curr.quantity, 0);
+      const payloadItems = expandedCart.map((i) => ({
         productId: i.product.id,
         quantity: i.quantity,
         sugarLevel: i.sugarLevel || "normal",
@@ -1105,7 +1316,7 @@ export default function PosTerminalPage() {
       if (!isOnline) {
         saveOfflineTransaction({
           outletId: selectedOutletId,
-          items: cart.map((i) => {
+          items: expandedCart.map((i) => {
             const sugarLabel =
               i.product.name.includes("Topping")
                 ? ""
@@ -1194,7 +1405,7 @@ export default function PosTerminalPage() {
       } catch {
         saveOfflineTransaction({
           outletId: selectedOutletId,
-          items: cart.map((i) => {
+          items: expandedCart.map((i) => {
             const sugarLabel =
               i.product.name.includes("Topping")
                 ? ""
@@ -1925,73 +2136,228 @@ export default function PosTerminalPage() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => updateQuantity(item.id, -1)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 active:scale-90 transition font-black shadow-2xs cursor-pointer"
-                              title="Kurangi 1 cup"
-                            >
-                              <Minus className="w-4 h-4 stroke-[2.5]" />
-                            </button>
-                            <span className="w-6 text-center font-mono font-black text-xs text-slate-900">
-                              {item.quantity}
-                            </span>
-                            <button
-                              type="button"
-                              disabled={item.isPromoFree}
-                              onClick={() => updateQuantity(item.id, 1)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black shadow-2xs cursor-pointer disabled:opacity-40"
-                              title="Tambah 1 cup"
-                            >
-                              <Plus className="w-4 h-4 stroke-[2.5]" />
-                            </button>
-                          </div>
+                          {/* Jika Topping atau Promo: Stepper Qty Biasa */}
+                          {item.product.name.includes("Topping") || item.isPromoFree ? (
+                            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(item.id, -1)}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 active:scale-90 transition font-black shadow-2xs cursor-pointer"
+                                title="Kurangi 1"
+                              >
+                                <Minus className="w-4 h-4 stroke-[2.5]" />
+                              </button>
+                              <span className="w-6 text-center font-mono font-black text-xs text-slate-900">
+                                {item.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                disabled={item.isPromoFree}
+                                onClick={() => updateQuantity(item.id, 1)}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black shadow-2xs cursor-pointer disabled:opacity-40"
+                                title="Tambah 1"
+                              >
+                                <Plus className="w-4 h-4 stroke-[2.5]" />
+                              </button>
+                            </div>
+                          ) : (
+                            /* Untuk Minuman Teh: Badge Total Qty & Tombol Hapus */
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 font-mono font-black text-xs border border-emerald-200 shadow-2xs">
+                                {item.quantity} cup
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(item.id, -item.quantity)}
+                                className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                title="Hapus produk ini dari keranjang"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
                         </div>
 
-                        {/* Opsi Porsi Gula Cair: Normal / Less Sugar / Tawar (Finger-Friendly Touch) */}
+                        {/* Opsi B: Multi-Counter Level Gula (Normal / Less / Tawar) */}
                         {!item.product.name.includes("Topping") && !item.isPromoFree && (
-                          <div className="pt-2 border-t border-slate-100 space-y-1">
+                          <div className="pt-2 border-t border-slate-100 space-y-1.5">
                             <div className="flex items-center justify-between text-[11px]">
                               <span className="text-slate-500 font-bold">Porsi Gula:</span>
                               <span className="text-[10px] text-slate-400 font-mono font-bold">
-                                {item.sugarLevel === "tawar" ? "0% Gula (Tawar)" : item.sugarLevel === "less" ? "50% Gula (Less)" : "100% Gula (Normal)"}
+                                {(() => {
+                                  const b = item.sugarBreakdown || {
+                                    normal: item.sugarLevel === "normal" ? item.quantity : 0,
+                                    less: item.sugarLevel === "less" ? item.quantity : 0,
+                                    tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+                                  };
+                                  const parts: string[] = [];
+                                  if (b.normal > 0) parts.push(`${b.normal} Normal`);
+                                  if (b.less > 0) parts.push(`${b.less} Less`);
+                                  if (b.tawar > 0) parts.push(`${b.tawar} Tawar`);
+                                  return parts.join(", ") || `${item.quantity} Normal`;
+                                })()}
                               </span>
                             </div>
+
                             <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                              <button
-                                type="button"
-                                onClick={() => updateSugarLevel(item.id, "normal")}
-                                className={`py-1.5 px-2 rounded-lg text-[11px] font-black transition cursor-pointer text-center active:scale-95 ${
-                                  item.sugarLevel === "normal" || !item.sugarLevel
-                                    ? "bg-emerald-600 text-white shadow-xs"
-                                    : "bg-white text-slate-600 hover:text-slate-900"
-                                }`}
-                              >
-                                Normal
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => updateSugarLevel(item.id, "less")}
-                                className={`py-1.5 px-2 rounded-lg text-[11px] font-black transition cursor-pointer text-center active:scale-95 ${
-                                  item.sugarLevel === "less"
-                                    ? "bg-amber-500 text-white shadow-xs"
-                                    : "bg-white text-slate-600 hover:text-slate-900"
-                                }`}
-                              >
-                                Less (50%)
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => updateSugarLevel(item.id, "tawar")}
-                                className={`py-1.5 px-2 rounded-lg text-[11px] font-black transition cursor-pointer text-center active:scale-95 ${
-                                  item.sugarLevel === "tawar"
-                                    ? "bg-slate-800 text-white shadow-xs"
-                                    : "bg-white text-slate-600 hover:text-slate-900"
-                                }`}
-                              >
-                                Tawar (0%)
-                              </button>
+                              {/* Kolom Normal */}
+                              {(() => {
+                                const b = item.sugarBreakdown || {
+                                  normal: item.sugarLevel === "normal" ? item.quantity : 0,
+                                  less: item.sugarLevel === "less" ? item.quantity : 0,
+                                  tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+                                };
+                                const count = b.normal;
+                                return (
+                                  <div
+                                    className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${
+                                      count > 0
+                                        ? "bg-white border-emerald-300 shadow-2xs"
+                                        : "bg-white/60 border-slate-200 opacity-60"
+                                    }`}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (item.quantity === 1) setSingleSugarLevel(item.id, "normal");
+                                      }}
+                                      className={`text-[10px] sm:text-[11px] font-black cursor-pointer leading-tight ${
+                                        count > 0 ? "text-emerald-800" : "text-slate-500"
+                                      }`}
+                                    >
+                                      Normal
+                                    </button>
+                                    <span className="text-[9px] text-slate-400 font-mono mb-1">100%</span>
+
+                                    <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-slate-100">
+                                      <button
+                                        type="button"
+                                        disabled={count === 0}
+                                        onClick={() => updateSugarBreakdown(item.id, "normal", -1)}
+                                        className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
+                                      >
+                                        <Minus className="w-3 h-3 stroke-[2.5]" />
+                                      </button>
+                                      <span className={`font-mono font-black text-xs ${count > 0 ? "text-emerald-700" : "text-slate-400"}`}>
+                                        {count}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => updateSugarBreakdown(item.id, "normal", 1)}
+                                        className="w-6 h-6 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
+                                      >
+                                        <Plus className="w-3 h-3 stroke-[2.5]" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
+                              {/* Kolom Less */}
+                              {(() => {
+                                const b = item.sugarBreakdown || {
+                                  normal: item.sugarLevel === "normal" ? item.quantity : 0,
+                                  less: item.sugarLevel === "less" ? item.quantity : 0,
+                                  tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+                                };
+                                const count = b.less;
+                                return (
+                                  <div
+                                    className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${
+                                      count > 0
+                                        ? "bg-white border-amber-300 shadow-2xs"
+                                        : "bg-white/60 border-slate-200 opacity-60"
+                                    }`}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (item.quantity === 1) setSingleSugarLevel(item.id, "less");
+                                      }}
+                                      className={`text-[10px] sm:text-[11px] font-black cursor-pointer leading-tight ${
+                                        count > 0 ? "text-amber-800" : "text-slate-500"
+                                      }`}
+                                    >
+                                      Less
+                                    </button>
+                                    <span className="text-[9px] text-slate-400 font-mono mb-1">50%</span>
+
+                                    <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-slate-100">
+                                      <button
+                                        type="button"
+                                        disabled={count === 0}
+                                        onClick={() => updateSugarBreakdown(item.id, "less", -1)}
+                                        className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
+                                      >
+                                        <Minus className="w-3 h-3 stroke-[2.5]" />
+                                      </button>
+                                      <span className={`font-mono font-black text-xs ${count > 0 ? "text-amber-700" : "text-slate-400"}`}>
+                                        {count}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => updateSugarBreakdown(item.id, "less", 1)}
+                                        className="w-6 h-6 rounded flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
+                                      >
+                                        <Plus className="w-3 h-3 stroke-[2.5]" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
+                              {/* Kolom Tawar */}
+                              {(() => {
+                                const b = item.sugarBreakdown || {
+                                  normal: item.sugarLevel === "normal" ? item.quantity : 0,
+                                  less: item.sugarLevel === "less" ? item.quantity : 0,
+                                  tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+                                };
+                                const count = b.tawar;
+                                return (
+                                  <div
+                                    className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${
+                                      count > 0
+                                        ? "bg-white border-slate-400 shadow-2xs"
+                                        : "bg-white/60 border-slate-200 opacity-60"
+                                    }`}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (item.quantity === 1) setSingleSugarLevel(item.id, "tawar");
+                                      }}
+                                      className={`text-[10px] sm:text-[11px] font-black cursor-pointer leading-tight ${
+                                        count > 0 ? "text-slate-900" : "text-slate-500"
+                                      }`}
+                                    >
+                                      Tawar
+                                    </button>
+                                    <span className="text-[9px] text-slate-400 font-mono mb-1">0%</span>
+
+                                    <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-slate-100">
+                                      <button
+                                        type="button"
+                                        disabled={count === 0}
+                                        onClick={() => updateSugarBreakdown(item.id, "tawar", -1)}
+                                        className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
+                                      >
+                                        <Minus className="w-3 h-3 stroke-[2.5]" />
+                                      </button>
+                                      <span className={`font-mono font-black text-xs ${count > 0 ? "text-slate-900" : "text-slate-400"}`}>
+                                        {count}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => updateSugarBreakdown(item.id, "tawar", 1)}
+                                        className="w-6 h-6 rounded flex items-center justify-center bg-slate-800 hover:bg-slate-900 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
+                                      >
+                                        <Plus className="w-3 h-3 stroke-[2.5]" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
                         )}
@@ -2508,73 +2874,228 @@ export default function PosTerminalPage() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.id, -1)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 active:scale-90 transition font-black shadow-2xs cursor-pointer"
-                            title="Kurangi 1 cup"
-                          >
-                            <Minus className="w-4 h-4 stroke-[2.5]" />
-                          </button>
-                          <span className="w-7 text-center font-mono font-black text-xs text-slate-900">
-                            {item.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            disabled={item.isPromoFree}
-                            onClick={() => updateQuantity(item.id, 1)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                            title="Tambah 1 cup"
-                          >
-                            <Plus className="w-4 h-4 stroke-[2.5]" />
-                          </button>
-                        </div>
+                        {item.product.name.includes("Topping") || item.isPromoFree ? (
+                          /* Counter Biasa untuk Topping & Promo Gratis */
+                          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, -1)}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 active:scale-90 transition font-black shadow-2xs cursor-pointer"
+                              title="Kurangi 1 cup"
+                            >
+                              <Minus className="w-4 h-4 stroke-[2.5]" />
+                            </button>
+                            <span className="w-7 text-center font-mono font-black text-xs text-slate-900">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={item.isPromoFree}
+                              onClick={() => updateQuantity(item.id, 1)}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                              title="Tambah 1 cup"
+                            >
+                              <Plus className="w-4 h-4 stroke-[2.5]" />
+                            </button>
+                          </div>
+                        ) : (
+                          /* Untuk Minuman Teh: Badge Total Qty & Tombol Hapus */
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-mono font-black text-xs border border-emerald-200 shadow-2xs">
+                              {item.quantity} cup
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, -item.quantity)}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                              title="Hapus produk ini dari keranjang"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Opsi Porsi Gula Cair: Normal / Less Sugar / Tawar (Finger-Friendly Touch) */}
+                      {/* Opsi B: Multi-Counter Level Gula (Normal / Less / Tawar) */}
                       {!item.product.name.includes("Topping") && !item.isPromoFree && (
-                        <div className="pt-2 border-t border-slate-200 space-y-1">
+                        <div className="pt-2 border-t border-slate-100 space-y-1.5">
                           <div className="flex items-center justify-between text-[11px]">
                             <span className="text-slate-500 font-bold">Porsi Gula:</span>
                             <span className="text-[10px] text-slate-400 font-mono font-bold">
-                              {item.sugarLevel === "tawar" ? "0% Gula (Tawar)" : item.sugarLevel === "less" ? "50% Gula (Less)" : "100% Gula (Normal)"}
+                              {(() => {
+                                const b = item.sugarBreakdown || {
+                                  normal: item.sugarLevel === "normal" ? item.quantity : 0,
+                                  less: item.sugarLevel === "less" ? item.quantity : 0,
+                                  tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+                                };
+                                const parts: string[] = [];
+                                if (b.normal > 0) parts.push(`${b.normal} Normal`);
+                                if (b.less > 0) parts.push(`${b.less} Less`);
+                                if (b.tawar > 0) parts.push(`${b.tawar} Tawar`);
+                                return parts.join(", ") || `${item.quantity} Normal`;
+                              })()}
                             </span>
                           </div>
-                          <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                            <button
-                              type="button"
-                              onClick={() => updateSugarLevel(item.id, "normal")}
-                              className={`py-1.5 px-2 rounded-lg text-[11px] font-black transition cursor-pointer text-center active:scale-95 ${
-                                item.sugarLevel === "normal" || !item.sugarLevel
-                                  ? "bg-emerald-600 text-white shadow-xs"
-                                  : "bg-white text-slate-600 hover:text-slate-900"
-                              }`}
-                            >
-                              Normal
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updateSugarLevel(item.id, "less")}
-                              className={`py-1.5 px-2 rounded-lg text-[11px] font-black transition cursor-pointer text-center active:scale-95 ${
-                                item.sugarLevel === "less"
-                                  ? "bg-amber-500 text-white shadow-xs"
-                                  : "bg-white text-slate-600 hover:text-slate-900"
-                              }`}
-                            >
-                              Less (50%)
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updateSugarLevel(item.id, "tawar")}
-                              className={`py-1.5 px-2 rounded-lg text-[11px] font-black transition cursor-pointer text-center active:scale-95 ${
-                                item.sugarLevel === "tawar"
-                                  ? "bg-slate-800 text-white shadow-xs"
-                                  : "bg-white text-slate-600 hover:text-slate-900"
-                              }`}
-                            >
-                              Tawar (0%)
-                            </button>
+
+                          <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                            {/* Kolom Normal */}
+                            {(() => {
+                              const b = item.sugarBreakdown || {
+                                normal: item.sugarLevel === "normal" ? item.quantity : 0,
+                                less: item.sugarLevel === "less" ? item.quantity : 0,
+                                tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+                              };
+                              const count = b.normal;
+                              return (
+                                <div
+                                  className={`flex flex-col items-center justify-between p-1.5 rounded-lg border transition ${
+                                    count > 0
+                                      ? "bg-white border-emerald-300 shadow-2xs"
+                                      : "bg-white/60 border-slate-200 opacity-60"
+                                  }`}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (item.quantity === 1) setSingleSugarLevel(item.id, "normal");
+                                    }}
+                                    className={`text-[11px] font-black cursor-pointer leading-tight ${
+                                      count > 0 ? "text-emerald-800" : "text-slate-500"
+                                    }`}
+                                  >
+                                    Normal
+                                  </button>
+                                  <span className="text-[9px] text-slate-400 font-mono mb-1">100%</span>
+
+                                  <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-slate-100">
+                                    <button
+                                      type="button"
+                                      disabled={count === 0}
+                                      onClick={() => updateSugarBreakdown(item.id, "normal", -1)}
+                                      className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
+                                    >
+                                      <Minus className="w-3 h-3 stroke-[2.5]" />
+                                    </button>
+                                    <span className={`font-mono font-black text-xs ${count > 0 ? "text-emerald-700" : "text-slate-400"}`}>
+                                      {count}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateSugarBreakdown(item.id, "normal", 1)}
+                                      className="w-6 h-6 rounded flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
+                                    >
+                                      <Plus className="w-3 h-3 stroke-[2.5]" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
+                            {/* Kolom Less */}
+                            {(() => {
+                              const b = item.sugarBreakdown || {
+                                normal: item.sugarLevel === "normal" ? item.quantity : 0,
+                                less: item.sugarLevel === "less" ? item.quantity : 0,
+                                tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+                              };
+                              const count = b.less;
+                              return (
+                                <div
+                                  className={`flex flex-col items-center justify-between p-1.5 rounded-lg border transition ${
+                                    count > 0
+                                      ? "bg-white border-amber-300 shadow-2xs"
+                                      : "bg-white/60 border-slate-200 opacity-60"
+                                  }`}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (item.quantity === 1) setSingleSugarLevel(item.id, "less");
+                                    }}
+                                    className={`text-[11px] font-black cursor-pointer leading-tight ${
+                                      count > 0 ? "text-amber-800" : "text-slate-500"
+                                    }`}
+                                  >
+                                    Less
+                                  </button>
+                                  <span className="text-[9px] text-slate-400 font-mono mb-1">50%</span>
+
+                                  <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-slate-100">
+                                    <button
+                                      type="button"
+                                      disabled={count === 0}
+                                      onClick={() => updateSugarBreakdown(item.id, "less", -1)}
+                                      className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
+                                    >
+                                      <Minus className="w-3 h-3 stroke-[2.5]" />
+                                    </button>
+                                    <span className={`font-mono font-black text-xs ${count > 0 ? "text-amber-700" : "text-slate-400"}`}>
+                                      {count}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateSugarBreakdown(item.id, "less", 1)}
+                                      className="w-6 h-6 rounded flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
+                                    >
+                                      <Plus className="w-3 h-3 stroke-[2.5]" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
+                            {/* Kolom Tawar */}
+                            {(() => {
+                              const b = item.sugarBreakdown || {
+                                normal: item.sugarLevel === "normal" ? item.quantity : 0,
+                                less: item.sugarLevel === "less" ? item.quantity : 0,
+                                tawar: item.sugarLevel === "tawar" ? item.quantity : 0,
+                              };
+                              const count = b.tawar;
+                              return (
+                                <div
+                                  className={`flex flex-col items-center justify-between p-1.5 rounded-lg border transition ${
+                                    count > 0
+                                      ? "bg-white border-slate-400 shadow-2xs"
+                                      : "bg-white/60 border-slate-200 opacity-60"
+                                  }`}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (item.quantity === 1) setSingleSugarLevel(item.id, "tawar");
+                                    }}
+                                    className={`text-[11px] font-black cursor-pointer leading-tight ${
+                                      count > 0 ? "text-slate-900" : "text-slate-500"
+                                    }`}
+                                  >
+                                    Tawar
+                                  </button>
+                                  <span className="text-[9px] text-slate-400 font-mono mb-1">0%</span>
+
+                                  <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-slate-100">
+                                    <button
+                                      type="button"
+                                      disabled={count === 0}
+                                      onClick={() => updateSugarBreakdown(item.id, "tawar", -1)}
+                                      className="w-6 h-6 rounded flex items-center justify-center bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-700 active:scale-90 transition font-black cursor-pointer"
+                                    >
+                                      <Minus className="w-3 h-3 stroke-[2.5]" />
+                                    </button>
+                                    <span className={`font-mono font-black text-xs ${count > 0 ? "text-slate-900" : "text-slate-400"}`}>
+                                      {count}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateSugarBreakdown(item.id, "tawar", 1)}
+                                      className="w-6 h-6 rounded flex items-center justify-center bg-slate-800 hover:bg-slate-900 text-white active:scale-90 transition font-black cursor-pointer shadow-2xs"
+                                    >
+                                      <Plus className="w-3 h-3 stroke-[2.5]" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       )}
