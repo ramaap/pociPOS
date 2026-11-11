@@ -511,8 +511,8 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const loadVouchers = async () => {
-    setVoucherLoading(true);
+  const loadVouchers = async (silent: boolean = false) => {
+    if (!silent) setVoucherLoading(true);
     try {
       const query = new URLSearchParams();
       if (voucherStatusFilter !== "all") query.set("status", voucherStatusFilter);
@@ -527,7 +527,7 @@ export default function AdminDashboardPage() {
     } catch (e) {
       console.error("Failed to load vouchers", e);
     } finally {
-      setVoucherLoading(false);
+      if (!silent) setVoucherLoading(false);
     }
   };
 
@@ -648,7 +648,7 @@ export default function AdminDashboardPage() {
       await loadFinancialReport(financeOutletRef.current, financePeriodRef.current, silent);
       await loadOutlets();
       await loadMenus();
-      await loadVouchers();
+      await loadVouchers(silent);
       setLastSyncedTime(new Date());
     } finally {
       if (!silent) setLoading(false);
@@ -4364,7 +4364,7 @@ export default function AdminDashboardPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
-                  onClick={loadVouchers}
+                  onClick={() => loadVouchers(false)}
                   disabled={voucherLoading}
                   className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
                 >
@@ -4529,7 +4529,7 @@ export default function AdminDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
-                    {voucherLoading ? (
+                    {voucherLoading && vouchersList.length === 0 ? (
                       <tr>
                         <td colSpan={8} className="py-8 text-center text-slate-400">
                           <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1 text-emerald-600" />
