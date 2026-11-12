@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import {
   ShieldAlert,
@@ -182,6 +182,9 @@ export default function AdminDashboardPage() {
   });
   const [campaignLoading, setCampaignLoading] = useState<boolean>(false);
   const [campaignMessage, setCampaignMessage] = useState<{ text: string; isError: boolean } | null>(null);
+  const [campaignFormDirty, setCampaignFormDirty] = useState<boolean>(false);
+  const campaignFormDirtyRef = useRef<boolean>(false);
+  campaignFormDirtyRef.current = campaignFormDirty;
 
   const [vouchersList, setVouchersList] = useState<any[]>([]);
   const [voucherStats, setVoucherStats] = useState({ total: 0, active: 0, redeemed: 0, expired: 0 });
@@ -543,10 +546,10 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const loadPromoCampaign = async (silent: boolean = false) => {
+  const loadPromoCampaign = async (silent: boolean = false, forceResetForm: boolean = false) => {
     if (!silent) setCampaignLoading(true);
     try {
-      const res = await fetch("/api/admin/promo-campaign");
+      const res = await fetch("/api/admin/promo-campaign?_t=" + Date.now());
       if (res.ok) {
         const json = await res.json();
         setPromoCampaignData(json);
@@ -557,14 +560,21 @@ export default function AdminDashboardPage() {
           const pad = (n: number) => String(n).padStart(2, "0");
           return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
         };
-        setCampaignForm({
-          isActive: Boolean(c.is_active),
-          startAt: formatLocalDT(c.start_at),
-          endAt: formatLocalDT(c.end_at),
-          targetOutletId: c.target_outlet_id || "",
-          minFlavoredQty: c.min_flavored_qty || 2,
-          freeProductName: c.free_product_name || "Jasmine Poci Iced Tea (Jumbo)",
-        });
+
+        // HANYA perbarui isian form jika bukan silent background polling,
+        // ATAU jika form belum pernah diedit (tidak dirty),
+        // ATAU jika forceResetForm = true (misal setelah klik Simpan / reload awal)
+        if (!silent || forceResetForm || !campaignFormDirtyRef.current) {
+          setCampaignForm({
+            isActive: Boolean(c.is_active),
+            startAt: formatLocalDT(c.start_at),
+            endAt: formatLocalDT(c.end_at),
+            targetOutletId: c.target_outlet_id || "",
+            minFlavoredQty: c.min_flavored_qty || 2,
+            freeProductName: c.free_product_name || "Jasmine Poci Iced Tea (Jumbo)",
+          });
+          setCampaignFormDirty(false);
+        }
       }
     } catch (e: any) {
       console.error("Failed to load promo campaign", e);
@@ -4607,7 +4617,13 @@ export default function AdminDashboardPage() {
                   <input
                     type="datetime-local"
                     value={campaignForm.startAt}
-                    onChange={(e) => setCampaignForm((p) => ({ ...p, startAt: e.target.value }))}
+                    onChange={(e) => {
+                      setCampaignForm((p) => ({ ...p, startAt: e.target.value }));
+                      setCampaignFormDirty(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSavePromoCampaign();
+                    }}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-slate-50/50 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                   <p className="text-[10px] text-slate-400">Kasir hanya memicu promo jika waktu mulai telah tiba.</p>
@@ -4622,7 +4638,13 @@ export default function AdminDashboardPage() {
                   <input
                     type="datetime-local"
                     value={campaignForm.endAt}
-                    onChange={(e) => setCampaignForm((p) => ({ ...p, endAt: e.target.value }))}
+                    onChange={(e) => {
+                      setCampaignForm((p) => ({ ...p, endAt: e.target.value }));
+                      setCampaignFormDirty(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSavePromoCampaign();
+                    }}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-slate-50/50 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-900"
                   />
                   <p className="text-[10px] text-slate-400">Setelah jam/tanggal ini lewat, promo otomatis berhenti di kasir.</p>
@@ -4636,7 +4658,10 @@ export default function AdminDashboardPage() {
                   </label>
                   <select
                     value={campaignForm.targetOutletId}
-                    onChange={(e) => setCampaignForm((p) => ({ ...p, targetOutletId: e.target.value }))}
+                    onChange={(e) => {
+                      setCampaignForm((p) => ({ ...p, targetOutletId: e.target.value }));
+                      setCampaignFormDirty(true);
+                    }}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-slate-50/50 font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800"
                   >
                     <option value="">Semua Kedai (Berlaku Multi-Kedai)</option>
@@ -4649,6 +4674,20 @@ export default function AdminDashboardPage() {
                   <p className="text-[10px] text-slate-400">Pilih jika promo hanya berlaku di cabang tertentu.</p>
                 </div>
               </div>
+
+              {campaignFormDirty && (
+                <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs font-bold text-amber-900 flex items-center justify-between gap-2 animate-in fade-in">
+                  <span>⚠️ Tanggal / batas waktu telah diubah. Klik <strong>Simpan Batas Waktu Promo</strong> agar tersimpan ke sistem.</span>
+                  <button
+                    type="button"
+                    onClick={() => handleSavePromoCampaign()}
+                    disabled={campaignLoading}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-black shrink-0 cursor-pointer shadow-xs"
+                  >
+                    Simpan Sekarang
+                  </button>
+                </div>
+              )}
 
               {/* Quick Preset Buttons & Save Button */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
@@ -4691,7 +4730,11 @@ export default function AdminDashboardPage() {
                     type="button"
                     onClick={() => handleSavePromoCampaign()}
                     disabled={campaignLoading}
-                    className="px-4 py-2 bg-slate-900 hover:bg-emerald-700 text-white rounded-xl font-extrabold text-xs flex items-center gap-2 transition shadow-md cursor-pointer disabled:opacity-50"
+                    className={`px-4 py-2 text-white rounded-xl font-extrabold text-xs flex items-center gap-2 transition shadow-md cursor-pointer disabled:opacity-50 ${
+                      campaignFormDirty
+                        ? "bg-emerald-600 hover:bg-emerald-700 ring-4 ring-emerald-300 animate-pulse"
+                        : "bg-slate-900 hover:bg-slate-800"
+                    }`}
                   >
                     {campaignLoading ? (
                       <>
