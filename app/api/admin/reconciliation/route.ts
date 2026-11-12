@@ -181,6 +181,20 @@ export async function GET(req: Request) {
       },
     });
 
+    // 5. Ambil Seluruh Master Stock Bahan Baku di Central Kitchen
+    const rawMaterials = await prisma.rawMaterial.findMany({
+      orderBy: { name: "asc" },
+    });
+
+    // 6. Ambil Log Perpindahan Stok (Transfer, Restock, Retur)
+    const transferLogs = await prisma.stockTransferLog.findMany({
+      orderBy: { created_at: "desc" },
+      take: 50,
+      include: {
+        raw_material: true,
+      },
+    });
+
     return NextResponse.json({
       outlets,
       summary: {
@@ -196,6 +210,8 @@ export async function GET(req: Request) {
       },
       closings,
       boothStocks,
+      rawMaterials,
+      transferLogs,
       todayTransactions,
       sugarLogs,
     }, {

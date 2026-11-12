@@ -118,6 +118,29 @@ interface SugarRefillLogRecord {
   };
 }
 
+interface RawMaterialRecord {
+  id: string;
+  name: string;
+  unit: string;
+  master_stock: number;
+}
+
+interface StockTransferLogRecord {
+  id: string;
+  raw_material_id: string;
+  from_location: string;
+  to_location: string;
+  quantity: number;
+  type: string;
+  notes: string | null;
+  created_at: string;
+  raw_material?: {
+    id: string;
+    name: string;
+    unit: string;
+  };
+}
+
 interface AdminData {
   outlets: Outlet[];
   summary: {
@@ -133,6 +156,8 @@ interface AdminData {
   };
   closings: ShiftClosingRecord[];
   boothStocks: BoothStockRecord[];
+  rawMaterials?: RawMaterialRecord[];
+  transferLogs?: StockTransferLogRecord[];
   sugarLogs?: SugarRefillLogRecord[];
 }
 
@@ -331,13 +356,31 @@ export default function AdminDashboardPage() {
   const [restockOutletId, setRestockOutletId] = useState<string>("");
   const [selectedMaterialId, setSelectedMaterialId] = useState<string>("");
   const [restockQty, setRestockQty] = useState<string>("");
-  const [restockMode, setRestockMode] = useState<"add" | "set">("add");
+  const [restockMode, setRestockMode] = useState<"add" | "return" | "central_in" | "central_set">("add");
+  const [restockNotes, setRestockNotes] = useState<string>("");
   const [restockMessage, setRestockMessage] = useState<string | null>(null);
+
+  const openRestockModal = (
+    mode: "add" | "return" | "central_in" | "central_set" = "add",
+    materialId?: string,
+    outletId?: string
+  ) => {
+    setRestockMode(mode);
+    if (materialId) setSelectedMaterialId(materialId);
+    if (outletId) setRestockOutletId(outletId);
+    else if (!restockOutletId && data?.outlets && data.outlets.length > 0) {
+      setRestockOutletId(data.outlets[0].id);
+    }
+    setRestockQty("");
+    setRestockNotes("");
+    setRestockMessage(null);
+    setIsRestockOpen(true);
+  };
 
   const [isSingleStockOpen, setIsSingleStockOpen] = useState<boolean>(false);
   const [singleStockOutlet, setSingleStockOutlet] = useState<{ id: string; name: string } | null>(null);
   const [singleStockMaterial, setSingleStockMaterial] = useState<{ id: string; name: string; unit: string; currentStock: number } | null>(null);
-  const [singleStockMode, setSingleStockMode] = useState<"set" | "add">("set");
+  const [singleStockMode, setSingleStockMode] = useState<"set" | "add" | "return">("set");
   const [singleStockValue, setSingleStockValue] = useState<string>("0");
   const [singleStockMessage, setSingleStockMessage] = useState<string | null>(null);
   const [singleStockLoading, setSingleStockLoading] = useState<boolean>(false);
@@ -1647,8 +1690,13 @@ export default function AdminDashboardPage() {
     setRestockMessage(null);
 
     const qty = parseFloat(restockQty);
-    if (!restockOutletId || !selectedMaterialId || isNaN(qty) || (restockMode === "add" && qty <= 0) || qty < 0) {
-      setRestockMessage("Pilih kedai, bahan baku, dan masukkan jumlah yang valid (>= 0).");
+    if (!selectedMaterialId || isNaN(qty) || qty <= 0) {
+      setRestockMessage("Pilih bahan baku dan masukkan jumlah yang valid (> 0).");
+      return;
+    }
+
+    if ((restockMode === "add" || restockMode === "return") && !restockOutletId) {
+      setRestockMessage("Pilih kedai tujuan / asal terlebih dahulu.");
       return;
     }
 
@@ -1662,6 +1710,7 @@ export default function AdminDashboardPage() {
           quantity: qty,
           addedQuantity: qty,
           mode: restockMode,
+          notes: restockNotes,
           pin: sessionStorage.getItem("poci_admin_pin") || pin,
         }),
       });
@@ -1670,6 +1719,7 @@ export default function AdminDashboardPage() {
       if (res.ok) {
         setRestockMessage("✅ " + resData.message);
         setRestockQty("");
+        setRestockNotes("");
         refreshData();
         setTimeout(() => {
           setIsRestockOpen(false);
@@ -1685,7 +1735,10 @@ export default function AdminDashboardPage() {
 
   const uniqueMaterials = useMemo(() => {
     if (!data) return [];
-    const map = new Map<string, { id: string; name: string; unit: string }>();
+    if (data.rawMaterials && data.rawMaterials.length > 0) {
+      return data.rawMaterials;
+    }
+    const map = new Map<string, { id: string; name: string; unit: string; master_stock?: number }>();
     for (const bs of data.boothStocks) {
       map.set(bs.raw_material.id, bs.raw_material);
     }
@@ -3600,6 +3653,206 @@ export default function AdminDashboardPage() {
         {/* ============================================================== */}
         {activeAdminTab === "stocks" && (
           <div className="space-y-6">
+            {/* ============================================================== */}
+            {/* MASTER STOCK & CENTRAL KITCHEN (GUDANG PUSAT)                 */}
+            {/* ============================================================== */}
+            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 rounded-3xl p-6 shadow-xl border border-slate-700 text-white space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-700/80">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-extrabold text-white tracking-wide">
+                        Master Stock & Central Kitchen (Gudang Pusat)
+                      </h3>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        Dua Arah Terintegrasi
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300">
+                      Kirim ke kasir memotong Master Stock. Retur otomatis mengembalikan stok ke Pusat.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => openRestockModal("add")}
+                    className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>Kirim ke Kedai</span>
+                  </button>
+
+                  <button
+                    onClick={() => openRestockModal("return")}
+                    className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Retur ke Pusat</span>
+                  </button>
+
+                  <button
+                    onClick={() => openRestockModal("central_in")}
+                    className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-100 border border-slate-600 font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>+ Pasokan Supplier</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Master Stock Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {uniqueMaterials.map((mat: any) => {
+                  const isGulaPasir = mat.name.toLowerCase().includes("gula pasir");
+                  const isGulaCair = mat.name.toLowerCase().includes("gula cair");
+                  const masterStock = mat.master_stock !== undefined ? mat.master_stock : 0;
+                  const isLow = masterStock <= (mat.unit === "gram" ? 5000 : mat.unit === "ml" ? 2000 : 20);
+
+                  return (
+                    <div
+                      key={mat.id}
+                      onClick={() => openRestockModal("central_set", mat.id)}
+                      className={`p-3.5 rounded-2xl border transition cursor-pointer relative group ${
+                        isGulaPasir
+                          ? "bg-amber-950/30 border-amber-500/40 hover:border-amber-400"
+                          : isLow
+                          ? "bg-rose-950/30 border-rose-500/40 hover:border-rose-400"
+                          : "bg-slate-800/80 border-slate-700 hover:border-emerald-500/50 hover:bg-slate-800"
+                      }`}
+                      title="Klik untuk koreksi / opname stok gudang pusat ini"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-bold text-slate-300 truncate max-w-[120px] flex items-center gap-1">
+                          {isGulaPasir && "🍬 "}
+                          {isGulaCair && "🍯 "}
+                          {mat.name}
+                        </span>
+                        <Edit3 className="w-3 h-3 text-slate-500 group-hover:text-emerald-400 transition" />
+                      </div>
+
+                      <div className="font-mono font-black text-base text-white">
+                        {mat.unit === "gram" ? (
+                          <div className="flex flex-col">
+                            <span>{(masterStock / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} kg</span>
+                            <span className="text-[10px] font-normal text-amber-300">
+                              {masterStock.toLocaleString("id-ID")} gr
+                            </span>
+                          </div>
+                        ) : mat.unit === "ml" ? (
+                          <div className="flex flex-col">
+                            <span>{(masterStock / 1000).toFixed(1)} Liter</span>
+                            <span className="text-[10px] font-normal text-teal-300">
+                              {masterStock.toLocaleString("id-ID")} ml
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-baseline gap-1">
+                            <span>{masterStock.toLocaleString("id-ID")}</span>
+                            <span className="text-[11px] font-normal text-slate-400">{mat.unit}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {isGulaPasir && (
+                        <p className="text-[10px] text-amber-300/80 mt-1 font-medium">
+                          ~{Math.floor(masterStock / 1000)} batch sirup kedai
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Transfer Logs Section */}
+              {data?.transferLogs && data.transferLogs.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-slate-700/70">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                      Riwayat Perpindahan &amp; Alokasi Stok Terkini
+                    </h4>
+                    <span className="text-[10px] text-slate-400">
+                      {data.transferLogs.length} mutasi tercatat
+                    </span>
+                  </div>
+                  <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1 font-sans text-xs">
+                    {data.transferLogs.slice(0, 6).map((log) => {
+                      const isRestock = log.type === "restock";
+                      const isReturn = log.type === "return";
+                      const isCentralIn = log.type === "central_in";
+                      const isBrew = log.type === "sugar_brew";
+
+                      const fromOutlet = data?.outlets.find((o) => o.id === log.from_location);
+                      const toOutlet = data?.outlets.find((o) => o.id === log.to_location);
+
+                      const fromName =
+                        log.from_location === "central"
+                          ? "Gudang Pusat"
+                          : log.from_location === "supplier"
+                          ? "Supplier"
+                          : fromOutlet?.name || log.from_location;
+                      const toName =
+                        log.to_location === "central"
+                          ? "Gudang Pusat"
+                          : toOutlet?.name || log.to_location;
+
+                      return (
+                        <div
+                          key={log.id}
+                          className="flex items-center justify-between bg-slate-800/60 p-2 rounded-xl border border-slate-700/60 text-[11px]"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                                isRestock
+                                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                  : isReturn
+                                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                  : isCentralIn
+                                  ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                                  : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                              }`}
+                            >
+                              {isRestock
+                                ? "Restock"
+                                : isReturn
+                                ? "Retur"
+                                : isCentralIn
+                                ? "Supplier In"
+                                : isBrew
+                                ? "Masak Sirup"
+                                : log.type}
+                            </span>
+                            <span className="font-extrabold text-white">
+                              {log.raw_material?.name || "Bahan Baku"}
+                            </span>
+                            <span className="font-mono text-emerald-400 font-bold">
+                              {log.raw_material?.unit === "gram"
+                                ? `${(log.quantity / 1000).toLocaleString("id-ID")} kg (${log.quantity.toLocaleString("id-ID")} gr)`
+                                : `${log.quantity.toLocaleString("id-ID")} ${log.raw_material?.unit || ""}`}
+                            </span>
+                            <span className="text-slate-400">
+                              ({fromName} ➔ {toName})
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            {new Date(log.created_at).toLocaleTimeString("id-ID", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Sisa Stok Bahan Baku Mandiri per Kedai */}
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
@@ -3610,7 +3863,7 @@ export default function AdminDashboardPage() {
                       Sisa Stok Bahan Baku Mandiri per Kedai
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Klik kotak bahan baku untuk ubah langsung dari angka 0 atau klik Opname Stok
+                      Klik kotak bahan baku untuk ubah / kirim / retur atau klik Opname Stok
                     </p>
                   </div>
                 </div>
@@ -3709,27 +3962,58 @@ export default function AdminDashboardPage() {
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
-                          {outletStocks.map((stock) => (
-                            <div
-                              key={stock.id}
-                              onClick={() => openSingleStockEdit(outlet, stock)}
-                              className="bg-white p-3 rounded-xl border border-slate-200 hover:border-emerald-400 hover:shadow-sm cursor-pointer transition flex items-center justify-between group"
-                              title="Klik untuk ubah stok ini"
-                            >
-                              <div>
-                                <p className="text-[11px] text-slate-500 font-medium truncate max-w-[120px]">
-                                  {stock.raw_material.name}
-                                </p>
-                                <p className="font-mono font-black text-sm text-slate-900 mt-0.5">
-                                  {Math.round(stock.current_stock).toLocaleString("id-ID")}{" "}
-                                  <span className="text-[10px] font-normal text-slate-400">
-                                    {stock.raw_material.unit}
-                                  </span>
-                                </p>
+                          {outletStocks.map((stock) => {
+                            const isGulaPasir = stock.raw_material.name.toLowerCase().includes("gula pasir");
+                            const isGulaCair = stock.raw_material.name.toLowerCase().includes("gula cair");
+
+                            return (
+                              <div
+                                key={stock.id}
+                                onClick={() => openSingleStockEdit(outlet, stock)}
+                                className={`p-3 rounded-xl border cursor-pointer transition flex items-center justify-between group ${
+                                  isGulaPasir
+                                    ? "bg-amber-50/50 border-amber-200 hover:border-amber-400 hover:bg-amber-50"
+                                    : "bg-white border-slate-200 hover:border-emerald-400 hover:shadow-sm"
+                                }`}
+                                title="Klik untuk ubah / kirim / retur stok ini"
+                              >
+                                <div>
+                                  <div className="flex items-center gap-1">
+                                    {isGulaPasir && <span>🍬</span>}
+                                    {isGulaCair && <span>🍯</span>}
+                                    <p className="text-[11px] text-slate-600 font-semibold truncate max-w-[130px]">
+                                      {stock.raw_material.name}
+                                    </p>
+                                  </div>
+                                  <p className="font-mono font-black text-sm text-slate-900 mt-0.5">
+                                    {stock.raw_material.unit === "gram" ? (
+                                      <>
+                                        {(stock.current_stock / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} kg{" "}
+                                        <span className="text-[10px] font-normal text-slate-500">
+                                          ({Math.round(stock.current_stock).toLocaleString("id-ID")} gr)
+                                        </span>
+                                      </>
+                                    ) : stock.raw_material.unit === "ml" ? (
+                                      <>
+                                        {Math.round(stock.current_stock).toLocaleString("id-ID")} ml{" "}
+                                        <span className="text-[10px] font-normal text-slate-400">
+                                          (~{(stock.current_stock / 1000).toFixed(1)}L)
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        {Math.round(stock.current_stock).toLocaleString("id-ID")}{" "}
+                                        <span className="text-[10px] font-normal text-slate-400">
+                                          {stock.raw_material.unit}
+                                        </span>
+                                      </>
+                                    )}
+                                  </p>
+                                </div>
+                                <Edit3 className="w-3.5 h-3.5 text-slate-300 group-hover:text-emerald-600 transition shrink-0" />
                               </div>
-                              <Edit3 className="w-3.5 h-3.5 text-slate-300 group-hover:text-emerald-600 transition shrink-0" />
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     );
@@ -6092,30 +6376,96 @@ export default function AdminDashboardPage() {
             </div>
 
             <form onSubmit={handleSingleStockSubmit} className="space-y-4 my-4">
-              <div className="flex p-1 bg-slate-100 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setSingleStockMode("set")}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${
-                    singleStockMode === "set" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500"
-                  }`}
-                >
-                  = Setel Nilai Riil
-                </button>
+              <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl text-xs font-bold text-center">
                 <button
                   type="button"
                   onClick={() => setSingleStockMode("add")}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${
-                    singleStockMode === "add" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500"
+                  className={`py-1.5 rounded-lg transition ${
+                    singleStockMode === "add" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  + Tambah Stok
+                  + Kirim Pusat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSingleStockMode("return")}
+                  className={`py-1.5 rounded-lg transition ${
+                    singleStockMode === "return" ? "bg-amber-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  ↺ Retur Pusat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSingleStockMode("set")}
+                  className={`py-1.5 rounded-lg transition ${
+                    singleStockMode === "set" ? "bg-slate-800 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  = Opname Riil
                 </button>
               </div>
 
+              {/* Balance Preview Box */}
+              {(() => {
+                const masterMat = data?.rawMaterials?.find((m) => m.id === singleStockMaterial.id);
+                const currentPusat = masterMat?.master_stock || 0;
+                const currentKedai = singleStockMaterial.currentStock || 0;
+                const inputVal = parseFloat(singleStockValue) || 0;
+
+                let nextPusat = currentPusat;
+                let nextKedai = currentKedai;
+
+                if (singleStockMode === "add") {
+                  nextPusat = currentPusat - inputVal;
+                  nextKedai = currentKedai + inputVal;
+                } else if (singleStockMode === "return") {
+                  nextPusat = currentPusat + inputVal;
+                  nextKedai = currentKedai - inputVal;
+                } else if (singleStockMode === "set") {
+                  nextKedai = inputVal;
+                }
+
+                const isGram = singleStockMaterial.unit === "gram";
+                const isMl = singleStockMaterial.unit === "ml";
+
+                return (
+                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs space-y-1 font-mono">
+                    {(singleStockMode === "add" || singleStockMode === "return") && (
+                      <div className="flex justify-between items-center text-slate-600 font-bold">
+                        <span>Gudang Pusat:</span>
+                        <span>
+                          {isGram ? `${(currentPusat / 1000).toLocaleString("id-ID")} kg` : `${currentPusat.toLocaleString("id-ID")} ${singleStockMaterial.unit}`}
+                          {inputVal > 0 && (
+                            <span className={`ml-1.5 font-black ${nextPusat < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                              ➔ {isGram ? `${(nextPusat / 1000).toLocaleString("id-ID")} kg` : `${nextPusat.toLocaleString("id-ID")}`}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center text-slate-600 font-bold">
+                      <span>Kedai ({singleStockOutlet.name}):</span>
+                      <span>
+                        {isGram ? `${(currentKedai / 1000).toLocaleString("id-ID")} kg` : `${currentKedai.toLocaleString("id-ID")} ${singleStockMaterial.unit}`}
+                        {inputVal > 0 && (
+                          <span className={`ml-1.5 font-black ${nextKedai < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                            ➔ {isGram ? `${(nextKedai / 1000).toLocaleString("id-ID")} kg` : `${nextKedai.toLocaleString("id-ID")}`}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
-                  {singleStockMode === "set" ? "Nilai Stok Riil Fisik:" : "Jumlah yang Ditambahkan:"}
+                  {singleStockMode === "set"
+                    ? "Nilai Stok Riil Fisik di Kedai:"
+                    : singleStockMode === "return"
+                    ? "Jumlah Diretur ke Pusat:"
+                    : "Jumlah Dikirim dari Pusat:"}
                 </label>
                 <div className="relative">
                   <input
@@ -6131,19 +6481,31 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              {/* Quick Chips */}
-              <div className="flex flex-wrap gap-1.5">
-                {[0, 50, 100, 500, 1000, 5000, 40000].map((chip) => (
-                  <button
-                    key={chip}
-                    type="button"
-                    onClick={() => setSingleStockValue(String(chip))}
-                    className="px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200 rounded-lg text-[11px] font-mono font-bold transition"
-                  >
-                    {chip === 0 ? "0 (Habis)" : chip.toLocaleString("id-ID")}
-                  </button>
-                ))}
-              </div>
+              {/* Quick Chips disesuaikan dengan unit */}
+              {(() => {
+                const isGram = singleStockMaterial.unit === "gram";
+                const isMl = singleStockMaterial.unit === "ml";
+                const chips = isGram
+                  ? [1000, 2000, 5000, 10000, 15000]
+                  : isMl
+                  ? [500, 1000, 1600, 3200, 5000]
+                  : [10, 20, 50, 100, 200];
+
+                return (
+                  <div className="flex flex-wrap gap-1.5">
+                    {chips.map((chip) => (
+                      <button
+                        key={chip}
+                        type="button"
+                        onClick={() => setSingleStockValue(String(chip))}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200 rounded-lg text-[11px] font-mono font-bold transition cursor-pointer"
+                      >
+                        {isGram ? `${(chip / 1000).toLocaleString("id-ID")} kg` : isMl ? `${chip.toLocaleString("id-ID")} ml` : chip.toLocaleString("id-ID")}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {singleStockMessage && <p className="text-xs font-bold text-center">{singleStockMessage}</p>}
 
@@ -6158,9 +6520,19 @@ export default function AdminDashboardPage() {
                 <button
                   type="submit"
                   disabled={singleStockLoading}
-                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition"
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs shadow-md transition text-white ${
+                    singleStockMode === "return"
+                      ? "bg-amber-600 hover:bg-amber-700"
+                      : "bg-emerald-600 hover:bg-emerald-700"
+                  }`}
                 >
-                  {singleStockLoading ? "Menyimpan..." : "Simpan"}
+                  {singleStockLoading
+                    ? "Menyimpan..."
+                    : singleStockMode === "return"
+                    ? "Retur ke Pusat"
+                    : singleStockMode === "add"
+                    ? "Kirim dari Pusat"
+                    : "Simpan Opname"}
                 </button>
               </div>
             </form>
@@ -6249,15 +6621,15 @@ export default function AdminDashboardPage() {
       )}
 
       {/* ============================================================== */}
-      {/* MODAL: RESTOCK CENTRAL KITCHEN                                 */}
+      {/* MODAL: RESTOCK & MUTASI DUA ARAH CENTRAL KITCHEN              */}
       {/* ============================================================== */}
       {isRestockOpen && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-150">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
                 <PlusCircle className="w-4 h-4 text-emerald-700" />
-                Kirim Stok ke Kedai (Restock)
+                Manajemen Stok Gudang Pusat &amp; Kedai
               </h3>
               <button
                 onClick={() => setIsRestockOpen(false)}
@@ -6267,22 +6639,65 @@ export default function AdminDashboardPage() {
               </button>
             </div>
 
-            <form onSubmit={handleRestockSubmit} className="space-y-4 my-4">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Kedai Tujuan:</label>
-                <select
-                  value={restockOutletId}
-                  onChange={(e) => setRestockOutletId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
-                >
-                  {data?.outlets.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name} ({o.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* Mode Selector Tabs */}
+            <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl my-3 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setRestockMode("add")}
+                className={`py-1.5 px-2 rounded-lg transition text-center ${
+                  restockMode === "add"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Kirim ke Kedai
+              </button>
+              <button
+                type="button"
+                onClick={() => setRestockMode("return")}
+                className={`py-1.5 px-2 rounded-lg transition text-center ${
+                  restockMode === "return"
+                    ? "bg-amber-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Retur ke Pusat
+              </button>
+              <button
+                type="button"
+                onClick={() => setRestockMode("central_in")}
+                className={`py-1.5 px-2 rounded-lg transition text-center ${
+                  restockMode === "central_in"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Pasokan Masuk
+              </button>
+            </div>
 
+            <form onSubmit={handleRestockSubmit} className="space-y-3.5 my-3">
+              {/* Kedai Dropdown (hanya untuk Kirim dan Retur) */}
+              {(restockMode === "add" || restockMode === "return") && (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    {restockMode === "add" ? "Kedai Tujuan Penerima:" : "Kedai Asal Retur:"}
+                  </label>
+                  <select
+                    value={restockOutletId}
+                    onChange={(e) => setRestockOutletId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                  >
+                    {data?.outlets.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name} ({o.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Bahan Baku Dropdown */}
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">Bahan Baku:</label>
                 <select
@@ -6290,24 +6705,131 @@ export default function AdminDashboardPage() {
                   onChange={(e) => setSelectedMaterialId(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
                 >
-                  <option value="">Pilih Bahan Baku...</option>
-                  {uniqueMaterials.map((m) => (
+                  <option value="">-- Pilih Bahan Baku --</option>
+                  {uniqueMaterials.map((m: any) => (
                     <option key={m.id} value={m.id}>
-                      {m.name} ({m.unit})
+                      {m.name} (Pusat: {m.unit === "gram" ? `${((m.master_stock || 0) / 1000).toLocaleString("id-ID")} kg` : `${(m.master_stock || 0).toLocaleString("id-ID")} ${m.unit}`})
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* Real-time Balance Calculation Box */}
+              {selectedMaterialId && (() => {
+                const selMat = uniqueMaterials.find((m: any) => m.id === selectedMaterialId) as any;
+                const selBooth = data?.boothStocks.find(
+                  (bs) => bs.outlet.id === restockOutletId && bs.raw_material.id === selectedMaterialId
+                );
+                const currentPusat = selMat?.master_stock || 0;
+                const currentKedai = selBooth?.current_stock || 0;
+                const inputNum = parseFloat(restockQty) || 0;
+
+                let nextPusat = currentPusat;
+                let nextKedai = currentKedai;
+
+                if (restockMode === "add") {
+                  nextPusat = currentPusat - inputNum;
+                  nextKedai = currentKedai + inputNum;
+                } else if (restockMode === "return") {
+                  nextPusat = currentPusat + inputNum;
+                  nextKedai = currentKedai - inputNum;
+                } else if (restockMode === "central_in") {
+                  nextPusat = currentPusat + inputNum;
+                } else if (restockMode === "central_set") {
+                  nextPusat = inputNum;
+                }
+
+                const isGram = selMat?.unit === "gram";
+
+                return (
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs space-y-1.5 font-mono">
+                    <div className="flex justify-between items-center text-slate-600 font-bold">
+                      <span>Stok Gudang Pusat:</span>
+                      <span>
+                        {isGram
+                          ? `${(currentPusat / 1000).toLocaleString("id-ID")} kg (${currentPusat.toLocaleString("id-ID")} gr)`
+                          : `${currentPusat.toLocaleString("id-ID")} ${selMat?.unit}`}
+                        {inputNum > 0 && (
+                          <span className={`ml-2 font-black ${nextPusat < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                            ➔ {isGram ? `${(nextPusat / 1000).toLocaleString("id-ID")} kg` : `${nextPusat.toLocaleString("id-ID")} ${selMat?.unit}`}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+
+                    {(restockMode === "add" || restockMode === "return") && (
+                      <div className="flex justify-between items-center text-slate-600 font-bold">
+                        <span>Stok di Kedai:</span>
+                        <span>
+                          {isGram
+                            ? `${(currentKedai / 1000).toLocaleString("id-ID")} kg (${currentKedai.toLocaleString("id-ID")} gr)`
+                            : `${currentKedai.toLocaleString("id-ID")} ${selMat?.unit}`}
+                          {inputNum > 0 && (
+                            <span className={`ml-2 font-black ${nextKedai < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                              ➔ {isGram ? `${(nextKedai / 1000).toLocaleString("id-ID")} kg` : `${nextKedai.toLocaleString("id-ID")} ${selMat?.unit}`}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Input Jumlah */}
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Jumlah:</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Jumlah ({(() => {
+                    const selMat = uniqueMaterials.find((m: any) => m.id === selectedMaterialId);
+                    return selMat ? selMat.unit : "satuan";
+                  })()}):
+                </label>
                 <input
                   type="number"
                   step="any"
-                  placeholder="Contoh: 100"
+                  placeholder="Masukkan nominal angka..."
                   value={restockQty}
                   onChange={(e) => setRestockQty(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+
+                {/* Quick Chips Presets */}
+                {(() => {
+                  const selMat = uniqueMaterials.find((m: any) => m.id === selectedMaterialId);
+                  const isGram = selMat?.unit === "gram";
+                  const isMl = selMat?.unit === "ml";
+                  const chips = isGram
+                    ? [1000, 2000, 5000, 10000, 25000, 50000]
+                    : isMl
+                    ? [1600, 3200, 5000, 10000]
+                    : [20, 50, 100, 200, 500];
+
+                  return (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {chips.map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setRestockQty(String(val))}
+                          className="px-2 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200 rounded-lg text-[10px] font-mono font-bold transition cursor-pointer"
+                        >
+                          +{isGram ? `${(val / 1000).toLocaleString("id-ID")} kg (${val.toLocaleString("id-ID")} gr)` : `${val.toLocaleString("id-ID")} ${selMat?.unit || ""}`}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Catatan / Keterangan */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Catatan Tambahan (Opsional):</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Pasokan mingguan gudang, retur barang sisa, dll"
+                  value={restockNotes}
+                  onChange={(e) => setRestockNotes(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none"
                 />
               </div>
 
@@ -6317,15 +6839,25 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsRestockOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs"
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition"
+                  className={`flex-1 py-2.5 rounded-xl text-white font-bold text-xs shadow-md transition cursor-pointer ${
+                    restockMode === "return"
+                      ? "bg-amber-600 hover:bg-amber-700"
+                      : restockMode === "central_in"
+                      ? "bg-blue-600 hover:bg-blue-700"
+                      : "bg-emerald-600 hover:bg-emerald-700"
+                  }`}
                 >
-                  Kirim Stok
+                  {restockMode === "return"
+                    ? "Konfirmasi Retur ke Pusat"
+                    : restockMode === "central_in"
+                    ? "Simpan Pasokan Masuk"
+                    : "Kirim Stok ke Kedai"}
                 </button>
               </div>
             </form>

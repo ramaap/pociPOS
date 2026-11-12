@@ -47,15 +47,31 @@ model Product {
 }
 
 model RawMaterial {
-  id          String         @id @default(cuid())
-  name        String         @unique
-  unit        String         // "pcs", "ml", "gram"
-  recipes     BOM_Recipe[]
-  boothStocks BoothStock[]
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id           String              @id @default(cuid())
+  name         String              @unique
+  unit         String              // "pcs", "ml", "gram"
+  master_stock Float               @default(0) // Stok Gudang Pusat (Central Kitchen)
+  recipes      BOM_Recipe[]
+  boothStocks  BoothStock[]
+  transferLogs StockTransferLog[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
 
   @@map("raw_materials")
+}
+
+model StockTransferLog {
+  id              String      @id @default(cuid())
+  raw_material_id String
+  from_location   String      // "central" or outlet_id or "supplier"
+  to_location     String      // outlet_id or "central" or "customer"
+  quantity        Float
+  type            String      // "restock" | "return" | "central_in" | "sugar_brew" | "adjustment"
+  notes           String?
+  created_at      DateTime    @default(now())
+  raw_material    RawMaterial @relation(fields: [raw_material_id], references: [id], onDelete: Cascade)
+
+  @@map("stock_transfer_logs")
 }
 
 model BoothStock {

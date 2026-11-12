@@ -383,14 +383,25 @@ export default function PosTerminalPage() {
       const data = await res.json();
       if (data.success) {
         setRawMaterials((prev) =>
-          prev.map((m) =>
-            m.id === data.rawMaterialId ? { ...m, current_stock: data.current_stock } : m
-          )
+          prev.map((m) => {
+            if (m.id === data.rawMaterialId) {
+              return { ...m, current_stock: data.current_stock };
+            }
+            if (
+              data.gulaPasirRemaining !== undefined &&
+              (m.name.toLowerCase().includes("gula pasir") || m.id === data.gulaPasirRawMaterialId)
+            ) {
+              return { ...m, current_stock: data.gulaPasirRemaining };
+            }
+            return m;
+          })
         );
         setIsSugarAlertDismissed(false);
         setIsSugarModalOpen(false);
         setSugarSuccessToast(
-          `✅ Cairan gula berhasil diisi ulang: +${(amount / 1000).toFixed(1)}L (${amount.toLocaleString("id-ID")} ml). Total stok: ${(data.current_stock / 1000).toFixed(2)}L (~${Math.floor(data.current_stock / 40)} cup Jumbo)!`
+          `✅ Cairan gula berhasil diisi ulang: +${(amount / 1000).toFixed(1)}L (${amount.toLocaleString("id-ID")} ml). ${
+            data.gulaPasirDeducted ? `Stok Gula Pasir terpotong -${(data.gulaPasirDeducted / 1000).toFixed(1)} kg. ` : ""
+          }Total stok sirup: ${(data.current_stock / 1000).toFixed(2)}L (~${Math.floor(data.current_stock / 40)} cup Jumbo)!`
         );
         setTimeout(() => setSugarSuccessToast(null), 5000);
       } else {
@@ -2050,13 +2061,22 @@ export default function PosTerminalPage() {
   const cupRegMaterial = rawMaterials.find((m) => m.name === "Cup Reguler");
   const cupJumboMaterial = rawMaterials.find((m) => m.name === "Cup Jumbo");
   const teaPremixMaterial = rawMaterials.find((m) => m.name === "Kantong Teh" || m.name === "Liquid Tea Premix");
-  const gulaCairMaterial = rawMaterials.find((m) => m.name.toLowerCase().includes("gula cair") || m.name.toLowerCase() === "gula");
+  const gulaCairMaterial = rawMaterials.find(
+    (m) => m.name === "Gula Cair" || (m.name.toLowerCase().includes("gula cair") || (m.name.toLowerCase() === "gula" && !m.name.toLowerCase().includes("pasir")))
+  );
+  const gulaPasirMaterial = rawMaterials.find((m) => m.name.toLowerCase().includes("gula pasir"));
   const currentGulaInCart = gulaCairMaterial ? (cartMaterialUsage.get(gulaCairMaterial.id) || 0) : 0;
   const availableGulaStockMl = Math.max(0, (gulaCairMaterial?.current_stock || 0) - currentGulaInCart);
   // 1 Minuman Jumbo Normal = 40 ml Gula Cair
   const gulaJumboCupsLeft = Math.floor(availableGulaStockMl / 40);
   const isGulaLow = Boolean(gulaCairMaterial && gulaJumboCupsLeft <= 6); // Alert jika sisa <= 6 minuman jumbo normal
   const isGulaCritical = Boolean(gulaCairMaterial && gulaJumboCupsLeft <= 2); // Kritis jika sisa 0 - 2 cup
+
+  // Stok Gula Pasir di Kedai (dalam gram, 1 kg = 1000 gr)
+  const availableGulaPasirStockGram = Math.max(0, gulaPasirMaterial?.current_stock || 0);
+  const gulaPasirBatchesLeft = Math.floor(availableGulaPasirStockGram / 1000);
+  const isGulaPasirLow = Boolean(gulaPasirMaterial && availableGulaPasirStockGram < 3000); // Alert jika < 3 kg
+  const isGulaPasirEmpty = Boolean(gulaPasirMaterial && availableGulaPasirStockGram < 1000); // Kritis jika < 1 kg
 
   // Sisa Teh Dispenser (Batch 8L) reaktif terhadap isi keranjang aktif
   const currentTeaInCart = calculateCartTeaLiquid(cart);
@@ -2435,6 +2455,37 @@ export default function PosTerminalPage() {
                 ) : isGulaLow ? (
                   <span className="text-[9px] px-1 py-0.2 rounded font-black uppercase text-white bg-amber-600">
                     Masak!
+                  </span>
+                ) : null}
+              </button>
+
+              {/* Sisa Gula Pasir di Kedai (Bahan Baku Masak Sirup) */}
+              <button
+                type="button"
+                onClick={() => setIsSugarModalOpen(true)}
+                title={`Sisa Gula Pasir: ${(availableGulaPasirStockGram / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} kg (${availableGulaPasirStockGram.toLocaleString("id-ID")} gr) - Cukup untuk ~${gulaPasirBatchesLeft} kali masak re-brew sirup gula.`}
+                className={`col-span-2 sm:col-span-1 px-2 py-1 rounded-lg text-xs font-mono font-semibold border flex items-center justify-between sm:justify-start gap-1.5 transition cursor-pointer shadow-2xs ${
+                  isGulaPasirEmpty
+                    ? "bg-rose-100 text-rose-800 border-rose-300 font-black animate-pulse"
+                    : isGulaPasirLow
+                    ? "bg-amber-100 text-amber-900 border-amber-300 font-bold"
+                    : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+                }`}
+              >
+                <span className="flex items-center gap-1">
+                  <span className="text-xs">🍬</span>
+                  <span className="text-slate-500">G.Pasir:</span>
+                </span>
+                <strong className={isGulaPasirEmpty ? "text-rose-700 font-black" : isGulaPasirLow ? "text-amber-800 font-bold" : "text-emerald-700"}>
+                  {(availableGulaPasirStockGram / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} kg
+                </strong>
+                {isGulaPasirEmpty ? (
+                  <span className="text-[9px] px-1 py-0.2 rounded font-black uppercase text-white bg-rose-600">
+                    Habis!
+                  </span>
+                ) : isGulaPasirLow ? (
+                  <span className="text-[9px] px-1 py-0.2 rounded font-black uppercase text-white bg-amber-600">
+                    {gulaPasirBatchesLeft}x
                   </span>
                 ) : null}
               </button>
@@ -5217,6 +5268,37 @@ export default function PosTerminalPage() {
               </div>
             </div>
 
+            {/* Status Stok Gula Pasir di Kedai (Bahan Baku Masak) */}
+            <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/90 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                  <span>🍬</span>
+                  <span>Stok Gula Pasir di Kedai (Bahan Masak):</span>
+                </span>
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
+                  isGulaPasirEmpty
+                    ? "bg-rose-100 text-rose-700"
+                    : isGulaPasirLow
+                    ? "bg-amber-200 text-amber-900"
+                    : "bg-emerald-100 text-emerald-800"
+                }`}>
+                  {isGulaPasirEmpty ? "Habis (< 1 kg)" : isGulaPasirLow ? "Menipis" : "Tersedia"}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <div className="text-xl sm:text-2xl font-black font-mono text-amber-950">
+                  {(availableGulaPasirStockGram / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })}{" "}
+                  <span className="text-xs font-bold text-amber-800">kg</span>
+                </div>
+                <div className="text-xs font-mono font-bold text-amber-800">
+                  {availableGulaPasirStockGram.toLocaleString("id-ID")} gram
+                </div>
+              </div>
+              <p className="text-[11px] text-amber-900/90 font-medium">
+                Cukup untuk memasak <strong>~{gulaPasirBatchesLeft} kali</strong> sirup gula (1 batch = 1.000 gr).
+              </p>
+            </div>
+
             {/* Ringkasan SOP Re-Brewing Gula Cair */}
             <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200/80 text-[11px] text-amber-950 space-y-1.5">
               <div className="font-extrabold flex items-center gap-1.5 text-amber-900">
@@ -5326,25 +5408,54 @@ export default function PosTerminalPage() {
             </div>
 
             <div className="mt-4 space-y-4">
-              <div className="p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200 space-y-2 text-xs">
-                <div className="flex justify-between items-center text-slate-600">
-                  <span>Stok Gula Saat Ini:</span>
-                  <span className="font-mono font-bold text-slate-900">{Math.round(availableGulaStockMl)} ml</span>
-                </div>
-                <div className="flex justify-between items-center text-amber-800 font-bold">
-                  <span>Penambahan Masak:</span>
-                  <span className="font-mono text-amber-700 font-black text-sm">+{sugarRefillPendingAmount.toLocaleString("id-ID")} ml</span>
-                </div>
-                <div className="pt-2 border-t border-amber-200 flex justify-between items-center text-emerald-800 font-bold">
-                  <span>Estimasi Stok Baru:</span>
-                  <span className="font-mono text-emerald-700 font-black text-base">
-                    {Math.round(availableGulaStockMl + sugarRefillPendingAmount).toLocaleString("id-ID")} ml
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500 pt-1 border-t border-amber-100">
-                  Estimasi porsi: ~{Math.floor((availableGulaStockMl + sugarRefillPendingAmount) / 40)} cup Jumbo Normal (@40ml)
-                </p>
-              </div>
+              {/* Kalkulasi Potong Gula Pasir & Tambah Sirup */}
+              {(() => {
+                const pendingGulaPasirUsed = Math.round((sugarRefillPendingAmount / 1600) * 1000);
+                const sisaGulaPasir = Math.max(0, availableGulaPasirStockGram - pendingGulaPasirUsed);
+                const isPasirKurang = availableGulaPasirStockGram < pendingGulaPasirUsed;
+
+                return (
+                  <div className="p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200 space-y-2 text-xs">
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Stok Cairan Gula Saat Ini:</span>
+                      <span className="font-mono font-bold text-slate-900">{Math.round(availableGulaStockMl)} ml</span>
+                    </div>
+                    <div className="flex justify-between items-center text-amber-800 font-bold">
+                      <span>Penambahan Masak Sirup:</span>
+                      <span className="font-mono text-amber-700 font-black text-sm">+{sugarRefillPendingAmount.toLocaleString("id-ID")} ml</span>
+                    </div>
+                    <div className="pt-2 border-t border-amber-200/80 flex justify-between items-center text-emerald-800 font-bold">
+                      <span>Estimasi Stok Baru Cairan:</span>
+                      <span className="font-mono text-emerald-700 font-black text-base">
+                        {Math.round(availableGulaStockMl + sugarRefillPendingAmount).toLocaleString("id-ID")} ml
+                      </span>
+                    </div>
+
+                    <div className="pt-2 border-t border-amber-200/80 flex justify-between items-center text-rose-700 font-bold">
+                      <span>Potong Stok Gula Pasir:</span>
+                      <span className="font-mono font-black text-sm">
+                        -{pendingGulaPasirUsed.toLocaleString("id-ID")} gr ({(pendingGulaPasirUsed / 1000).toFixed(1)} kg)
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Sisa Gula Pasir Kedai:</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        {sisaGulaPasir.toLocaleString("id-ID")} gr ({(sisaGulaPasir / 1000).toFixed(1)} kg)
+                      </span>
+                    </div>
+
+                    {isPasirKurang && (
+                      <div className="p-2 bg-rose-100/90 border border-rose-300 rounded-xl text-rose-900 font-bold text-[11px] mt-1">
+                        ⚠️ Perhatian: Stok Gula Pasir fisik di kedai ({availableGulaPasirStockGram.toLocaleString("id-ID")} gr) kurang dari kebutuhan ({pendingGulaPasirUsed.toLocaleString("id-ID")} gr). Stok akan disesuaikan ke 0.
+                      </div>
+                    )}
+
+                    <p className="text-[11px] text-slate-500 pt-1 border-t border-amber-100">
+                      Estimasi porsi minuman: ~{Math.floor((availableGulaStockMl + sugarRefillPendingAmount) / 40)} cup Jumbo Normal (@40ml)
+                    </p>
+                  </div>
+                );
+              })()}
 
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600 flex items-start gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
