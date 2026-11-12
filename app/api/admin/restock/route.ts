@@ -21,11 +21,36 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "PIN Admin tidak valid." }, { status: 401 });
     }
 
-    // 1. Mode: Zero All (Kosongkan Semua Stok Kedai ke 0)
+    // 1. Mode: Zero All (Kosongkan Semua Stok Kedai ke 0 -> Seluruh sisa stok otomatis dikembalikan ke Master Stock)
     if (mode === "zero_all") {
       if (!outletId) {
         return NextResponse.json({ error: "Outlet ID wajib dipilih." }, { status: 400 });
       }
+      const existingStocks = await prisma.boothStock.findMany({
+        where: { outlet_id: outletId },
+        include: { raw_material: true },
+      });
+
+      for (const bs of existingStocks) {
+        if (bs.current_stock > 0) {
+          await prisma.rawMaterial.update({
+            where: { id: bs.raw_material_id },
+            data: { master_stock: { increment: bs.current_stock } },
+          });
+
+          await prisma.stockTransferLog.create({
+            data: {
+              raw_material_id: bs.raw_material_id,
+              from_location: outletId,
+              to_location: "central",
+              quantity: bs.current_stock,
+              type: "return",
+              notes: `Reset stok kedai ke 0: seluruh sisa ${bs.current_stock} ${bs.raw_material.unit} dikembalikan ke Gudang Pusat`,
+            },
+          });
+        }
+      }
+
       await prisma.boothStock.updateMany({
         where: { outlet_id: outletId },
         data: { current_stock: 0 },
@@ -35,17 +60,32 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         success: true,
-        message: `Seluruh stok bahan baku di ${outlet?.name || "kedai"} berhasil diset ke 0.`,
+        message: `Seluruh sisa stok bahan baku di ${outlet?.name || "kedai"} berhasil diset ke 0 dan dikembalikan menambah Master Stock Gudang Pusat.`,
       });
     }
 
-    // 2. Mode: Bulk Set (Opname Semua Stok Kedai Sekaligus)
+    // 2. Mode: Bulk Set (Opname Semua Stok Kedai Sekaligus -> Selisih otomatis memotong/menambah Master Stock)
     if (mode === "bulk_set" && Array.isArray(updates)) {
       if (!outletId) {
         return NextResponse.json({ error: "Outlet ID wajib dipilih." }, { status: 400 });
       }
+      const outlet = await prisma.outlet.findUnique({ where: { id: outletId } });
+
       for (const item of updates) {
         if (item.rawMaterialId && typeof item.currentStock === "number" && item.currentStock >= 0) {
+          const oldStockRecord = await prisma.boothStock.findUnique({
+            where: {
+              outlet_id_raw_material_id: {
+                outlet_id: outletId,
+                raw_material_id: item.rawMaterialId,
+              },
+            },
+            include: { raw_material: true },
+          });
+
+          const oldVal = oldStockRecord?.current_stock || 0;
+          const delta = item.currentStock - oldVal;
+
           await prisma.boothStock.upsert({
             where: {
               outlet_id_raw_material_id: {
@@ -62,12 +102,35 @@ export async function POST(req: Request) {
               current_stock: item.currentStock,
             },
           });
+
+          if (delta !== 0) {
+            await prisma.rawMaterial.update({
+              where: { id: item.rawMaterialId },
+              data: {
+                master_stock: { decrement: delta },
+              },
+            });
+
+            const unit = oldStockRecord?.raw_material?.unit || "";
+            await prisma.stockTransferLog.create({
+              data: {
+                raw_material_id: item.rawMaterialId,
+                from_location: delta > 0 ? "central" : outletId,
+                to_location: delta > 0 ? outletId : "central",
+                quantity: Math.abs(delta),
+                type: delta > 0 ? "restock" : "return",
+                notes: delta > 0
+                  ? `Opname ${outlet?.name || "kedai"}: tambah +${delta} ${unit} (memotong Master Stock Pusat)`
+                  : `Opname ${outlet?.name || "kedai"}: kurang -${Math.abs(delta)} ${unit} (dikembalikan menambah Master Stock Pusat)`,
+              },
+            });
+          }
         }
       }
 
       return NextResponse.json({
         success: true,
-        message: "Seluruh stok bahan baku berhasil diperbarui sesuai stok fisik riil.",
+        message: "Seluruh stok bahan baku berhasil diperbarui dan disinkronkan dua arah dengan Master Stock Gudang Pusat.",
       });
     }
 
@@ -229,9 +292,21 @@ export async function POST(req: Request) {
       });
     }
 
-    // 6. Mode: Set (Opname Mandiri Kedai)
+    // 6. Mode: Set (Ubah Jumlah Stok di Kedai -> Selisih mutasi otomatis memotong / menambah Master Stock)
     if (mode === "set") {
-      const updated = await prisma.boothStock.upsert({
+      const currentBoothStock = await prisma.boothStock.findUnique({
+        where: {
+          outlet_id_raw_material_id: {
+            outlet_id: outletId,
+            raw_material_id: rawMaterialId,
+          },
+        },
+      });
+
+      const oldStock = currentBoothStock?.current_stock || 0;
+      const delta = targetQty - oldStock; // delta > 0: kedai bertambah (pusat berkurang). delta < 0: kedai berkurang (pusat bertambah)
+
+      const updatedBooth = await prisma.boothStock.upsert({
         where: {
           outlet_id_raw_material_id: {
             outlet_id: outletId,
@@ -252,10 +327,40 @@ export async function POST(req: Request) {
         },
       });
 
+      let updatedMaster = rawMat;
+      if (delta !== 0) {
+        updatedMaster = await prisma.rawMaterial.update({
+          where: { id: rawMaterialId },
+          data: {
+            master_stock: { decrement: delta },
+          },
+        });
+
+        await prisma.stockTransferLog.create({
+          data: {
+            raw_material_id: rawMaterialId,
+            from_location: delta > 0 ? "central" : outletId,
+            to_location: delta > 0 ? outletId : "central",
+            quantity: Math.abs(delta),
+            type: delta > 0 ? "restock" : "return",
+            notes: notes || (delta > 0
+              ? `Penyesuaian stok di ${outlet.name} (+${delta} ${rawMat.unit}): otomatis memotong Master Stock Pusat`
+              : `Penyesuaian stok di ${outlet.name} (-${Math.abs(delta)} ${rawMat.unit}): otomatis dikembalikan menambah Master Stock Pusat`),
+          },
+        });
+      }
+
+      const mutasiMsg = delta === 0
+        ? `Stok tetap ${targetQty} ${rawMat.unit}.`
+        : delta > 0
+        ? `Stok kedai bertambah +${delta} ${rawMat.unit} (Master Stock Pusat terpotong -${delta}, sisa: ${updatedMaster.master_stock.toLocaleString("id-ID")} ${rawMat.unit}).`
+        : `Stok kedai berkurang -${Math.abs(delta)} ${rawMat.unit} (Master Stock Pusat bertambah +${Math.abs(delta)}, total: ${updatedMaster.master_stock.toLocaleString("id-ID")} ${rawMat.unit}).`;
+
       return NextResponse.json({
         success: true,
-        message: `Stok ${updated.raw_material.name} di ${updated.outlet.name} diset menjadi ${targetQty.toLocaleString("id-ID")} ${updated.raw_material.unit}.`,
-        boothStock: updated,
+        message: `Stok ${updatedBooth.raw_material.name} di ${updatedBooth.outlet.name} diset menjadi ${targetQty.toLocaleString("id-ID")} ${updatedBooth.raw_material.unit}. ${mutasiMsg}`,
+        boothStock: updatedBooth,
+        rawMaterial: updatedMaster,
       });
     }
 

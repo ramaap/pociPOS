@@ -6376,37 +6376,55 @@ export default function AdminDashboardPage() {
             </div>
 
             <form onSubmit={handleSingleStockSubmit} className="space-y-4 my-4">
-              <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl text-xs font-bold text-center">
-                <button
-                  type="button"
-                  onClick={() => setSingleStockMode("add")}
-                  className={`py-1.5 rounded-lg transition ${
-                    singleStockMode === "add" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  + Kirim Pusat
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSingleStockMode("return")}
-                  className={`py-1.5 rounded-lg transition ${
-                    singleStockMode === "return" ? "bg-amber-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  ↺ Retur Pusat
-                </button>
+              {/* Tab Pilihan Aksi yang Sangat Jelas & Tidak Ambigu */}
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-2xl text-xs font-bold text-center">
                 <button
                   type="button"
                   onClick={() => setSingleStockMode("set")}
-                  className={`py-1.5 rounded-lg transition ${
-                    singleStockMode === "set" ? "bg-slate-800 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  className={`py-2 px-1 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                    singleStockMode === "set"
+                      ? "bg-slate-900 text-white shadow-sm font-extrabold"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
                   }`}
                 >
-                  = Opname Riil
+                  <span className="text-xs font-mono font-black">= Set Stok Fisik</span>
+                  <span className={`text-[10px] ${singleStockMode === "set" ? "text-slate-300" : "text-slate-400"}`}>
+                    (Sinkron Pusat)
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSingleStockMode("add")}
+                  className={`py-2 px-1 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                    singleStockMode === "add"
+                      ? "bg-emerald-600 text-white shadow-sm font-extrabold"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                  }`}
+                >
+                  <span className="text-xs font-mono font-black">+ Kirim ke Kedai</span>
+                  <span className={`text-[10px] ${singleStockMode === "add" ? "text-emerald-100" : "text-slate-400"}`}>
+                    (Pusat ➔ Kedai)
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSingleStockMode("return")}
+                  className={`py-2 px-1 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                    singleStockMode === "return"
+                      ? "bg-amber-600 text-white shadow-sm font-extrabold"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                  }`}
+                >
+                  <span className="text-xs font-mono font-black">↺ Retur ke Pusat</span>
+                  <span className={`text-[10px] ${singleStockMode === "return" ? "text-amber-100" : "text-slate-400"}`}>
+                    (Kedai ➔ Pusat)
+                  </span>
                 </button>
               </div>
 
-              {/* Balance Preview Box */}
+              {/* Perhitungan Saldo Dua Arah Secara Real-time */}
               {(() => {
                 const masterMat = data?.rawMaterials?.find((m) => m.id === singleStockMaterial.id);
                 const currentPusat = masterMat?.master_stock || 0;
@@ -6415,46 +6433,73 @@ export default function AdminDashboardPage() {
 
                 let nextPusat = currentPusat;
                 let nextKedai = currentKedai;
+                let deltaKedai = 0; // perubahan di kedai
 
-                if (singleStockMode === "add") {
-                  nextPusat = currentPusat - inputVal;
-                  nextKedai = currentKedai + inputVal;
-                } else if (singleStockMode === "return") {
-                  nextPusat = currentPusat + inputVal;
-                  nextKedai = currentKedai - inputVal;
-                } else if (singleStockMode === "set") {
+                if (singleStockMode === "set") {
                   nextKedai = inputVal;
+                  deltaKedai = inputVal - currentKedai;
+                  nextPusat = currentPusat - deltaKedai; // jika kedai berkurang (-140), pusat bertambah (+140)
+                } else if (singleStockMode === "add") {
+                  nextKedai = currentKedai + inputVal;
+                  deltaKedai = inputVal;
+                  nextPusat = currentPusat - inputVal;
+                } else if (singleStockMode === "return") {
+                  nextKedai = currentKedai - inputVal;
+                  deltaKedai = -inputVal;
+                  nextPusat = currentPusat + inputVal;
                 }
 
                 const isGram = singleStockMaterial.unit === "gram";
                 const isMl = singleStockMaterial.unit === "ml";
+                const unitStr = singleStockMaterial.unit;
+
+                const fmtVal = (num: number) => {
+                  if (isGram) return `${(num / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} kg (${num.toLocaleString("id-ID")} gr)`;
+                  if (isMl) return `${num.toLocaleString("id-ID")} ml (~${(num / 1000).toFixed(1)}L)`;
+                  return `${num.toLocaleString("id-ID")} ${unitStr}`;
+                };
 
                 return (
-                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs space-y-1 font-mono">
-                    {(singleStockMode === "add" || singleStockMode === "return") && (
-                      <div className="flex justify-between items-center text-slate-600 font-bold">
-                        <span>Gudang Pusat:</span>
-                        <span>
-                          {isGram ? `${(currentPusat / 1000).toLocaleString("id-ID")} kg` : `${currentPusat.toLocaleString("id-ID")} ${singleStockMaterial.unit}`}
-                          {inputVal > 0 && (
-                            <span className={`ml-1.5 font-black ${nextPusat < 0 ? "text-rose-600" : "text-emerald-700"}`}>
-                              ➔ {isGram ? `${(nextPusat / 1000).toLocaleString("id-ID")} kg` : `${nextPusat.toLocaleString("id-ID")}`}
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center text-slate-600 font-bold">
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs space-y-2 font-mono">
+                    <div className="flex justify-between items-center text-slate-700 font-bold">
                       <span>Kedai ({singleStockOutlet.name}):</span>
                       <span>
-                        {isGram ? `${(currentKedai / 1000).toLocaleString("id-ID")} kg` : `${currentKedai.toLocaleString("id-ID")} ${singleStockMaterial.unit}`}
-                        {inputVal > 0 && (
-                          <span className={`ml-1.5 font-black ${nextKedai < 0 ? "text-rose-600" : "text-emerald-700"}`}>
-                            ➔ {isGram ? `${(nextKedai / 1000).toLocaleString("id-ID")} kg` : `${nextKedai.toLocaleString("id-ID")}`}
+                        {fmtVal(currentKedai)}
+                        {((singleStockMode === "set" && inputVal !== currentKedai) || ((singleStockMode === "add" || singleStockMode === "return") && inputVal > 0)) && (
+                          <span className={`ml-2 font-black ${deltaKedai < 0 ? "text-amber-700" : "text-emerald-700"}`}>
+                            ➔ {fmtVal(nextKedai)} ({deltaKedai > 0 ? `+${deltaKedai}` : deltaKedai})
                           </span>
                         )}
                       </span>
                     </div>
+
+                    <div className="flex justify-between items-center text-slate-700 font-bold pt-1 border-t border-slate-200">
+                      <span>Gudang Pusat (Master Stock):</span>
+                      <span>
+                        {fmtVal(currentPusat)}
+                        {((singleStockMode === "set" && inputVal !== currentKedai) || ((singleStockMode === "add" || singleStockMode === "return") && inputVal > 0)) && (
+                          <span className={`ml-2 font-black ${nextPusat > currentPusat ? "text-emerald-700" : nextPusat < 0 ? "text-rose-600" : "text-amber-700"}`}>
+                            ➔ {fmtVal(nextPusat)} ({nextPusat >= currentPusat ? `+${nextPusat - currentPusat}` : `-${currentPusat - nextPusat}`})
+                          </span>
+                        )}
+                      </span>
+                    </div>
+
+                    {/* Penjelasan Logis Visual */}
+                    {singleStockMode === "set" && inputVal !== currentKedai && (
+                      <div className={`p-2 rounded-xl text-[11px] font-sans font-bold flex items-center gap-1.5 ${
+                        deltaKedai < 0
+                          ? "bg-amber-100/80 text-amber-950 border border-amber-300"
+                          : "bg-emerald-100/80 text-emerald-950 border border-emerald-300"
+                      }`}>
+                        <span>{deltaKedai < 0 ? "📦" : "🚚"}</span>
+                        <span>
+                          {deltaKedai < 0
+                            ? `Stok kedai berkurang ${Math.abs(deltaKedai)} ${unitStr} ➔ Otomatis KEMBALI MENAMBAH Master Stock Pusat (+${Math.abs(deltaKedai)} ${unitStr})`
+                            : `Stok kedai bertambah +${deltaKedai} ${unitStr} ➔ Otomatis MEMOTONG Master Stock Pusat (-${deltaKedai} ${unitStr})`}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -6462,10 +6507,10 @@ export default function AdminDashboardPage() {
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
                   {singleStockMode === "set"
-                    ? "Nilai Stok Riil Fisik di Kedai:"
+                    ? "Ketik Jumlah Total Stok Fisik Riil di Kedai:"
                     : singleStockMode === "return"
-                    ? "Jumlah Diretur ke Pusat:"
-                    : "Jumlah Dikirim dari Pusat:"}
+                    ? "Jumlah yang Diretur DARI Kedai KE Pusat:"
+                    : "Jumlah yang Dikirim DARI Pusat KE Kedai:"}
                 </label>
                 <div className="relative">
                   <input
@@ -6481,15 +6526,15 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              {/* Quick Chips disesuaikan dengan unit */}
+              {/* Quick Chips Presets */}
               {(() => {
                 const isGram = singleStockMaterial.unit === "gram";
                 const isMl = singleStockMaterial.unit === "ml";
                 const chips = isGram
-                  ? [1000, 2000, 5000, 10000, 15000]
+                  ? [1000, 2000, 5000, 10000, 15000, 20000]
                   : isMl
                   ? [500, 1000, 1600, 3200, 5000]
-                  : [10, 20, 50, 100, 200];
+                  : [10, 20, 50, 100, 150, 200];
 
                 return (
                   <div className="flex flex-wrap gap-1.5">
@@ -6513,26 +6558,37 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsSingleStockOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs"
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={singleStockLoading}
-                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs shadow-md transition text-white ${
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs shadow-md transition text-white cursor-pointer ${
                     singleStockMode === "return"
                       ? "bg-amber-600 hover:bg-amber-700"
+                      : singleStockMode === "add"
+                      ? "bg-blue-600 hover:bg-blue-700"
                       : "bg-emerald-600 hover:bg-emerald-700"
                   }`}
                 >
-                  {singleStockLoading
-                    ? "Menyimpan..."
-                    : singleStockMode === "return"
-                    ? "Retur ke Pusat"
-                    : singleStockMode === "add"
-                    ? "Kirim dari Pusat"
-                    : "Simpan Opname"}
+                  {(() => {
+                    if (singleStockLoading) return "Menyimpan...";
+                    const inputVal = parseFloat(singleStockValue) || 0;
+                    const delta = inputVal - (singleStockMaterial.currentStock || 0);
+                    const unitStr = singleStockMaterial.unit;
+
+                    if (singleStockMode === "set") {
+                      if (delta < 0) return `Simpan (Kembalikan +${Math.abs(delta)} ${unitStr} ke Pusat)`;
+                      if (delta > 0) return `Simpan (Potong -${delta} ${unitStr} dari Pusat)`;
+                      return "Simpan (Stok Tetap)";
+                    }
+                    if (singleStockMode === "return") {
+                      return `Retur ${inputVal} ${unitStr} ke Pusat`;
+                    }
+                    return `Kirim ${inputVal} ${unitStr} ke Kedai`;
+                  })()}
                 </button>
               </div>
             </form>
