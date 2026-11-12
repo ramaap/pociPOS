@@ -2086,9 +2086,10 @@ export default function PosTerminalPage() {
   const isTeaLow = availableTeaStockMl <= 3000 && availableTeaStockMl > 1500;
   const isTeaCritical = availableTeaStockMl <= 1500;
   const currentOutletObj = outlets.find((o) => o.id === selectedOutletId) || outlets[0];
+  const isShiftClosed = currentOutletObj?.shift_status === "closed";
   const dailyTargetCups = currentOutletObj?.target_cups || 100;
-  const initialCash = currentOutletObj?.initial_cash || 0;
-  const currentCashBalance = initialCash + todayCashIn - todayExpenseTotal;
+  const initialCash = isShiftClosed ? 0 : (currentOutletObj?.initial_cash || 0);
+  const currentCashBalance = isShiftClosed ? 0 : Math.max(0, initialCash + todayCashIn - todayExpenseTotal);
 
   // Notifikasi chime otomatis saat stok gula pertama kali menyentuh zona reminder (<= 6 cup)
   const prevGulaLowRef = useRef<boolean>(false);
@@ -2501,20 +2502,34 @@ export default function PosTerminalPage() {
 
               {/* Uang Cash di Kedai (Modal Cash Dibawa + Transaksi Cash - Kas Keluar) */}
               <div
-                title={`Total Uang Cash Fisik di Laci Booth: Modal Awal Dibawa (Rp ${initialCash.toLocaleString("id-ID")}) + Penjualan Tunai Masuk (Rp ${todayCashIn.toLocaleString("id-ID")}) - Kas Keluar (Rp ${todayExpenseTotal.toLocaleString("id-ID")}) = Rp ${currentCashBalance.toLocaleString("id-ID")}`}
-                className="px-2 py-1 bg-teal-50 rounded-lg text-teal-950 font-bold border border-teal-300 flex items-center justify-between sm:justify-start gap-1.5 shadow-2xs"
+                title={
+                  isShiftClosed
+                    ? "Shift Sedang Tutup: Kas fisik di laci saat ini Rp 0 (sudah disetor saat penutupan shift)"
+                    : `Total Uang Cash Fisik di Laci Booth: Modal Awal Dibawa (Rp ${initialCash.toLocaleString("id-ID")}) + Penjualan Tunai Masuk (Rp ${todayCashIn.toLocaleString("id-ID")}) - Kas Keluar (Rp ${todayExpenseTotal.toLocaleString("id-ID")}) = Rp ${currentCashBalance.toLocaleString("id-ID")}`
+                }
+                className={`px-2 py-1 rounded-lg font-bold border flex items-center justify-between sm:justify-start gap-1.5 shadow-2xs ${
+                  isShiftClosed
+                    ? "bg-slate-100 text-slate-600 border-slate-300"
+                    : "bg-teal-50 text-teal-950 border-teal-300"
+                }`}
               >
-                <span className="flex items-center gap-1 text-teal-700">
+                <span className={`flex items-center gap-1 ${isShiftClosed ? "text-slate-500" : "text-teal-700"}`}>
                   <Banknote className="w-3.5 h-3.5 shrink-0" />
                   <span>Kas di Laci:</span>
                 </span>
                 <div className="flex items-baseline gap-1">
-                  <strong className={currentCashBalance < 0 ? "text-rose-600" : "text-teal-950"}>
+                  <strong className={isShiftClosed ? "text-slate-700" : currentCashBalance < 0 ? "text-rose-600" : "text-teal-950"}>
                     Rp {currentCashBalance.toLocaleString("id-ID")}
                   </strong>
-                  <span className="text-[10px] text-teal-700/80 font-normal hidden lg:inline">
-                    (Modal {Math.round(initialCash / 1000)}k + Tunai {Math.round(todayCashIn / 1000)}k)
-                  </span>
+                  {isShiftClosed ? (
+                    <span className="text-[10px] text-slate-500 font-semibold bg-slate-200 px-1 py-0.2 rounded">
+                      Shift Tutup
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-teal-700/80 font-normal hidden lg:inline">
+                      (Modal {Math.round(initialCash / 1000)}k + Tunai {Math.round(todayCashIn / 1000)}k)
+                    </span>
+                  )}
                 </div>
               </div>
 

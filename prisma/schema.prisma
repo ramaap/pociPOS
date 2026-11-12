@@ -228,3 +228,24 @@ model PromoCampaign {
 
   @@map("promo_campaigns")
 }
+
+model CentralVault {
+  id           String   @id @default("default")
+  cash_balance Float    @default(5000000) // Saldo Kas Induk Gudang Pusat / Brankas Pusat (Default: Rp 5.000.000)
+  updated_at   DateTime @updatedAt
+
+  @@map("central_vault")
+}
+
+model CentralCashLog {
+  id            String   @id @default(cuid())
+  outlet_id     String?  // null bila topup dari rekening/owner pusat
+  amount        Float
+  type          String   // "disburse_float" | "return_float" | "topup_central" | "closing_deposit" | "central_set"
+  balance_after Float
+  notes         String?
+  created_at    DateTime @default(now())
+
+  @@map("central_cash_logs")
+}
+

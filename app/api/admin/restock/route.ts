@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAdminPin } from "@/lib/pin";
+import { getCentralVault, mutateCentralCash, setCentralVaultCash } from "@/lib/centralCash";
 
 export async function POST(req: Request) {
   try {
@@ -10,8 +11,10 @@ export async function POST(req: Request) {
       rawMaterialId,
       addedQuantity,
       quantity,
-      mode = "add", // "add" | "restock" | "return" | "central_in" | "central_set" | "set" | "zero_all" | "bulk_set"
-      updates, // for bulk_set: [{ rawMaterialId, currentStock }]
+      amount,
+      direction,
+      mode = "add", // "add" | "restock" | "return" | "central_in" | "central_set" | "set" | "zero_all" | "bulk_set" | "central_cash_topup" | "central_cash_set" | "cash_transfer"
+      updates, // for bulk_set: [{ rawMaterialId, targetStock, currentStock }]
       notes,
       pin,
     } = body;
@@ -72,7 +75,13 @@ export async function POST(req: Request) {
       const outlet = await prisma.outlet.findUnique({ where: { id: outletId } });
 
       for (const item of updates) {
-        if (item.rawMaterialId && typeof item.currentStock === "number" && item.currentStock >= 0) {
+        const targetVal = typeof item.targetStock === "number"
+          ? item.targetStock
+          : typeof item.currentStock === "number"
+          ? item.currentStock
+          : undefined;
+
+        if (item.rawMaterialId && typeof targetVal === "number" && targetVal >= 0) {
           const oldStockRecord = await prisma.boothStock.findUnique({
             where: {
               outlet_id_raw_material_id: {
@@ -84,7 +93,7 @@ export async function POST(req: Request) {
           });
 
           const oldVal = oldStockRecord?.current_stock || 0;
-          const delta = item.currentStock - oldVal;
+          const delta = targetVal - oldVal;
 
           await prisma.boothStock.upsert({
             where: {
@@ -94,12 +103,12 @@ export async function POST(req: Request) {
               },
             },
             update: {
-              current_stock: item.currentStock,
+              current_stock: targetVal,
             },
             create: {
               outlet_id: outletId,
               raw_material_id: item.rawMaterialId,
-              current_stock: item.currentStock,
+              current_stock: targetVal,
             },
           });
 
@@ -132,6 +141,88 @@ export async function POST(req: Request) {
         success: true,
         message: "Seluruh stok bahan baku berhasil diperbarui dan disinkronkan dua arah dengan Master Stock Gudang Pusat.",
       });
+    }
+
+    // 2B. Mode: Central Cash Top-up (Tambah Kas Induk Gudang Pusat dari Bank / Pemilik)
+    if (mode === "central_cash_topup") {
+      const topupAmt = typeof amount === "number" ? amount : typeof quantity === "number" ? quantity : 0;
+      if (topupAmt <= 0) {
+        return NextResponse.json({ error: "Nominal penambahan kas pusat harus lebih dari 0." }, { status: 400 });
+      }
+      const { vault } = await mutateCentralCash({
+        amount: topupAmt,
+        type: "topup_central",
+        notes: notes || `Top-up Saldo Kas Induk Gudang Pusat: +Rp ${topupAmt.toLocaleString("id-ID")}`,
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Saldo Kas Induk Gudang Pusat berhasil ditambah Rp ${topupAmt.toLocaleString("id-ID")}. Total saldo sekarang Rp ${vault.cash_balance.toLocaleString("id-ID")}.`,
+        centralVault: vault,
+      });
+    }
+
+    // 2C. Mode: Central Cash Set (Koreksi Opname Kas Fisik Brankas Pusat)
+    if (mode === "central_cash_set") {
+      const setAmt = typeof amount === "number" ? amount : typeof quantity === "number" ? quantity : 0;
+      if (setAmt < 0) {
+        return NextResponse.json({ error: "Nominal saldo kas pusat tidak valid." }, { status: 400 });
+      }
+      const { vault } = await setCentralVaultCash(setAmt, notes);
+      return NextResponse.json({
+        success: true,
+        message: `Saldo Kas Induk Gudang Pusat berhasil diset ke Rp ${setAmt.toLocaleString("id-ID")}.`,
+        centralVault: vault,
+      });
+    }
+
+    // 2D. Mode: Cash Transfer (Kirim Kas Modal Pusat ke Kedai atau Retur Kas Kedai ke Pusat)
+    if (mode === "cash_transfer") {
+      const xferAmt = typeof amount === "number" ? amount : typeof quantity === "number" ? quantity : 0;
+      if (!outletId || xferAmt <= 0) {
+        return NextResponse.json({ error: "Kedai tujuan dan nominal kas wajib diisi dengan benar." }, { status: 400 });
+      }
+      const targetOutlet = await prisma.outlet.findUnique({ where: { id: outletId } });
+      if (!targetOutlet) {
+        return NextResponse.json({ error: "Kedai tidak ditemukan." }, { status: 404 });
+      }
+
+      const dir = direction || "to_outlet"; // "to_outlet" | "to_central"
+      if (dir === "to_outlet") {
+        const updatedOutlet = await prisma.outlet.update({
+          where: { id: outletId },
+          data: { initial_cash: { increment: xferAmt } },
+        });
+        const { vault } = await mutateCentralCash({
+          amount: -xferAmt,
+          type: "disburse_float",
+          outletId,
+          notes: notes || `Transfer Kas Modal dari Pusat ke ${targetOutlet.name}: Rp ${xferAmt.toLocaleString("id-ID")}`,
+        });
+        return NextResponse.json({
+          success: true,
+          message: `Berhasil mengirim kas modal Rp ${xferAmt.toLocaleString("id-ID")} dari Gudang Pusat ke ${targetOutlet.name}. Modal awal kedai sekarang Rp ${updatedOutlet.initial_cash.toLocaleString("id-ID")}.`,
+          outlet: updatedOutlet,
+          centralVault: vault,
+        });
+      } else {
+        const newInitial = Math.max(0, (targetOutlet.initial_cash || 0) - xferAmt);
+        const updatedOutlet = await prisma.outlet.update({
+          where: { id: outletId },
+          data: { initial_cash: newInitial },
+        });
+        const { vault } = await mutateCentralCash({
+          amount: xferAmt,
+          type: "return_float",
+          outletId,
+          notes: notes || `Retur Kas Modal dari ${targetOutlet.name} ke Pusat: Rp ${xferAmt.toLocaleString("id-ID")}`,
+        });
+        return NextResponse.json({
+          success: true,
+          message: `Berhasil mengembalikan kas modal Rp ${xferAmt.toLocaleString("id-ID")} dari ${targetOutlet.name} ke Kas Induk Pusat. Modal awal kedai sekarang Rp ${updatedOutlet.initial_cash.toLocaleString("id-ID")}.`,
+          outlet: updatedOutlet,
+          centralVault: vault,
+        });
+      }
     }
 
     // 3. Mode: Central In (Penerimaan dari Supplier ke Gudang Pusat / Central Kitchen)

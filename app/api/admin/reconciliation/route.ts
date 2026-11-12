@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAdminPin } from "@/lib/pin";
+import { getCentralVault } from "@/lib/centralCash";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -67,6 +68,7 @@ export async function GET(req: Request) {
 
         const initialCash = outlet.initial_cash || 0;
         let currentCashBalance = initialCash + todayCashIn - todayExpenseTotal;
+        let lastClosingCash: number | null = null;
         if (isShiftClosed) {
           const lastClosing = await prisma.shiftClosing.findFirst({
             where: { outlet_id: outlet.id },
@@ -74,8 +76,10 @@ export async function GET(req: Request) {
             select: { actual_cash: true },
           });
           if (lastClosing && lastClosing.actual_cash !== undefined) {
-            currentCashBalance = lastClosing.actual_cash;
+            lastClosingCash = lastClosing.actual_cash;
           }
+          // Saat shift kasir ditutup dari FE, kas fisik di laci bernilai 0 (uang disetor/disimpan)
+          currentCashBalance = 0;
         }
 
         return {
@@ -84,6 +88,7 @@ export async function GET(req: Request) {
           todayCashIn,
           todayExpenseTotal,
           currentCashBalance,
+          lastClosingCash,
         };
       })
     );
@@ -214,6 +219,11 @@ export async function GET(req: Request) {
       transferLogs,
       todayTransactions,
       sugarLogs,
+      centralVault: await getCentralVault(),
+      centralCashLogs: await prisma.centralCashLog.findMany({
+        take: 30,
+        orderBy: { created_at: "desc" },
+      }),
     }, {
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { mutateCentralCash } from "@/lib/centralCash";
 
 export async function GET(req: Request) {
   try {
@@ -196,6 +197,16 @@ export async function POST(req: Request) {
         last_closed_at: new Date(),
       },
     });
+
+    // 8. Setoran Kas Fisik Laci saat Tutup Shift Masuk ke Kas Induk Gudang Pusat
+    if (cashActualNum > 0) {
+      await mutateCentralCash({
+        amount: cashActualNum,
+        type: "closing_deposit",
+        outletId: outlet_id,
+        notes: `Setoran kas fisik tutup shift ${targetOutlet?.name || "kedai"}: +Rp ${cashActualNum.toLocaleString("id-ID")}`,
+      });
+    }
 
     return NextResponse.json(
       {

@@ -61,6 +61,7 @@ interface Outlet {
   todayExpenseTotal?: number;
   todayCupsSold?: number;
   currentCashBalance?: number;
+  shift_status?: "open" | "closed" | string;
   active_status?: boolean;
 }
 
@@ -301,6 +302,15 @@ export default function AdminDashboardPage() {
   const [cashFloatLoading, setCashFloatLoading] = useState<boolean>(false);
   const [cashFloatMessage, setCashFloatMessage] = useState<string | null>(null);
 
+  // Central Cash Vault State (Kas Induk Gudang Pusat / Brankas)
+  const [centralVault, setCentralVault] = useState<{ id: string; cash_balance: number; updated_at?: string } | null>(null);
+  const [isCentralCashModalOpen, setIsCentralCashModalOpen] = useState<boolean>(false);
+  const [centralCashAction, setCentralCashAction] = useState<"topup" | "set">("topup");
+  const [centralCashAmount, setCentralCashAmount] = useState<number>(0);
+  const [centralCashNotes, setCentralCashNotes] = useState<string>("");
+  const [centralCashLoading, setCentralCashLoading] = useState<boolean>(false);
+  const [centralCashMessage, setCentralCashMessage] = useState<string | null>(null);
+
   // ================= TAB 4: MENU MANAGEMENT STATE =================
   const [menuProducts, setMenuProducts] = useState<any[]>([]);
   const [menuMaterials, setMenuMaterials] = useState<any[]>([]);
@@ -532,6 +542,9 @@ export default function AdminDashboardPage() {
       if (res.ok) {
         const json = await res.json();
         setOutletsList(json.outlets || []);
+        if (json.centralVault) {
+          setCentralVault(json.centralVault);
+        }
       }
     } catch (e) {
       console.error("Failed to load outlets", e);
@@ -792,6 +805,9 @@ export default function AdminDashboardPage() {
       if (res.ok) {
         const json = await res.json();
         setData(json);
+        if (json.centralVault) {
+          setCentralVault(json.centralVault);
+        }
       }
       await loadFinancialReport(financeOutletRef.current, financePeriodRef.current, silent);
       await loadOutlets();
@@ -816,6 +832,9 @@ export default function AdminDashboardPage() {
       }
       const json = await res.json();
       setData(json);
+      if (json.centralVault) {
+        setCentralVault(json.centralVault);
+      }
       setIsAuthenticated(true);
       sessionStorage.setItem("poci_admin_pin", pin);
       loadFinancialReport();
@@ -1209,6 +1228,9 @@ export default function AdminDashboardPage() {
       const resJson = await res.json();
       if (res.ok) {
         setCashFloatMessage("✅ " + resJson.message);
+        if (resJson.centralVault) {
+          setCentralVault(resJson.centralVault);
+        }
         loadOutlets();
         refreshData();
 
@@ -1231,6 +1253,50 @@ export default function AdminDashboardPage() {
       setCashFloatMessage("❌ Gagal menyimpan uang cash yang dibawa.");
     } finally {
       setCashFloatLoading(false);
+    }
+  };
+
+  const handleCentralCashSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = Number(centralCashAmount);
+    if (isNaN(amt) || amt <= 0) {
+      setCentralCashMessage("❌ Masukkan nominal yang valid (lebih dari 0).");
+      return;
+    }
+    setCentralCashLoading(true);
+    setCentralCashMessage(null);
+    try {
+      const mode = centralCashAction === "topup" ? "central_cash_topup" : "central_cash_set";
+      const res = await fetch("/api/admin/restock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode,
+          amount: amt,
+          notes: centralCashNotes || undefined,
+          pin: sessionStorage.getItem("poci_admin_pin") || pin,
+        }),
+      });
+      const resJson = await res.json();
+      if (res.ok) {
+        setCentralCashMessage("✅ " + resJson.message);
+        if (resJson.centralVault) {
+          setCentralVault(resJson.centralVault);
+        }
+        refreshData();
+        setTimeout(() => {
+          setIsCentralCashModalOpen(false);
+          setCentralCashMessage(null);
+          setCentralCashAmount(0);
+          setCentralCashNotes("");
+        }, 1200);
+      } else {
+        setCentralCashMessage("❌ " + (resJson.error || "Gagal memperbarui kas pusat"));
+      }
+    } catch {
+      setCentralCashMessage("❌ Terjadi kesalahan koneksi.");
+    } finally {
+      setCentralCashLoading(false);
     }
   };
 
@@ -1597,6 +1663,7 @@ export default function AdminDashboardPage() {
     const updates = Object.entries(opnameValues).map(([rawMaterialId, targetStock]) => ({
       rawMaterialId,
       targetStock: Number(targetStock) || 0,
+      currentStock: Number(targetStock) || 0,
     }));
 
     try {
@@ -1697,6 +1764,53 @@ export default function AdminDashboardPage() {
 
     if ((restockMode === "add" || restockMode === "return") && !restockOutletId) {
       setRestockMessage("Pilih kedai tujuan / asal terlebih dahulu.");
+      return;
+    }
+
+    if (selectedMaterialId === "CASH_TRANSFER") {
+      let finalMode = "cash_transfer";
+      let direction = "to_outlet";
+      if (restockMode === "add") {
+        direction = "to_outlet";
+      } else if (restockMode === "return") {
+        direction = "to_central";
+      } else if (restockMode === "central_in") {
+        finalMode = "central_cash_topup";
+      } else if (restockMode === "central_set") {
+        finalMode = "central_cash_set";
+      }
+
+      try {
+        const res = await fetch("/api/admin/restock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            outletId: restockOutletId,
+            mode: finalMode,
+            direction,
+            amount: qty,
+            quantity: qty,
+            notes: restockNotes,
+            pin: sessionStorage.getItem("poci_admin_pin") || pin,
+          }),
+        });
+        const resData = await res.json();
+        if (res.ok) {
+          setRestockMessage("✅ " + resData.message);
+          if (resData.centralVault) setCentralVault(resData.centralVault);
+          setRestockQty("");
+          setRestockNotes("");
+          refreshData();
+          setTimeout(() => {
+            setIsRestockOpen(false);
+            setRestockMessage(null);
+          }, 1500);
+        } else {
+          setRestockMessage("❌ " + resData.error);
+        }
+      } catch {
+        setRestockMessage("❌ Terjadi kesalahan pengiriman transfer kas.");
+      }
       return;
     }
 
@@ -3704,6 +3818,72 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
+              {/* Kas Induk & Brankas Pusat (Master Cash) */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/70 via-slate-900 to-amber-950/50 border border-emerald-500/40 flex flex-wrap items-center justify-between gap-4 shadow-inner">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-amber-300 shadow-sm">
+                    <Coins className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-slate-200 tracking-wider uppercase">
+                        Kas Induk Gudang Pusat (Brankas)
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        Master Cash
+                      </span>
+                    </div>
+                    <div className="text-xl sm:text-2xl font-black font-mono text-emerald-400 tracking-tight">
+                      Rp {(centralVault?.cash_balance ?? 5000000).toLocaleString("id-ID")}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 text-xs flex-wrap">
+                  <div className="flex flex-col text-right">
+                    <span className="text-[11px] text-slate-400">Total Modal Kas Tersebar di Kedai:</span>
+                    <strong className="font-mono text-amber-300 text-sm">
+                      Rp {(
+                        outletsList.reduce((acc, curr) => acc + (curr.initial_cash || 0), 0)
+                      ).toLocaleString("id-ID")}
+                    </strong>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCentralCashAction("topup");
+                        setCentralCashAmount(500000);
+                        setCentralCashNotes("");
+                        setCentralCashMessage(null);
+                        setIsCentralCashModalOpen(true);
+                      }}
+                      className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Tambah Kas Pusat</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCentralCashAction("set");
+                        setCentralCashAmount(centralVault?.cash_balance ?? 5000000);
+                        setCentralCashNotes("");
+                        setCentralCashMessage(null);
+                        setIsCentralCashModalOpen(true);
+                      }}
+                      className="px-2.5 py-1.5 bg-slate-700/80 hover:bg-slate-700 text-slate-200 border border-slate-600 font-bold text-xs rounded-xl transition flex items-center gap-1 cursor-pointer"
+                      title="Koreksi fisik saldo kas brankas pusat"
+                    >
+                      <Edit3 className="w-3 h-3 text-slate-400" />
+                      <span>Koreksi</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Master Stock Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {uniqueMaterials.map((mat: any) => {
@@ -3895,7 +4075,10 @@ export default function AdminDashboardPage() {
                   .map((outlet) => {
                     const outletStocks = (data?.boothStocks || []).filter((bs) => bs.outlet.id === outlet.id);
                     const fullOutlet = outletsList.find((o) => o.id === outlet.id) || outlet;
-                    const cashBalance = outlet.currentCashBalance !== undefined
+                    const isClosed = outlet.shift_status === "closed" || fullOutlet.shift_status === "closed";
+                    const cashBalance = isClosed
+                      ? 0
+                      : outlet.currentCashBalance !== undefined
                       ? outlet.currentCashBalance
                       : fullOutlet.currentCashBalance !== undefined
                       ? fullOutlet.currentCashBalance
@@ -3925,11 +4108,29 @@ export default function AdminDashboardPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             {/* Total Uang Cash Fisik di Laci Saat Ini (Real-time di Booth) */}
                             <div
-                              className="px-2.5 py-1 bg-teal-50 text-teal-950 border border-teal-300 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs"
-                              title={`Total Uang Cash Fisik di Laci Booth saat ini: Modal Awal (Rp ${(outlet.initial_cash || 0).toLocaleString("id-ID")}) + Penjualan Tunai (Rp ${cashIn.toLocaleString("id-ID")}) - Beban Kasir (Rp ${expenseTotal.toLocaleString("id-ID")}) = Rp ${cashBalance.toLocaleString("id-ID")}`}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs border ${
+                                isClosed
+                                  ? "bg-slate-100 text-slate-600 border-slate-300"
+                                  : "bg-teal-50 text-teal-950 border-teal-300"
+                              }`}
+                              title={
+                                isClosed
+                                  ? "Shift Sedang Tutup: Kas fisik di laci saat ini Rp 0 (sudah disetor saat penutupan shift)"
+                                  : `Total Uang Cash Fisik di Laci Booth saat ini: Modal Awal (Rp ${(outlet.initial_cash || 0).toLocaleString("id-ID")}) + Penjualan Tunai (Rp ${cashIn.toLocaleString("id-ID")}) - Beban Kasir (Rp ${expenseTotal.toLocaleString("id-ID")}) = Rp ${cashBalance.toLocaleString("id-ID")}`
+                              }
                             >
-                              <Banknote className="w-3.5 h-3.5 text-teal-700 shrink-0" />
-                              <span>Kas di Laci: <strong className="text-teal-900">Rp {cashBalance.toLocaleString("id-ID")}</strong></span>
+                              <Banknote className={`w-3.5 h-3.5 shrink-0 ${isClosed ? "text-slate-500" : "text-teal-700"}`} />
+                              <span>
+                                Kas di Laci:{" "}
+                                <strong className={isClosed ? "text-slate-700" : "text-teal-900"}>
+                                  Rp {cashBalance.toLocaleString("id-ID")}
+                                </strong>
+                                {isClosed && (
+                                  <span className="ml-1 text-[10px] font-semibold text-slate-500 bg-slate-200 px-1 py-0.2 rounded">
+                                    Shift Tutup
+                                  </span>
+                                )}
+                              </span>
                             </div>
 
                             {/* Tombol Uang Cash yang Dibawa (Modal Kas Awal) */}
@@ -4330,13 +4531,37 @@ export default function AdminDashboardPage() {
                         <span>Target: <strong>{outlet.target_cups || 100} cup / hari</strong></span>
                       </span>
 
-                      <span
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-50 text-teal-950 border border-teal-300 text-xs font-bold"
-                        title={`Total Uang Cash Fisik di Laci: Modal Awal (Rp ${(outlet.initial_cash || 0).toLocaleString("id-ID")}) + Penjualan Tunai (Rp ${(outlet.todayCashIn || 0).toLocaleString("id-ID")}) - Kas Keluar (Rp ${(outlet.todayExpenseTotal || 0).toLocaleString("id-ID")}) = Rp ${(outlet.currentCashBalance !== undefined ? outlet.currentCashBalance : (outlet.initial_cash || 0)).toLocaleString("id-ID")}`}
-                      >
-                        <Banknote className="w-3.5 h-3.5 text-teal-700" />
-                        <span>Kas di Laci: <strong className="text-teal-900">Rp {(outlet.currentCashBalance !== undefined ? outlet.currentCashBalance : (outlet.initial_cash || 0)).toLocaleString("id-ID")}</strong></span>
-                      </span>
+                      {(() => {
+                        const isClosed = outlet.shift_status === "closed";
+                        const cashBal = isClosed ? 0 : (outlet.currentCashBalance !== undefined ? outlet.currentCashBalance : (outlet.initial_cash || 0));
+                        return (
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                              isClosed
+                                ? "bg-slate-100 text-slate-600 border-slate-300"
+                                : "bg-teal-50 text-teal-950 border-teal-300"
+                            }`}
+                            title={
+                              isClosed
+                                ? "Shift Tutup: Kas fisik di laci Rp 0"
+                                : `Total Uang Cash Fisik di Laci: Modal Awal (Rp ${(outlet.initial_cash || 0).toLocaleString("id-ID")}) + Penjualan Tunai (Rp ${(outlet.todayCashIn || 0).toLocaleString("id-ID")}) - Kas Keluar (Rp ${(outlet.todayExpenseTotal || 0).toLocaleString("id-ID")}) = Rp ${cashBal.toLocaleString("id-ID")}`
+                            }
+                          >
+                            <Banknote className={`w-3.5 h-3.5 ${isClosed ? "text-slate-500" : "text-teal-700"}`} />
+                            <span>
+                              Kas di Laci:{" "}
+                              <strong className={isClosed ? "text-slate-700" : "text-teal-900"}>
+                                Rp {cashBal.toLocaleString("id-ID")}
+                              </strong>
+                              {isClosed && (
+                                <span className="ml-1 text-[10px] font-semibold text-slate-500 bg-slate-200 px-1 py-0.2 rounded">
+                                  Shift Tutup
+                                </span>
+                              )}
+                            </span>
+                          </span>
+                        );
+                      })()}
 
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-300 text-xs font-bold">
                         <Coins className="w-3.5 h-3.5 text-amber-700" />
@@ -6619,38 +6844,80 @@ export default function AdminDashboardPage() {
             </div>
 
             <form onSubmit={handleOpnameSubmit} className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-950 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <p className="text-[11px] leading-tight">
+                  <strong>Sinkronisasi Dua Arah Master Stock:</strong> Penambahan stok fisik di kedai akan memotong Master Stock Pusat, dan pengurangan stok fisik otomatis dikembalikan menambah Master Stock Gudang Pusat.
+                </p>
+              </div>
+
               <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
                 <span className="text-xs text-slate-600 font-semibold">Tombol Pintas:</span>
                 <button
                   type="button"
                   onClick={setAllOpnameToZero}
-                  className="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold hover:bg-rose-100 transition"
+                  className="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold hover:bg-rose-100 transition cursor-pointer"
                 >
-                  Setel Semua ke 0
+                  Setel Semua ke 0 (Retur Semua ke Pusat)
                 </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {uniqueMaterials.map((mat) => (
-                  <div key={mat.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-slate-800 truncate">{mat.name}</span>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <input
-                        type="number"
-                        step="any"
-                        value={opnameValues[mat.id] ?? 0}
-                        onChange={(e) =>
-                          setOpnameValues({
-                            ...opnameValues,
-                            [mat.id]: parseFloat(e.target.value) || 0,
-                          })
-                        }
-                        className="w-24 px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-right"
-                      />
-                      <span className="text-[10px] text-slate-400 font-mono w-7">{mat.unit}</span>
+                {uniqueMaterials.map((mat) => {
+                  const boothStock = data?.boothStocks.find(
+                    (bs) => bs.outlet.id === opnameOutlet.id && bs.raw_material.id === mat.id
+                  );
+                  const currentKedai = boothStock?.current_stock ?? 0;
+                  const targetKedai = opnameValues[mat.id] ?? 0;
+                  const delta = targetKedai - currentKedai;
+                  const masterStock = mat.master_stock ?? 0;
+
+                  return (
+                    <div key={mat.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs font-bold text-slate-800 truncate block">{mat.name}</span>
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
+                          <span>
+                            Pusat:{" "}
+                            <strong className="text-emerald-700">
+                              {mat.unit === "gram"
+                                ? `${(masterStock / 1000).toLocaleString("id-ID")} kg`
+                                : `${masterStock.toLocaleString("id-ID")} ${mat.unit}`}
+                            </strong>
+                          </span>
+                          {delta !== 0 && (
+                            <span
+                              className={`font-bold px-1 rounded ${
+                                delta > 0
+                                  ? "bg-amber-100 text-amber-800"
+                                  : "bg-emerald-100 text-emerald-800"
+                              }`}
+                            >
+                              {delta > 0
+                                ? `+${delta} (potong pusat)`
+                                : `${delta} (kembali ke pusat)`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <input
+                          type="number"
+                          step="any"
+                          value={opnameValues[mat.id] ?? 0}
+                          onChange={(e) =>
+                            setOpnameValues({
+                              ...opnameValues,
+                              [mat.id]: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          className="w-20 px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-right"
+                        />
+                        <span className="text-[10px] text-slate-400 font-mono w-7">{mat.unit}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {opnameMessage && <p className="text-xs font-bold text-center">{opnameMessage}</p>}
@@ -6755,23 +7022,80 @@ export default function AdminDashboardPage() {
 
               {/* Bahan Baku Dropdown */}
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Bahan Baku:</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Item / Bahan Baku:</label>
                 <select
                   value={selectedMaterialId}
                   onChange={(e) => setSelectedMaterialId(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
                 >
-                  <option value="">-- Pilih Bahan Baku --</option>
-                  {uniqueMaterials.map((m: any) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} (Pusat: {m.unit === "gram" ? `${((m.master_stock || 0) / 1000).toLocaleString("id-ID")} kg` : `${(m.master_stock || 0).toLocaleString("id-ID")} ${m.unit}`})
+                  <option value="">-- Pilih Item / Bahan Baku --</option>
+                  <optgroup label="Kas Induk & Modal Tunai">
+                    <option value="CASH_TRANSFER">
+                      💵 Uang Cash / Modal Tunai (Kas Pusat: Rp {(centralVault?.cash_balance ?? 5000000).toLocaleString("id-ID")})
                     </option>
-                  ))}
+                  </optgroup>
+                  <optgroup label="Bahan Baku Minuman">
+                    {uniqueMaterials.map((m: any) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} (Pusat: {m.unit === "gram" ? `${((m.master_stock || 0) / 1000).toLocaleString("id-ID")} kg` : `${(m.master_stock || 0).toLocaleString("id-ID")} ${m.unit}`})
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
               </div>
 
-              {/* Real-time Balance Calculation Box */}
-              {selectedMaterialId && (() => {
+              {/* Real-time Balance Calculation Box for Cash */}
+              {selectedMaterialId === "CASH_TRANSFER" && (() => {
+                const currentPusatCash = centralVault?.cash_balance ?? 5000000;
+                const targetOutlet = data?.outlets.find((o) => o.id === restockOutletId);
+                const currentKedaiCash = targetOutlet?.initial_cash || 0;
+                const inputNum = parseFloat(restockQty) || 0;
+
+                let nextPusat = currentPusatCash;
+                let nextKedai = currentKedaiCash;
+
+                if (restockMode === "add") {
+                  nextPusat = currentPusatCash - inputNum;
+                  nextKedai = currentKedaiCash + inputNum;
+                } else if (restockMode === "return") {
+                  nextPusat = currentPusatCash + inputNum;
+                  nextKedai = currentKedaiCash - inputNum;
+                } else if (restockMode === "central_in") {
+                  nextPusat = currentPusatCash + inputNum;
+                }
+
+                return (
+                  <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200 text-xs space-y-1.5 font-mono">
+                    <div className="flex justify-between items-center text-amber-900">
+                      <span>Kas Induk Pusat:</span>
+                      <span>
+                        Rp {currentPusatCash.toLocaleString("id-ID")}{" "}
+                        {inputNum > 0 && (
+                          <strong className="text-emerald-700">
+                            ➔ Rp {Math.max(0, nextPusat).toLocaleString("id-ID")}
+                          </strong>
+                        )}
+                      </span>
+                    </div>
+                    {(restockMode === "add" || restockMode === "return") && (
+                      <div className="flex justify-between items-center text-amber-900">
+                        <span>Modal Awal {targetOutlet?.name || "Kedai"}:</span>
+                        <span>
+                          Rp {currentKedaiCash.toLocaleString("id-ID")}{" "}
+                          {inputNum > 0 && (
+                            <strong className="text-blue-700">
+                              ➔ Rp {Math.max(0, nextKedai).toLocaleString("id-ID")}
+                            </strong>
+                          )}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Real-time Balance Calculation Box for Materials */}
+              {selectedMaterialId && selectedMaterialId !== "CASH_TRANSFER" && (() => {
                 const selMat = uniqueMaterials.find((m: any) => m.id === selectedMaterialId) as any;
                 const selBooth = data?.boothStocks.find(
                   (bs) => bs.outlet.id === restockOutletId && bs.raw_material.id === selectedMaterialId
@@ -7160,33 +7484,66 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
 
-              {/* Rincian Real-time Estimasi Total Kas di Laci */}
-              <div className="p-3 bg-teal-50/80 rounded-2xl border border-teal-200 text-xs text-teal-950 space-y-1">
-                <div className="flex justify-between items-center text-[11px] text-teal-800">
-                  <span>Modal Awal Baru:</span>
-                  <span className="font-mono font-bold">Rp {(Number(cashFloatValue) || 0).toLocaleString("id-ID")}</span>
-                </div>
-                <div className="flex justify-between items-center text-[11px] text-teal-800">
-                  <span>Penjualan Tunai Berjalan:</span>
-                  <span className="font-mono font-bold">+ Rp {((cashFloatOutlet as any)?.todayCashIn || 0).toLocaleString("id-ID")}</span>
-                </div>
-                {((cashFloatOutlet as any)?.todayExpenseTotal || 0) > 0 && (
-                  <div className="flex justify-between items-center text-[11px] text-rose-700">
-                    <span>Kas Keluar:</span>
-                    <span className="font-mono font-bold">- Rp {((cashFloatOutlet as any)?.todayExpenseTotal || 0).toLocaleString("id-ID")}</span>
+              {/* Rincian Real-time Estimasi Total Kas di Laci & Sinkronisasi Kas Induk Pusat */}
+              {(() => {
+                const currentPusatCash = centralVault?.cash_balance ?? 5000000;
+                const oldInitial = cashFloatOutlet.initial_cash || 0;
+                const newInitial = Number(cashFloatValue) || 0;
+                const delta = newInitial - oldInitial;
+                const nextPusatCash = currentPusatCash - delta;
+
+                return (
+                  <div className="space-y-2">
+                    {/* Kotak Mutasi Kas Induk Pusat */}
+                    <div className="p-3 bg-amber-50/90 rounded-2xl border border-amber-300 text-xs text-amber-950 space-y-1">
+                      <div className="flex justify-between items-center text-[11px] text-amber-800">
+                        <span>Saldo Kas Induk Pusat (Master Cash):</span>
+                        <span className="font-mono font-bold">Rp {currentPusatCash.toLocaleString("id-ID")}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span>Mutasi Kas Pusat:</span>
+                        <span className={`font-mono font-bold ${delta > 0 ? "text-rose-700" : delta < 0 ? "text-emerald-700" : "text-slate-600"}`}>
+                          {delta > 0 ? `- Rp ${delta.toLocaleString("id-ID")} (potong pusat)` : delta < 0 ? `+ Rp ${Math.abs(delta).toLocaleString("id-ID")} (kembali ke pusat)` : "Rp 0 (tetap)"}
+                        </span>
+                      </div>
+                      <div className="pt-1 border-t border-amber-200 flex justify-between items-center font-bold text-amber-950">
+                        <span>Sisa Kas Induk Setelah Disimpan:</span>
+                        <span className="font-mono font-black text-sm text-emerald-800">
+                          Rp {Math.max(0, nextPusatCash).toLocaleString("id-ID")}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Estimasi Kas di Laci Kedai */}
+                    <div className="p-3 bg-teal-50/80 rounded-2xl border border-teal-200 text-xs text-teal-950 space-y-1">
+                      <div className="flex justify-between items-center text-[11px] text-teal-800">
+                        <span>Modal Awal Baru Kedai:</span>
+                        <span className="font-mono font-bold">Rp {newInitial.toLocaleString("id-ID")}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px] text-teal-800">
+                        <span>Penjualan Tunai Berjalan:</span>
+                        <span className="font-mono font-bold">+ Rp {((cashFloatOutlet as any)?.todayCashIn || 0).toLocaleString("id-ID")}</span>
+                      </div>
+                      {((cashFloatOutlet as any)?.todayExpenseTotal || 0) > 0 && (
+                        <div className="flex justify-between items-center text-[11px] text-rose-700">
+                          <span>Kas Keluar:</span>
+                          <span className="font-mono font-bold">- Rp {((cashFloatOutlet as any)?.todayExpenseTotal || 0).toLocaleString("id-ID")}</span>
+                        </div>
+                      )}
+                      <div className="pt-1 border-t border-teal-200/80 flex justify-between items-center font-bold text-teal-950">
+                        <span>Estimasi Total Kas di Laci:</span>
+                        <span className="font-mono font-black text-sm">
+                          Rp {(
+                            newInitial +
+                            ((cashFloatOutlet as any)?.todayCashIn || 0) -
+                            ((cashFloatOutlet as any)?.todayExpenseTotal || 0)
+                          ).toLocaleString("id-ID")}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                )}
-                <div className="pt-1 border-t border-teal-200/80 flex justify-between items-center font-bold text-teal-950">
-                  <span>Estimasi Total Kas di Laci:</span>
-                  <span className="font-mono font-black text-sm">
-                    Rp {(
-                      (Number(cashFloatValue) || 0) +
-                      ((cashFloatOutlet as any)?.todayCashIn || 0) -
-                      ((cashFloatOutlet as any)?.todayExpenseTotal || 0)
-                    ).toLocaleString("id-ID")}
-                  </span>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Quick Nominal Buttons */}
               <div className="space-y-1">
@@ -7211,10 +7568,10 @@ export default function AdminDashboardPage() {
 
               <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 space-y-0.5">
                 <p className="font-bold flex items-center gap-1">
-                  <span>⚡</span> Terhubung Otomatis ke Kasir POS
+                  <span>⚡</span> Terhubung Otomatis ke Kas Induk & Kasir POS
                 </p>
                 <p className="text-[10px]">
-                  Nilai ini langsung terupdate di kasir POS sebagai penambah ketersediaan uang cash di laci kedai.
+                  Selisih penambahan/pengurangan modal kas awal ini otomatis memotong/menambah saldo Kas Induk Gudang Pusat, dan langsung terupdate di kasir POS.
                 </p>
               </div>
 
@@ -7226,16 +7583,155 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsCashFloatModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50"
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={cashFloatLoading}
-                  className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md transition"
+                  className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md transition cursor-pointer"
                 >
-                  {cashFloatLoading ? "Menyimpan..." : "Simpan Uang Cash"}
+                  {cashFloatLoading ? "Menyimpan & Sinkron..." : "Simpan & Sinkron Kas Pusat"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: KAS INDUK GUDANG PUSAT (TOP-UP / KOREKSI BRANKAS)       */}
+      {/* ============================================================== */}
+      {isCentralCashModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                  <Coins className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900">
+                    {centralCashAction === "topup" ? "Top-up Kas Induk Pusat" : "Koreksi Fisik Kas Pusat"}
+                  </h3>
+                  <p className="text-[10px] text-slate-500 font-semibold">Brankas Gudang Pusat (Master Cash)</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCentralCashModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Mode Switch Tabs */}
+            <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl my-3 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => {
+                  setCentralCashAction("topup");
+                  setCentralCashAmount(500000);
+                  setCentralCashMessage(null);
+                }}
+                className={`py-1.5 rounded-lg transition text-center cursor-pointer ${
+                  centralCashAction === "topup" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                + Tambah Kas (Top-up)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCentralCashAction("set");
+                  setCentralCashAmount(centralVault?.cash_balance ?? 5000000);
+                  setCentralCashMessage(null);
+                }}
+                className={`py-1.5 rounded-lg transition text-center cursor-pointer ${
+                  centralCashAction === "set" ? "bg-slate-700 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                = Set Saldo Fisik Riil
+              </button>
+            </div>
+
+            <form onSubmit={handleCentralCashSubmit} className="space-y-3.5 my-2">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex justify-between items-center">
+                <span className="text-slate-500">Saldo Kas Pusat Saat Ini:</span>
+                <strong className="font-mono text-slate-900 font-black">
+                  Rp {(centralVault?.cash_balance ?? 5000000).toLocaleString("id-ID")}
+                </strong>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  {centralCashAction === "topup" ? "Nominal Uang Masuk ke Pusat:" : "Nominal Saldo Fisik Riil Baru:"}
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-xs font-extrabold text-slate-400">Rp</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="10000"
+                    required
+                    value={centralCashAmount}
+                    onChange={(e) => setCentralCashAmount(Number(e.target.value) || 0)}
+                    className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              {/* Quick buttons */}
+              {centralCashAction === "topup" && (
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[200000, 500000, 1000000, 2000000].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setCentralCashAmount(amt)}
+                      className={`py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
+                        centralCashAmount === amt
+                          ? "bg-emerald-600 border-emerald-700 text-white"
+                          : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      +{amt >= 1000000 ? `${amt / 1000000}jt` : `${amt / 1000}rb`}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Catatan / Keterangan (Opsional):</label>
+                <input
+                  type="text"
+                  value={centralCashNotes}
+                  onChange={(e) => setCentralCashNotes(e.target.value)}
+                  placeholder="Cth: Setoran modal dari rekening BCA"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none"
+                />
+              </div>
+
+              {centralCashMessage && (
+                <p className="text-xs font-bold text-center text-rose-600">{centralCashMessage}</p>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCentralCashModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={centralCashLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition cursor-pointer"
+                >
+                  {centralCashLoading ? "Menyimpan..." : "Simpan Kas Pusat"}
                 </button>
               </div>
             </form>

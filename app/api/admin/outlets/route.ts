@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCentralVault, mutateCentralCash } from "@/lib/centralCash";
 
 export async function GET() {
   try {
@@ -65,6 +66,7 @@ export async function GET() {
 
         const initialCash = outlet.initial_cash || 0;
         let currentCashBalance = initialCash + todayCashIn - todayExpenseTotal;
+        let lastClosingCash: number | null = null;
         if (isShiftClosed) {
           const lastClosing = await prisma.shiftClosing.findFirst({
             where: { outlet_id: outlet.id },
@@ -72,8 +74,10 @@ export async function GET() {
             select: { actual_cash: true },
           });
           if (lastClosing && lastClosing.actual_cash !== undefined) {
-            currentCashBalance = lastClosing.actual_cash;
+            lastClosingCash = lastClosing.actual_cash;
           }
+          // Saat shift kasir ditutup dari FE, kas fisik di laci bernilai 0 (uang disetor/disimpan)
+          currentCashBalance = 0;
         }
 
         return {
@@ -82,11 +86,14 @@ export async function GET() {
           todayCashIn,
           todayExpenseTotal,
           currentCashBalance,
+          lastClosingCash,
         };
       })
     );
 
-    return NextResponse.json({ outlets: enrichedOutlets });
+    const centralVault = await getCentralVault();
+
+    return NextResponse.json({ outlets: enrichedOutlets, centralVault });
   } catch (error) {
     console.error("Failed to fetch outlets:", error);
     return NextResponse.json({ error: "Gagal mengambil daftar kedai" }, { status: 500 });
@@ -119,6 +126,7 @@ export async function POST(req: Request) {
 
       const targetCupsNum = target_cups !== undefined ? Number(target_cups) : 100;
       const initialCashNum = initial_cash !== undefined ? Number(initial_cash) : 0;
+      const validInitialCash = !isNaN(initialCashNum) && initialCashNum >= 0 ? initialCashNum : 0;
 
       const newOutlet = await prisma.outlet.create({
         data: {
@@ -127,9 +135,18 @@ export async function POST(req: Request) {
           address: address?.trim() || null,
           active_status: active_status ?? true,
           target_cups: !isNaN(targetCupsNum) && targetCupsNum > 0 ? targetCupsNum : 100,
-          initial_cash: !isNaN(initialCashNum) && initialCashNum >= 0 ? initialCashNum : 0,
+          initial_cash: validInitialCash,
         },
       });
+
+      if (validInitialCash > 0) {
+        await mutateCentralCash({
+          amount: -validInitialCash,
+          type: "disburse_float",
+          outletId: newOutlet.id,
+          notes: `Alokasi modal kas awal pendirian ${newOutlet.name}: -Rp ${validInitialCash.toLocaleString("id-ID")} (memotong Kas Induk Pusat)`,
+        });
+      }
 
       // Otomatis inisialisasi semua stok bahan baku (RawMaterial) untuk kedai baru ini dengan nilai 0
       const allMaterials = await prisma.rawMaterial.findMany();
@@ -184,6 +201,8 @@ export async function POST(req: Request) {
       const targetCupsNum = target_cups !== undefined ? Number(target_cups) : undefined;
       const initialCashNum = initial_cash !== undefined ? Number(initial_cash) : undefined;
 
+      const existingOutlet = await prisma.outlet.findUnique({ where: { id } });
+
       const updated = await prisma.outlet.update({
         where: { id },
         data: {
@@ -196,10 +215,29 @@ export async function POST(req: Request) {
         },
       });
 
+      // Sinkronisasi otomatis dua arah Modal Kas Awal dengan Kas Induk Gudang Pusat
+      if (initialCashNum !== undefined && !isNaN(initialCashNum) && initialCashNum >= 0 && existingOutlet) {
+        const oldCash = existingOutlet.initial_cash || 0;
+        const delta = initialCashNum - oldCash;
+        if (delta !== 0) {
+          await mutateCentralCash({
+            amount: -delta, // delta > 0 memotong kas pusat, delta < 0 menambah kas pusat
+            type: delta > 0 ? "disburse_float" : "return_float",
+            outletId: id,
+            notes: delta > 0
+              ? `Alokasi penambahan modal kas awal ${existingOutlet.name}: +Rp ${delta.toLocaleString("id-ID")} (memotong Kas Induk Pusat)`
+              : `Pengurangan modal kas awal ${existingOutlet.name}: -Rp ${Math.abs(delta).toLocaleString("id-ID")} (dikembalikan menambah Kas Induk Pusat)`,
+          });
+        }
+      }
+
+      const centralVault = await getCentralVault();
+
       return NextResponse.json({
         success: true,
-        message: `Data kedai ${updated.name} berhasil diperbarui.`,
+        message: `Data kedai ${updated.name} berhasil diperbarui dan disinkronkan dengan Kas Induk Pusat.`,
         outlet: updated,
+        centralVault,
       });
     }
 
