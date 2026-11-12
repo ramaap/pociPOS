@@ -3748,7 +3748,7 @@ export default function AdminDashboardPage() {
                       <th className="py-2.5 px-3">Kedai</th>
                       <th className="py-2.5 px-3">Fisik Cup (Reg / Jumbo)</th>
                       <th className="py-2.5 px-3">Sistem (Reg / Jumbo)</th>
-                      <th className="py-2.5 px-3">Sisa Teh (Fisik / Sist)</th>
+                      <th className="py-2.5 px-3">Kantong Teh (Fisik / Sist)</th>
                       <th className="py-2.5 px-3">Sisa Gula Cair (Fisik / Sist)</th>
                       <th className="py-2.5 px-3">Kas di Laci (Fisik / Sist)</th>
                       <th className="py-2.5 px-3">Selisih Cup</th>
@@ -3765,18 +3765,36 @@ export default function AdminDashboardPage() {
                       </tr>
                     ) : (
                       data.closings.map((c) => {
-                        const isRed = c.theft_flag;
-                        const isYellow = c.waste_flag && !isRed;
+                        const sugarVariance = c.discrepancy_sugar_ml ?? 0;
+                        const hasCupShortage = c.discrepancy_cup < 0;
+                        const hasCupSurplus = c.discrepancy_cup > 0;
+                        const hasCashShortage = c.discrepancy_cash !== undefined && c.discrepancy_cash < 0;
+                        const hasCashSurplus = c.discrepancy_cash !== undefined && c.discrepancy_cash > 0;
+                        const hasSugarVariance = Math.abs(sugarVariance) > 50;
+                        const isRed = c.theft_flag || hasCupShortage || hasCashShortage;
+                        const isYellow = (c.waste_flag || hasCupSurplus || hasCashSurplus || hasSugarVariance) && !isRed;
+                        const isMatched = !isRed && !isYellow && c.discrepancy_cup === 0 && (!c.discrepancy_cash || c.discrepancy_cash === 0) && Math.abs(sugarVariance) <= 50;
 
                         return (
                           <tr
                             key={c.id}
                             className={`font-mono transition ${
-                              isRed ? "bg-rose-50/70" : isYellow ? "bg-amber-50/60" : "hover:bg-slate-50"
+                              isRed
+                                ? "bg-rose-50/80 border-l-4 border-l-rose-500"
+                                : isYellow
+                                ? "bg-amber-50/70 border-l-4 border-l-amber-500"
+                                : "hover:bg-slate-50"
                             }`}
                           >
                             <td className="py-2.5 px-3 text-slate-600 text-[11px] whitespace-nowrap">
-                              {new Date(c.created_at).toLocaleDateString("id-ID")}
+                              {new Date(c.created_at).toLocaleDateString("id-ID", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                              })}
+                              <span className="block text-[10px] text-slate-400 font-sans">
+                                {new Date(c.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                              </span>
                             </td>
                             <td className="py-2.5 px-3 font-sans font-bold text-slate-800">{c.outlet?.name}</td>
                             <td className="py-2.5 px-3">
@@ -3786,13 +3804,19 @@ export default function AdminDashboardPage() {
                               {c.system_expected_cup_reg} / {c.system_expected_cup_jumbo}
                             </td>
                             <td className="py-2.5 px-3">
-                              {c.actual_liquid_ml} pcs <span className="text-slate-400">/ {c.system_expected_liquid_ml} pcs</span>
+                              <strong>{c.actual_liquid_ml}</strong> kantong{" "}
+                              <span className="text-slate-400">/ {c.system_expected_liquid_ml} kantong</span>
+                              {c.discrepancy_liquid !== undefined && c.discrepancy_liquid !== 0 && (
+                                <span className={`ml-1 text-[10px] font-bold ${c.discrepancy_liquid < 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                                  ({c.discrepancy_liquid > 0 ? `+${c.discrepancy_liquid}` : c.discrepancy_liquid})
+                                </span>
+                              )}
                             </td>
                             <td className="py-2.5 px-3 font-mono">
                               <strong>{Math.round(c.actual_sugar_ml ?? 0).toLocaleString("id-ID")} ml</strong>{" "}
                               <span className="text-slate-400">/ {Math.round(c.system_expected_sugar_ml ?? 0).toLocaleString("id-ID")} ml</span>
                               {c.discrepancy_sugar_ml !== undefined && c.discrepancy_sugar_ml !== 0 && (
-                                <span className={`ml-1 text-[10px] font-bold ${c.discrepancy_sugar_ml < 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                                <span className={`ml-1 text-[10px] font-bold ${c.discrepancy_sugar_ml < 0 ? "text-rose-600" : "text-amber-600"}`}>
                                   ({c.discrepancy_sugar_ml > 0 ? `+${Math.round(c.discrepancy_sugar_ml)}` : Math.round(c.discrepancy_sugar_ml)} ml)
                                 </span>
                               )}
@@ -3801,38 +3825,55 @@ export default function AdminDashboardPage() {
                               <strong>Rp {Math.round(c.actual_cash ?? 0).toLocaleString("id-ID")}</strong>{" "}
                               <span className="text-slate-400">/ Rp {Math.round(c.system_expected_cash ?? 0).toLocaleString("id-ID")}</span>
                               {c.discrepancy_cash !== undefined && c.discrepancy_cash !== 0 && (
-                                <span className={`block text-[10px] font-bold ${c.discrepancy_cash < 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                                <span className={`block text-[10px] font-bold ${c.discrepancy_cash < 0 ? "text-rose-600" : "text-blue-600"}`}>
                                   {c.discrepancy_cash > 0 ? `+Rp ${Math.round(c.discrepancy_cash).toLocaleString("id-ID")}` : `-Rp ${Math.abs(Math.round(c.discrepancy_cash)).toLocaleString("id-ID")}`}
                                 </span>
                               )}
                             </td>
                             <td className="py-2.5 px-3">
-                              <span className={c.discrepancy_cup < 0 ? "text-rose-600 font-bold" : "text-emerald-700 font-bold"}>
+                              <span className={c.discrepancy_cup < 0 ? "text-rose-600 font-bold" : c.discrepancy_cup > 0 ? "text-amber-600 font-bold" : "text-emerald-700 font-bold"}>
                                 {c.discrepancy_cup > 0 ? `+${c.discrepancy_cup}` : c.discrepancy_cup}
                               </span>
                             </td>
                             <td className="py-2.5 px-3 font-bold text-rose-700">
                               {c.employee_debt > 0 ? formatRupiah(c.employee_debt) : "-"}
                             </td>
-                            <td className="py-2.5 px-3 font-sans">
-                              {c.discrepancy_cash !== undefined && c.discrepancy_cash < 0 && (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white block text-center mb-1">
+                            <td className="py-2.5 px-3 font-sans space-y-1">
+                              {hasCashShortage && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white block text-center">
                                   KAS MINUS
                                 </span>
                               )}
-                              {isRed ? (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white block text-center">
-                                  HUTANG CUP
+                              {hasCashSurplus && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white block text-center">
+                                  KAS LEBIH
                                 </span>
-                              ) : isYellow ? (
+                              )}
+                              {hasCupShortage && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white block text-center">
+                                  HUTANG CUP ({c.discrepancy_cup})
+                                </span>
+                              )}
+                              {hasCupSurplus && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white block text-center">
+                                  SURPLUS CUP (+{c.discrepancy_cup})
+                                </span>
+                              )}
+                              {hasSugarVariance && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-900 block text-center">
+                                  SELISIH GULA ({sugarVariance > 0 ? `+${Math.round(sugarVariance)}` : Math.round(sugarVariance)} ml)
+                                </span>
+                              )}
+                              {c.waste_flag && !hasSugarVariance && (
                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-950 block text-center">
                                   BOROS CAIRAN
                                 </span>
-                              ) : !c.discrepancy_cash || c.discrepancy_cash >= 0 ? (
+                              )}
+                              {isMatched && (
                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 block text-center">
                                   MATCHED
                                 </span>
-                              ) : null}
+                              )}
                             </td>
                           </tr>
                         );

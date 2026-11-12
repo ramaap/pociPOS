@@ -64,7 +64,17 @@ export async function GET() {
         }
 
         const initialCash = outlet.initial_cash || 0;
-        const currentCashBalance = initialCash + todayCashIn - todayExpenseTotal;
+        let currentCashBalance = initialCash + todayCashIn - todayExpenseTotal;
+        if (isShiftClosed) {
+          const lastClosing = await prisma.shiftClosing.findFirst({
+            where: { outlet_id: outlet.id },
+            orderBy: { created_at: "desc" },
+            select: { actual_cash: true },
+          });
+          if (lastClosing && lastClosing.actual_cash !== undefined) {
+            currentCashBalance = lastClosing.actual_cash;
+          }
+        }
 
         return {
           ...outlet,
