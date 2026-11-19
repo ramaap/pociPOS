@@ -23,39 +23,53 @@ USER_ICON_PATH = r"C:/Users/acer/.gemini/antigravity/brain/9cc57ad6-e5ad-4316-8f
 TARGET_URL = "https://kasir.ya-kasir-tehpoci.my.id"
 
 def generate_icons():
-    """Menghasilkan icon berkualitas tinggi dengan masking circular transparan"""
+    """Menghasilkan icon berkualitas tinggi (Standard & Adaptive Icon Foreground)"""
     print("[1/5] Memproses icon aplikasi dari gambar Teh Poci YA!...")
     img = Image.open(USER_ICON_PATH).convert("RGBA")
     
-    # Buat circular mask anti-alias dengan 4x supersampling
-    mask = Image.new("L", (512 * 4, 512 * 4), 0)
+    # Buat circular mask anti-alias dengan 2x supersampling pada resolusi asli (1024x1024)
+    orig_w, orig_h = img.size
+    mask = Image.new("L", (orig_w * 2, orig_h * 2), 0)
     draw = ImageDraw.Draw(mask)
-    draw.ellipse((0, 0, 512 * 4 - 1, 512 * 4 - 1), fill=255)
-    mask = mask.resize((512, 512), Image.Resampling.LANCZOS)
+    draw.ellipse((8, 8, orig_w * 2 - 9, orig_h * 2 - 9), fill=255)
+    mask = mask.resize((orig_w, orig_h), Image.Resampling.LANCZOS)
+    img.putalpha(mask)
     
-    img_512 = img.resize((512, 512), Image.Resampling.LANCZOS)
-    img_512.putalpha(mask)
+    # 1. Standard circular 512x512 icon (untuk web, PWA, dan fallback legacy)
+    std_512 = img.resize((512, 512), Image.Resampling.LANCZOS)
+    
+    # 2. Adaptive Foreground 512x512
+    # Android Adaptive Icon safe-zone adalah lingkaran 72dp di dalam canvas 108dp (~70% canvas)
+    badge_size = 372
+    badge_resized = img.resize((badge_size, badge_size), Image.Resampling.LANCZOS)
+    fg_512 = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
+    offset = (512 - badge_size) // 2
+    fg_512.paste(badge_resized, (offset, offset), badge_resized)
     
     # Simpan ke assets web & PWA
-    img_512.save(os.path.join(BASE_DIR, "public", "icon-512.png"))
-    img_192 = img_512.resize((192, 192), Image.Resampling.LANCZOS)
+    std_512.save(os.path.join(BASE_DIR, "public", "icon-512.png"))
+    img_192 = std_512.resize((192, 192), Image.Resampling.LANCZOS)
     img_192.save(os.path.join(BASE_DIR, "public", "icon-192.png"))
-    img_64 = img_512.resize((64, 64), Image.Resampling.LANCZOS)
+    img_64 = std_512.resize((64, 64), Image.Resampling.LANCZOS)
     img_64.save(os.path.join(BASE_DIR, "public", "favicon.png"))
     
     # Format JPEG untuk fallback logo
     img_rgb = img.convert("RGB").resize((512, 512), Image.Resampling.LANCZOS)
     img_rgb.save(os.path.join(BASE_DIR, "public", "logo-poci.jpg"), quality=95)
-    img_512.save(os.path.join(BASE_DIR, "public", "logo.png"))
+    std_512.save(os.path.join(BASE_DIR, "public", "logo.png"))
 
-    buf_512 = io.BytesIO()
-    img_512.save(buf_512, format="PNG")
-    png_bytes = buf_512.getvalue()
+    buf_std = io.BytesIO()
+    std_512.save(buf_std, format="PNG")
+    std_png_bytes = buf_std.getvalue()
+
+    buf_fg = io.BytesIO()
+    fg_512.save(buf_fg, format="PNG")
+    fg_png_bytes = buf_fg.getvalue()
 
     # Base64 untuk splash screen HTML
-    b64_icon = base64.b64encode(png_bytes).decode("ascii")
-    print(f"      Icon 512x512 RGBA berhasil dibuat ({len(png_bytes)} bytes)")
-    return png_bytes, b64_icon
+    b64_icon = base64.b64encode(std_png_bytes).decode("ascii")
+    print(f"      Icon Standard ({len(std_png_bytes)} bytes) & Adaptive Foreground ({len(fg_png_bytes)} bytes) berhasil dibuat")
+    return std_png_bytes, fg_png_bytes, b64_icon
 
 def get_redirect_html(b64_icon):
     return f"""<!DOCTYPE html>
@@ -292,16 +306,35 @@ def patch_return_zero_at(dex_data, code_off):
     for i in range(insns_start + 4, insns_start + insns_bytes_len):
         dex_data[i] = 0x00
 
+ADAPTIVE_ICON_XML_B64 = (
+    "AwAIAMABAAABABwAoAAAAAYAAAAAAAAAAAEAADQAAAAAAAAAAAAAAAsAAAAbAAAAJQAAADIAAAA/AAAACAhkcmF3"
+    "YWJsZQANDWFkYXB0aXZlLWljb24ABwdhbmRyb2lkAAoKYmFja2dyb3VuZAAKCmZvcmVncm91bmQAKipodHRwOi"
+    "8vc2NoZW1hcy5hbmRyb2lkLmNvbS9hcGsvcmVzL2FuZHJvaWQAgAEIAAwAAACZAQEBAAEQABgAAAACAAAA/////w"
+    "IAAAAFAAAAAgEQACQAAAACAAAA//////////8BAAAAFAAUAAAAAAAAAAAAAgEQADgAAAADAAAA//////////8DAA"
+    "AAFAAUAAEAAAAAAAAABQAAAAAAAAD/////CAAAATgABn8DARAAGAAAAAMAAAD//////////wMAAAACARAAOAAAAA"
+    "QAAAD//////////wQAAAAUABQAAQAAAAAAAAAFAAAAAAAAAP////8IAAABXQAIfwMBEAAYAAAABAAAAP////////"
+    "//BAAAAAMBEAAYAAAAAgAAAP//////////AQAAAAEBEAAYAAAAAgAAAP////8CAAAABQAAAA=="
+)
+
 def patch_classes_dex(dex_bytes):
     """
-    Memodifikasi classes.dex untuk menonaktifkan pemanggilan method registerReceiver API 33+
-    dan SdkExtensions API 30+ yang menyebabkan crash / NoClassDefFoundError pada Android 10 ke bawah.
-    Serta memperbaiki NullPointerException pada MainActivity.onCreate saat intent.getAction() bernilai null.
+    Memodifikasi classes.dex untuk:
+    1. Null-safe fix pada MainActivity.onCreate (instruction 69: 0x32 -> 0x23)
+    2. Menonaktifkan pemanggilan method registerReceiver API 33+
+    3. Menonaktifkan SdkExtensions API 30+ yang menyebabkan NoClassDefFoundError pada Android 10 ke bawah.
     """
+    import logging
+    logging.getLogger('androguard').setLevel(logging.ERROR)
     from androguard.core.dex import DEX
     
+    d = DEX(dex_bytes)
     dex_data = bytearray(dex_bytes)
-    d = DEX(dex_data)
+    
+    # 0. Null-safe fix pada MainActivity.onCreate (instruction 69: v2.equals(v3) -> v3.equals(v2) [0x32 -> 0x23])
+    # v3 adalah String constant 'android.intent.action.VIEW', v2 adalah intent.getAction() yang bisa bernilai null.
+    if len(dex_data) > 3455425 and dex_data[3455424] == 0x32 and dex_data[3455420:3455424] == b'\x6e\x20\x21\x6e':
+        dex_data[3455424] = 0x23
+        print("      Patched MainActivity.onCreate instruction 69 (0x32 -> 0x23: null-safe equals)")
     
     void_targets = [
         ('Lnet/mikespub/mywebview/MainActivity;', 'startDownloadReceiver'),
@@ -329,32 +362,11 @@ def patch_classes_dex(dex_bytes):
                         patch_return_zero_at(dex_data, m.code_off)
                         print(f"      Patched {cname}::{m.get_name()} (off={m.code_off}) -> return-0 + nop")
                         patched_count += 1
-            if cname == 'Lnet/mikespub/mywebview/MainActivity;' and m.get_name() == 'onCreate':
-                # Patch NPE: saat app diluncurkan dari home screen / am start, intent.getAction() bisa bernilai null.
-                # Bytecode aslinya memanggil v2.equals(v3) di mana v2 adalah intent.getAction() dan v3 adalah "android.intent.action.VIEW".
-                # Karena v2 null, pemanggilan ini melempar NullPointerException.
-                # Dengan mengubah argument registers (0x32 -> 0x23), bytecode menjadi v3.equals(v2),
-                # yaitu "android.intent.action.VIEW".equals(action), yang aman mengembalikan false jika action null tanpa crash!
-                if m.code_off > 0:
-                    code = m.get_code()
-                    if code:
-                        curr_off = m.code_off + 16
-                        for ins in code.get_bc().get_instructions():
-                            raw = ins.get_raw()
-                            if len(raw) == 6 and raw[0] == 0x6e and raw[1] == 0x20 and raw[2] == 0x21 and raw[3] == 0x6e and raw[4] == 0x32:
-                                dex_data[curr_off + 4] = 0x23
-                                print(f"      Patched {cname}::{m.get_name()} (off={curr_off}) -> swapped equals registers (0x32 -> 0x23) to eliminate NPE on null action")
-                                patched_count += 1
-                            curr_off += len(raw)
                         
     if patched_count < 4:
         print("      Fallback patching by known offsets if any missed...")
         # Api30Impl.getExtensionVersion known offset: 1983812
         patch_return_zero_at(dex_data, 1983812)
-        # MainActivity.onCreate known offset: 3455420
-        if len(dex_data) > 3455425 and dex_data[3455424] == 0x32:
-            dex_data[3455424] = 0x23
-            print("      Patched MainActivity.onCreate at offset 3455424 (0x32 -> 0x23)")
             
     # Hitung ulang checksum DEX
     # 1. SHA-1 signature pada bytes 12..31 dari konten bytes 32..end
@@ -387,12 +399,13 @@ def build_apk():
         print(f"ERROR: File sumber APK tidak ditemukan di {source_apk}")
         sys.exit(1)
 
-    icon_png_bytes, b64_icon = generate_icons()
+    std_icon_bytes, fg_icon_bytes, b64_icon = generate_icons()
     key_material = get_or_create_keys()
 
     print("[3/5] Memodifikasi aset APK, icon aplikasi, dan minSdkVersion...")
     redirect_html_bytes = get_redirect_html(b64_icon).encode("utf-8")
     settings_bytes = json.dumps(SETTINGS_JSON, indent=2).encode("utf-8")
+    adaptive_xml_bytes = base64.b64decode(ADAPTIVE_ICON_XML_B64)
 
     redirect_files = {
         "assets/web/index.html": redirect_html_bytes,
@@ -417,7 +430,7 @@ def build_apk():
                 if filename.startswith("META-INF/") and filename.upper().endswith((".SF", ".RSA", ".DSA", ".EC")):
                     continue
 
-                # Lewati file icon custom yang sudah pernah disisipkan agar tidak duplikat
+                # Lewati file icon custom yang akan kita generate ulang
                 if filename in ["res/0K.png", "res/BW.png", "res/Qr.png"]:
                     continue
 
@@ -438,14 +451,17 @@ def build_apk():
                     dst_zip.writestr(new_info, bytes(manifest_data))
                     written_files.add(filename)
                 elif filename == "resources.arsc":
-                    arsc_data = src_zip.read(filename)
+                    arsc_data = bytearray(src_zip.read(filename))
                     # 1. Ganti nama aplikasi
                     arsc_data = arsc_data.replace(b"My WebView", b"Kasir Poci")
-                    # 2. Ganti icon XML menjadi direct PNG logo
-                    arsc_data = arsc_data.replace(b"res/0K.xml", b"res/0K.png")
-                    arsc_data = arsc_data.replace(b"res/BW.xml", b"res/BW.png")
+                    # 2. Kembalikan ic_launcher & round ke Adaptive Icon XML (res/BW.xml dan res/0K.xml)
+                    arsc_data = arsc_data.replace(b"res/0K.png", b"res/0K.xml")
+                    arsc_data = arsc_data.replace(b"res/BW.png", b"res/BW.xml")
+                    # 3. Pastikan foreground icon menunjuk ke PNG foreground (res/Qr.png)
                     arsc_data = arsc_data.replace(b"res/Qr.xml", b"res/Qr.png")
-                    dst_zip.writestr(new_info, arsc_data)
+                    # 4. Ganti warna background ic_launcher_background teal (#FF008577) ke pure white (#FFFFFFFF)
+                    arsc_data = arsc_data.replace(b"\x77\x85\x00\xff", b"\xff\xff\xff\xff")
+                    dst_zip.writestr(new_info, bytes(arsc_data))
                     written_files.add(filename)
                 elif filename == "classes.dex":
                     dex_data = src_zip.read(filename)
@@ -457,13 +473,31 @@ def build_apk():
                     dst_zip.writestr(new_info, data)
                     written_files.add(filename)
 
-            # Tambahkan PNG icon ke res/0K.png, res/BW.png, res/Qr.png
-            for icon_name in ["res/0K.png", "res/BW.png", "res/Qr.png"]:
+            # Pastikan file binary XML adaptive-icon ada di APK
+            for xml_name in ["res/BW.xml", "res/0K.xml"]:
+                if xml_name not in written_files:
+                    xml_info = zipfile.ZipInfo(xml_name)
+                    xml_info.compress_type = zipfile.ZIP_DEFLATED
+                    dst_zip.writestr(xml_info, adaptive_xml_bytes)
+                    written_files.add(xml_name)
+                    print(f"      Sisipkan default Adaptive Icon XML: {xml_name}")
+
+            # Sisipkan foreground adaptive icon ke res/Qr.png
+            if "res/Qr.png" not in written_files:
+                fg_info = zipfile.ZipInfo("res/Qr.png")
+                fg_info.compress_type = zipfile.ZIP_DEFLATED
+                dst_zip.writestr(fg_info, fg_icon_bytes)
+                written_files.add("res/Qr.png")
+                print("      Sisipkan Adaptive Foreground: res/Qr.png")
+
+            # Sisipkan standard icon ke res/0K.png dan res/BW.png (fallback bila launcher meminta bitmap murni)
+            for icon_name in ["res/0K.png", "res/BW.png"]:
                 if icon_name not in written_files:
                     icon_info = zipfile.ZipInfo(icon_name)
                     icon_info.compress_type = zipfile.ZIP_DEFLATED
-                    dst_zip.writestr(icon_info, icon_png_bytes)
+                    dst_zip.writestr(icon_info, std_icon_bytes)
                     written_files.add(icon_name)
+                    print(f"      Sisipkan Fallback Standard Icon: {icon_name}")
 
     print(f"      Unsigned APK dibuat: {TEMP_UNSIGNED} ({os.path.getsize(TEMP_UNSIGNED)} bytes)")
 
