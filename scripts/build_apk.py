@@ -5,6 +5,8 @@ import json
 import io
 import struct
 import base64
+import hashlib
+import zlib
 from PIL import Image, ImageDraw
 from sign_apk import keys as keysmod
 from sign_apk.signer import sign_apk
@@ -252,6 +254,70 @@ def patch_min_sdk(axml_data, new_min_sdk=21):
                         return True
     return False
 
+def noop_method_at(dex_data, code_off):
+    """
+    Mengubah method menjadi return-void diikuti oleh nop sampai akhir blok instruksi.
+    code_off menunjuk ke DexCode item:
+      offset 0..11: registers_size, ins_size, outs_size, tries_size, debug_info_off (12 bytes)
+      offset 12..15: insns_size (uint32, jumlah unit 16-bit)
+      offset 16..: instruksi bytecode
+    """
+    insns_size = struct.unpack_from('<I', dex_data, code_off + 12)[0]
+    insns_start = code_off + 16
+    insns_bytes_len = insns_size * 2
+    
+    # 0x000e = return-void di Dalvik/ART bytecode
+    dex_data[insns_start] = 0x0e
+    dex_data[insns_start + 1] = 0x00
+    
+    # Sisa instruksi diisi dengan 0x0000 (nop)
+    for i in range(insns_start + 2, insns_start + insns_bytes_len):
+        dex_data[i] = 0x00
+
+def patch_classes_dex(dex_bytes):
+    """
+    Memodifikasi classes.dex untuk menonaktifkan pemanggilan method registerReceiver API 33+
+    yang menyebabkan force close / NoSuchMethodError pada Android 12 ke bawah (termasuk Huawei P30 Pro & Tab A).
+    """
+    from androguard.core.dex import DEX
+    
+    dex_data = bytearray(dex_bytes)
+    d = DEX(dex_data)
+    
+    targets = [
+        ('Lnet/mikespub/mywebview/MainActivity;', 'startDownloadReceiver'),
+        ('Lnet/mikespub/mywebview/MainActivity;', 'stopDownloadReceiver'),
+        ('Lnet/mikespub/mywebview/MyAppWebViewClient;', 'setReceiver')
+    ]
+    
+    patched_count = 0
+    for cls in d.get_classes():
+        cname = cls.get_name()
+        for m in cls.get_methods():
+            for target_cls, target_name in targets:
+                if cname == target_cls and m.get_name() == target_name:
+                    if m.code_off > 0:
+                        noop_method_at(dex_data, m.code_off)
+                        print(f"      Patched {cname}::{m.get_name()} (off={m.code_off}) -> return-void + nop")
+                        patched_count += 1
+                        
+    if patched_count == 0:
+        print("      WARNING: Target methods not found via DEX parser, fallback to known offsets")
+        for off in [3456172, 3456240, 3460792]:
+            noop_method_at(dex_data, off)
+            
+    # Hitung ulang checksum DEX
+    # 1. SHA-1 signature pada bytes 12..31 dari konten bytes 32..end
+    sha1 = hashlib.sha1(dex_data[32:]).digest()
+    dex_data[12:32] = sha1
+    
+    # 2. Adler-32 checksum pada bytes 8..11 dari konten bytes 12..end
+    adler = zlib.adler32(dex_data[12:]) & 0xFFFFFFFF
+    struct.pack_into('<I', dex_data, 8, adler)
+    
+    print(f"      DEX checksum & SHA1 berhasil diperbarui (Adler-32: {hex(adler)})")
+    return bytes(dex_data)
+
 def get_or_create_keys():
     if os.path.exists(KEY_PEM) and os.path.exists(CERT_CRT):
         print(f"[2/5] Memuat signing key: {KEY_PEM}")
@@ -293,11 +359,19 @@ def build_apk():
 
     with zipfile.ZipFile(source_apk, "r") as src_zip:
         with zipfile.ZipFile(TEMP_UNSIGNED, "w") as dst_zip:
+            written_files = set()
             for item in src_zip.infolist():
                 filename = item.filename
                 
                 # Lewati signature lama
                 if filename.startswith("META-INF/") and filename.upper().endswith((".SF", ".RSA", ".DSA", ".EC")):
+                    continue
+
+                # Lewati file icon custom yang sudah pernah disisipkan agar tidak duplikat
+                if filename in ["res/0K.png", "res/BW.png", "res/Qr.png"]:
+                    continue
+
+                if filename in written_files:
                     continue
 
                 new_info = zipfile.ZipInfo(filename)
@@ -307,10 +381,12 @@ def build_apk():
 
                 if filename in redirect_files:
                     dst_zip.writestr(new_info, redirect_files[filename])
+                    written_files.add(filename)
                 elif filename == "AndroidManifest.xml":
                     manifest_data = bytearray(src_zip.read(filename))
                     patch_min_sdk(manifest_data, new_min_sdk=21)
                     dst_zip.writestr(new_info, bytes(manifest_data))
+                    written_files.add(filename)
                 elif filename == "resources.arsc":
                     arsc_data = src_zip.read(filename)
                     # 1. Ganti nama aplikasi
@@ -320,15 +396,24 @@ def build_apk():
                     arsc_data = arsc_data.replace(b"res/BW.xml", b"res/BW.png")
                     arsc_data = arsc_data.replace(b"res/Qr.xml", b"res/Qr.png")
                     dst_zip.writestr(new_info, arsc_data)
+                    written_files.add(filename)
+                elif filename == "classes.dex":
+                    dex_data = src_zip.read(filename)
+                    patched_dex = patch_classes_dex(dex_data)
+                    dst_zip.writestr(new_info, patched_dex)
+                    written_files.add(filename)
                 else:
                     data = src_zip.read(filename)
                     dst_zip.writestr(new_info, data)
+                    written_files.add(filename)
 
             # Tambahkan PNG icon ke res/0K.png, res/BW.png, res/Qr.png
             for icon_name in ["res/0K.png", "res/BW.png", "res/Qr.png"]:
-                icon_info = zipfile.ZipInfo(icon_name)
-                icon_info.compress_type = zipfile.ZIP_DEFLATED
-                dst_zip.writestr(icon_info, icon_png_bytes)
+                if icon_name not in written_files:
+                    icon_info = zipfile.ZipInfo(icon_name)
+                    icon_info.compress_type = zipfile.ZIP_DEFLATED
+                    dst_zip.writestr(icon_info, icon_png_bytes)
+                    written_files.add(icon_name)
 
     print(f"      Unsigned APK dibuat: {TEMP_UNSIGNED} ({os.path.getsize(TEMP_UNSIGNED)} bytes)")
 
