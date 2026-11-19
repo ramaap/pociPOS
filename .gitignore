@@ -38,6 +38,9 @@ backups/*.json
 # APK build artifacts
 template.apk
 *.apk.idsig
+tools/
+crash_log.txt
+error_crash.txt
 
 
 # typescript

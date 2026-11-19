@@ -274,37 +274,87 @@ def noop_method_at(dex_data, code_off):
     for i in range(insns_start + 2, insns_start + insns_bytes_len):
         dex_data[i] = 0x00
 
+def patch_return_zero_at(dex_data, code_off):
+    """
+    Mengubah method returning int agar langsung return 0:
+      const/4 v0, 0 (0x12, 0x00)
+      return v0 (0x0f, 0x00)
+      nop (0x00, 0x00) untuk sisa instruksi
+    """
+    insns_size = struct.unpack_from('<I', dex_data, code_off + 12)[0]
+    insns_start = code_off + 16
+    insns_bytes_len = insns_size * 2
+    
+    dex_data[insns_start] = 0x12
+    dex_data[insns_start + 1] = 0x00
+    dex_data[insns_start + 2] = 0x0f
+    dex_data[insns_start + 3] = 0x00
+    for i in range(insns_start + 4, insns_start + insns_bytes_len):
+        dex_data[i] = 0x00
+
 def patch_classes_dex(dex_bytes):
     """
     Memodifikasi classes.dex untuk menonaktifkan pemanggilan method registerReceiver API 33+
-    yang menyebabkan force close / NoSuchMethodError pada Android 12 ke bawah (termasuk Huawei P30 Pro & Tab A).
+    dan SdkExtensions API 30+ yang menyebabkan crash / NoClassDefFoundError pada Android 10 ke bawah.
+    Serta memperbaiki NullPointerException pada MainActivity.onCreate saat intent.getAction() bernilai null.
     """
     from androguard.core.dex import DEX
     
     dex_data = bytearray(dex_bytes)
     d = DEX(dex_data)
     
-    targets = [
+    void_targets = [
         ('Lnet/mikespub/mywebview/MainActivity;', 'startDownloadReceiver'),
         ('Lnet/mikespub/mywebview/MainActivity;', 'stopDownloadReceiver'),
         ('Lnet/mikespub/mywebview/MyAppWebViewClient;', 'setReceiver')
+    ]
+    
+    zero_targets = [
+        ('Landroidx/core/os/BuildCompat$Api30Impl;', 'getExtensionVersion')
     ]
     
     patched_count = 0
     for cls in d.get_classes():
         cname = cls.get_name()
         for m in cls.get_methods():
-            for target_cls, target_name in targets:
+            for target_cls, target_name in void_targets:
                 if cname == target_cls and m.get_name() == target_name:
                     if m.code_off > 0:
                         noop_method_at(dex_data, m.code_off)
                         print(f"      Patched {cname}::{m.get_name()} (off={m.code_off}) -> return-void + nop")
                         patched_count += 1
+            for target_cls, target_name in zero_targets:
+                if cname == target_cls and m.get_name() == target_name:
+                    if m.code_off > 0:
+                        patch_return_zero_at(dex_data, m.code_off)
+                        print(f"      Patched {cname}::{m.get_name()} (off={m.code_off}) -> return-0 + nop")
+                        patched_count += 1
+            if cname == 'Lnet/mikespub/mywebview/MainActivity;' and m.get_name() == 'onCreate':
+                # Patch NPE: saat app diluncurkan dari home screen / am start, intent.getAction() bisa bernilai null.
+                # Bytecode aslinya memanggil v2.equals(v3) di mana v2 adalah intent.getAction() dan v3 adalah "android.intent.action.VIEW".
+                # Karena v2 null, pemanggilan ini melempar NullPointerException.
+                # Dengan mengubah argument registers (0x32 -> 0x23), bytecode menjadi v3.equals(v2),
+                # yaitu "android.intent.action.VIEW".equals(action), yang aman mengembalikan false jika action null tanpa crash!
+                if m.code_off > 0:
+                    code = m.get_code()
+                    if code:
+                        curr_off = m.code_off + 16
+                        for ins in code.get_bc().get_instructions():
+                            raw = ins.get_raw()
+                            if len(raw) == 6 and raw[0] == 0x6e and raw[1] == 0x20 and raw[2] == 0x21 and raw[3] == 0x6e and raw[4] == 0x32:
+                                dex_data[curr_off + 4] = 0x23
+                                print(f"      Patched {cname}::{m.get_name()} (off={curr_off}) -> swapped equals registers (0x32 -> 0x23) to eliminate NPE on null action")
+                                patched_count += 1
+                            curr_off += len(raw)
                         
-    if patched_count == 0:
-        print("      WARNING: Target methods not found via DEX parser, fallback to known offsets")
-        for off in [3456172, 3456240, 3460792]:
-            noop_method_at(dex_data, off)
+    if patched_count < 4:
+        print("      Fallback patching by known offsets if any missed...")
+        # Api30Impl.getExtensionVersion known offset: 1983812
+        patch_return_zero_at(dex_data, 1983812)
+        # MainActivity.onCreate known offset: 3455420
+        if len(dex_data) > 3455425 and dex_data[3455424] == 0x32:
+            dex_data[3455424] = 0x23
+            print("      Patched MainActivity.onCreate at offset 3455424 (0x32 -> 0x23)")
             
     # Hitung ulang checksum DEX
     # 1. SHA-1 signature pada bytes 12..31 dari konten bytes 32..end
