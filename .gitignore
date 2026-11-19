@@ -29,10 +29,16 @@ yarn-error.log*
 # SQLite Databases & Backups
 prisma/*.db
 prisma/*.db-journal
+prisma/*.bak
 backups/*.sqlite
 backups/*.db
 backups/*.json
 !backups/.gitkeep
+
+# APK build artifacts
+template.apk
+*.apk.idsig
+
 
 # typescript
 *.tsbuildinfo

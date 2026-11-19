@@ -71,3 +71,4 @@ export async function setCentralVaultCash(newBalance: number, notes?: string) {
 
   return { vault: updatedVault, log };
 }
+

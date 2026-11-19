@@ -2214,6 +2214,15 @@ export default function PosTerminalPage() {
                   <span className="sm:hidden">Shift</span>
                 </Link>
               )}
+
+              <Link
+                href="/download"
+                className="flex items-center space-x-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-semibold bg-emerald-950/70 border border-emerald-600/40 text-emerald-300 hover:bg-emerald-800 hover:text-white transition shadow-2xs"
+                title="Download APK Android POS untuk Tablet/HP"
+              >
+                <span>📲</span>
+                <span className="hidden md:inline">APK</span>
+              </Link>
             </div>
           </div>
 

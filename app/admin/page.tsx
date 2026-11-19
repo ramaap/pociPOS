@@ -2092,6 +2092,15 @@ export default function AdminDashboardPage() {
             </button>
 
             <Link
+              href="/download"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600 hover:text-white transition border border-emerald-500/40"
+              title="Unduh File APK Android Real Device"
+            >
+              <span>📲</span>
+              <span className="hidden sm:inline">Unduh APK</span>
+            </Link>
+
+            <Link
               href="/"
               className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
             >
