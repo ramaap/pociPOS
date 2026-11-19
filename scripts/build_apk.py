@@ -2,6 +2,10 @@ import os
 import sys
 import zipfile
 import json
+import io
+import struct
+import base64
+from PIL import Image, ImageDraw
 from sign_apk import keys as keysmod
 from sign_apk.signer import sign_apk
 from sign_apk.verify import verify_apk
@@ -12,21 +16,58 @@ OUTPUT_APK = os.path.join(BASE_DIR, "public", "KasirTehPoci.apk")
 KEY_PEM = os.path.join(BASE_DIR, "scripts", "tehpoci-key.pem")
 CERT_CRT = os.path.join(BASE_DIR, "scripts", "tehpoci-cert.crt")
 TEMP_UNSIGNED = os.path.join(BASE_DIR, "scripts", "temp_unsigned.apk")
+USER_ICON_PATH = r"C:/Users/acer/.gemini/antigravity/brain/9cc57ad6-e5ad-4316-8f44-7f59ae480ea2/.user_uploaded/media_1795068383082_998ae90d.jpg"
 
 TARGET_URL = "https://kasir.ya-kasir-tehpoci.my.id"
 
-REDIRECT_HTML = """<!DOCTYPE html>
+def generate_icons():
+    """Menghasilkan icon berkualitas tinggi dengan masking circular transparan"""
+    print("[1/5] Memproses icon aplikasi dari gambar Teh Poci YA!...")
+    img = Image.open(USER_ICON_PATH).convert("RGBA")
+    
+    # Buat circular mask anti-alias dengan 4x supersampling
+    mask = Image.new("L", (512 * 4, 512 * 4), 0)
+    draw = ImageDraw.Draw(mask)
+    draw.ellipse((0, 0, 512 * 4 - 1, 512 * 4 - 1), fill=255)
+    mask = mask.resize((512, 512), Image.Resampling.LANCZOS)
+    
+    img_512 = img.resize((512, 512), Image.Resampling.LANCZOS)
+    img_512.putalpha(mask)
+    
+    # Simpan ke assets web & PWA
+    img_512.save(os.path.join(BASE_DIR, "public", "icon-512.png"))
+    img_192 = img_512.resize((192, 192), Image.Resampling.LANCZOS)
+    img_192.save(os.path.join(BASE_DIR, "public", "icon-192.png"))
+    img_64 = img_512.resize((64, 64), Image.Resampling.LANCZOS)
+    img_64.save(os.path.join(BASE_DIR, "public", "favicon.png"))
+    
+    # Format JPEG untuk fallback logo
+    img_rgb = img.convert("RGB").resize((512, 512), Image.Resampling.LANCZOS)
+    img_rgb.save(os.path.join(BASE_DIR, "public", "logo-poci.jpg"), quality=95)
+    img_512.save(os.path.join(BASE_DIR, "public", "logo.png"))
+
+    buf_512 = io.BytesIO()
+    img_512.save(buf_512, format="PNG")
+    png_bytes = buf_512.getvalue()
+
+    # Base64 untuk splash screen HTML
+    b64_icon = base64.b64encode(png_bytes).decode("ascii")
+    print(f"      Icon 512x512 RGBA berhasil dibuat ({len(png_bytes)} bytes)")
+    return png_bytes, b64_icon
+
+def get_redirect_html(b64_icon):
+    return f"""<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Kasir Teh Poci</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body, html {
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body, html {{
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #064e3b 0%, #047857 100%);
+            background: linear-gradient(135deg, #7f1d1d 0%, #b91c1c 40%, #064e3b 100%);
             color: #ffffff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
@@ -36,112 +77,104 @@ REDIRECT_HTML = """<!DOCTYPE html>
             text-align: center;
             padding: 24px;
             overflow: hidden;
-        }
-        .card {
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+        }}
+        .card {{
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 28px;
-            padding: 36px 28px;
-            max-width: 420px;
+            padding: 32px 24px;
+            max-width: 400px;
             width: 100%;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
             display: flex;
             flex-direction: column;
             align-items: center;
-        }
-        .icon-circle {
-            width: 80px;
-            height: 80px;
+        }}
+        .logo-img {{
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            margin-bottom: 18px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            animation: pulse 2s infinite ease-in-out;
             background: #ffffff;
-            border-radius: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 40px;
-            margin-bottom: 20px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-            animation: bounce 2s infinite ease-in-out;
-        }
-        h1 {
-            font-size: 24px;
+        }}
+        h1 {{
+            font-size: 22px;
             font-weight: 800;
             letter-spacing: 0.5px;
-            margin-bottom: 8px;
-            color: #ffffff;
-        }
-        p {
-            font-size: 14px;
-            color: #a7f3d0;
-            margin-bottom: 28px;
+            margin-bottom: 6px;
+            color: #fef08a;
+        }}
+        p {{
+            font-size: 13px;
+            color: #f1f5f9;
+            margin-bottom: 24px;
             font-weight: 500;
-        }
-        .spinner {
-            width: 46px;
-            height: 46px;
+        }}
+        .spinner {{
+            width: 42px;
+            height: 42px;
             border: 4px solid rgba(255, 255, 255, 0.2);
-            border-top: 4px solid #34d399;
+            border-top: 4px solid #facc15;
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
-            margin-bottom: 16px;
-        }
-        .status-txt {
-            font-size: 13px;
-            color: #d1fae5;
+            margin-bottom: 14px;
+        }}
+        .status-txt {{
+            font-size: 12px;
+            color: #e2e8f0;
             letter-spacing: 0.3px;
-        }
-        .btn-launch {
+        }}
+        .btn-launch {{
             display: none;
-            margin-top: 24px;
-            padding: 14px 28px;
-            background: #f59e0b;
-            color: #111827;
-            font-weight: 700;
-            font-size: 15px;
-            border-radius: 14px;
+            margin-top: 20px;
+            padding: 12px 28px;
+            background: #facc15;
+            color: #78350f;
+            font-weight: 800;
+            font-size: 14px;
+            border-radius: 12px;
             border: none;
             cursor: pointer;
-            box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);
+            box-shadow: 0 4px 14px rgba(250, 204, 21, 0.4);
             text-decoration: none;
-            transition: transform 0.1s ease;
-        }
-        .btn-launch:active {
-            transform: scale(0.97);
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-6px); }
-        }
+        }}
+        @keyframes spin {{
+            to {{ transform: rotate(360deg); }}
+        }}
+        @keyframes pulse {{
+            0%, 100% {{ transform: scale(1); }}
+            50% {{ transform: scale(1.04); }}
+        }}
     </style>
 </head>
 <body>
     <div class="card">
-        <div class="icon-circle">🍵</div>
+        <img class="logo-img" src="data:image/png;base64,{b64_icon}" alt="Teh Poci YA!" />
         <h1>Kasir Teh Poci</h1>
-        <p>Terminal POS & Manajemen Bahan Baku</p>
+        <p>Terminal POS Multi-Kedai & Stok</p>
         <div class="spinner" id="spinner"></div>
-        <div class="status-txt" id="status">Menghubungkan ke terminal kasir...</div>
+        <div class="status-txt" id="status">Menghubungkan ke server kasir...</div>
         <button id="btnLaunch" class="btn-launch" onclick="redirectNow()">Buka Kasir Sekarang</button>
     </div>
 
     <script>
         const APP_URL = "https://kasir.ya-kasir-tehpoci.my.id";
 
-        function redirectNow() {
+        function redirectNow() {{
             window.location.replace(APP_URL);
-        }
+        }}
 
-        // Segera navigasi ke aplikasi kasir
-        setTimeout(redirectNow, 350);
+        // Segera navigasi ke sistem kasir
+        setTimeout(redirectNow, 300);
 
-        // Jika koneksi lambat, berikan tombol fallback manual
-        setTimeout(function() {
-            document.getElementById('status').innerText = "Sedang memuat server cloud...";
+        // Fallback tombol manual jika koneksi lambat
+        setTimeout(function() {{
+            document.getElementById('status').innerText = "Sedang membuka halaman kasir...";
             document.getElementById('btnLaunch').style.display = 'block';
-        }, 2500);
+        }}, 2500);
     </script>
 </body>
 </html>
@@ -175,55 +208,98 @@ SETTINGS_JSON = {
         "DatabaseEnabled": True
     },
     "source": "assets",
-    "timestamp": "2026-11-19T12:00:00Z"
+    "timestamp": "2026-11-19T13:00:00Z"
 }
+
+def patch_min_sdk(axml_data, new_min_sdk=21):
+    """Mengubah minSdkVersion dari 31 ke 21 (Android 5.0+) secara biner di AndroidManifest.xml"""
+    reader = io.BytesIO(axml_data)
+    magic, size = struct.unpack('<II', reader.read(8))
+    strings = []
+    min_sdk_idx = -1
+    while reader.tell() < size:
+        chunk_type, chunk_size = struct.unpack('<II', reader.read(8))
+        chunk_data = reader.read(chunk_size - 8)
+        if chunk_type == 0x001C0001:
+            str_count, style_count, flags, str_offset, style_offset = struct.unpack('<IIIII', chunk_data[:20])
+            is_utf8 = bool(flags & (1 << 8))
+            offsets = struct.unpack(f'<{str_count}I', chunk_data[20:20+str_count*4])
+            str_data = chunk_data[str_offset-8:]
+            for i, off in enumerate(offsets):
+                if is_utf8:
+                    l = str_data[off+1]
+                    s = str_data[off+2:off+2+l].decode('utf-8', errors='ignore')
+                else:
+                    l = struct.unpack('<H', str_data[off:off+2])[0]
+                    s = str_data[off+2:off+2+l*2].decode('utf-16le', errors='ignore')
+                strings.append(s)
+                if s == 'minSdkVersion':
+                    min_sdk_idx = i
+        elif chunk_type == 0x00100102:
+            attr_count = struct.unpack_from('<H', chunk_data, 20)[0]
+            name_idx = struct.unpack_from('<I', chunk_data, 12)[0]
+            tag_name = strings[name_idx] if name_idx < len(strings) else ''
+            if tag_name == 'uses-sdk':
+                chunk_start = reader.tell() - (chunk_size - 8)
+                attrs_start = chunk_start + 28
+                for i in range(attr_count):
+                    attr_offset = attrs_start + i * 20
+                    a_name = struct.unpack_from('<I', axml_data, attr_offset + 4)[0]
+                    if a_name == min_sdk_idx:
+                        old_val = struct.unpack_from('<I', axml_data, attr_offset + 16)[0]
+                        print(f"      Ditemukan minSdkVersion: {old_val} -> Diubah ke: {new_min_sdk} (Android 5.0 - 14+)")
+                        struct.pack_into('<I', axml_data, attr_offset + 16, new_min_sdk)
+                        return True
+    return False
 
 def get_or_create_keys():
     if os.path.exists(KEY_PEM) and os.path.exists(CERT_CRT):
-        print(f"[1/4] Memuat signing key yang ada: {KEY_PEM}")
-        return keysmod.load_pem(KEY_PEM, CERT_CRT)
+        print(f"[2/5] Memuat signing key: {KEY_PEM}")
+        return keysmod.load_pem(KEY_PEM, CERT_CRT, None)
     else:
-        print(f"[1/4] Membuat signing key baru untuk Teh Poci POS...")
+        print(f"[2/5] Membuat signing key baru untuk Teh Poci POS...")
         key_material = keysmod.generate_debug_key(common_name="Teh Poci POS Release", key_size=2048)
         keysmod.save_pem(key_material, KEY_PEM, CERT_CRT)
         print(f"      Key tersimpan di {KEY_PEM}")
         return key_material
 
 def build_apk():
-    print(f"--- MULAI BUILD APK KASIR TEH POCI ---")
-    if not os.path.exists(TEMPLATE_APK):
-        print(f"ERROR: Template APK tidak ditemukan di {TEMPLATE_APK}")
+    print("=== MULAI BUILD APK KASIR TEH POCI (HUAWEI & TAB COMPATIBLE) ===")
+    
+    source_apk = TEMPLATE_APK if os.path.exists(TEMPLATE_APK) else OUTPUT_APK
+    if not os.path.exists(source_apk):
+        print(f"ERROR: File sumber APK tidak ditemukan di {source_apk}")
         sys.exit(1)
 
+    icon_png_bytes, b64_icon = generate_icons()
     key_material = get_or_create_keys()
 
-    print("[2/4] Melakukan modifikasi aset APK...")
-    html_bytes = REDIRECT_HTML.encode("utf-8")
+    print("[3/5] Memodifikasi aset APK, icon aplikasi, dan minSdkVersion...")
+    redirect_html_bytes = get_redirect_html(b64_icon).encode("utf-8")
     settings_bytes = json.dumps(SETTINGS_JSON, indent=2).encode("utf-8")
 
     redirect_files = {
-        "assets/web/index.html": html_bytes,
-        "assets/web/about.html": html_bytes,
-        "assets/web/deeplinks.html": html_bytes,
-        "assets/web/result.html": html_bytes,
-        "assets/web/update.html": html_bytes,
-        "assets/web/privacy.html": html_bytes,
-        "assets/local/index.html": html_bytes,
-        "assets/local/result.html": html_bytes,
-        "assets/local/sites.html": html_bytes,
+        "assets/web/index.html": redirect_html_bytes,
+        "assets/web/about.html": redirect_html_bytes,
+        "assets/web/deeplinks.html": redirect_html_bytes,
+        "assets/web/result.html": redirect_html_bytes,
+        "assets/web/update.html": redirect_html_bytes,
+        "assets/web/privacy.html": redirect_html_bytes,
+        "assets/local/index.html": redirect_html_bytes,
+        "assets/local/result.html": redirect_html_bytes,
+        "assets/local/sites.html": redirect_html_bytes,
         "assets/settings.json": settings_bytes
     }
 
-    with zipfile.ZipFile(TEMPLATE_APK, "r") as src_zip:
+    with zipfile.ZipFile(source_apk, "r") as src_zip:
         with zipfile.ZipFile(TEMP_UNSIGNED, "w") as dst_zip:
             for item in src_zip.infolist():
                 filename = item.filename
                 
-                # Lewati signature file lama jika ada
+                # Lewati signature lama
                 if filename.startswith("META-INF/") and filename.upper().endswith((".SF", ".RSA", ".DSA", ".EC")):
                     continue
 
-                # Salin ZipInfo dasar
                 new_info = zipfile.ZipInfo(filename)
                 new_info.compress_type = item.compress_type
                 new_info.date_time = item.date_time
@@ -231,18 +307,32 @@ def build_apk():
 
                 if filename in redirect_files:
                     dst_zip.writestr(new_info, redirect_files[filename])
+                elif filename == "AndroidManifest.xml":
+                    manifest_data = bytearray(src_zip.read(filename))
+                    patch_min_sdk(manifest_data, new_min_sdk=21)
+                    dst_zip.writestr(new_info, bytes(manifest_data))
                 elif filename == "resources.arsc":
                     arsc_data = src_zip.read(filename)
-                    # Ganti "My WebView" dengan "Kasir Poci" (panjang sama persis: 10 byte)
-                    arsc_data_mod = arsc_data.replace(b"My WebView", b"Kasir Poci")
-                    dst_zip.writestr(new_info, arsc_data_mod)
+                    # 1. Ganti nama aplikasi
+                    arsc_data = arsc_data.replace(b"My WebView", b"Kasir Poci")
+                    # 2. Ganti icon XML menjadi direct PNG logo
+                    arsc_data = arsc_data.replace(b"res/0K.xml", b"res/0K.png")
+                    arsc_data = arsc_data.replace(b"res/BW.xml", b"res/BW.png")
+                    arsc_data = arsc_data.replace(b"res/Qr.xml", b"res/Qr.png")
+                    dst_zip.writestr(new_info, arsc_data)
                 else:
                     data = src_zip.read(filename)
                     dst_zip.writestr(new_info, data)
 
-    print(f"      Unsigned APK berhasil dibuat: {TEMP_UNSIGNED} ({os.path.getsize(TEMP_UNSIGNED)} bytes)")
+            # Tambahkan PNG icon ke res/0K.png, res/BW.png, res/Qr.png
+            for icon_name in ["res/0K.png", "res/BW.png", "res/Qr.png"]:
+                icon_info = zipfile.ZipInfo(icon_name)
+                icon_info.compress_type = zipfile.ZIP_DEFLATED
+                dst_zip.writestr(icon_info, icon_png_bytes)
 
-    print("[3/4] Melakukan penandatanganan (Signing v2 + v3 Scheme)...")
+    print(f"      Unsigned APK dibuat: {TEMP_UNSIGNED} ({os.path.getsize(TEMP_UNSIGNED)} bytes)")
+
+    print("[4/5] Melakukan penandatanganan resmi (v2 + v3 Scheme, minSdkVersion 21)...")
     os.makedirs(os.path.dirname(OUTPUT_APK), exist_ok=True)
     sign_result = sign_apk(
         input_path=TEMP_UNSIGNED,
@@ -250,18 +340,17 @@ def build_apk():
         key_material=key_material,
         v2=True,
         v3=True,
-        min_sdk_version=24
+        min_sdk_version=21
     )
     print(f"      Sign sukses: v2={sign_result['v2']}, v3={sign_result['v3']}")
     print(f"      File output: {OUTPUT_APK} ({os.path.getsize(OUTPUT_APK)} bytes)")
 
-    print("[4/4] Memverifikasi integritas APK...")
+    print("[5/5] Memverifikasi integritas APK...")
     verify_result = verify_apk(OUTPUT_APK)
     print(f"      Verifikasi: VALID (APK Signature Scheme {'+'.join(verify_result['schemes'])})")
     for signer in verify_result['signers']:
         print(f"      Signer: {signer['scheme']} -> {signer['subject']}")
 
-    # Hapus file temporary unsigned
     if os.path.exists(TEMP_UNSIGNED):
         os.remove(TEMP_UNSIGNED)
 
