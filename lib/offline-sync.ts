@@ -8,6 +8,8 @@ export interface OfflineTransaction {
     productName: string;
     quantity: number;
     price: number;
+    sugarLevel?: string;
+    isPromoFree?: boolean;
   }[];
   paymentMethod: "QRIS" | "Cash";
   totalAmount: number;
@@ -68,6 +70,9 @@ export const syncPendingTransactions = async (): Promise<{
           items: item.items.map((i) => ({
             productId: i.productId,
             quantity: i.quantity,
+            unitPrice: i.price !== undefined ? i.price : undefined,
+            isPromoFree: !!i.isPromoFree,
+            sugarLevel: (i.sugarLevel as any) || "normal",
           })),
           paymentMethod: item.paymentMethod,
           offlineId: item.offlineId,

@@ -30,9 +30,10 @@ export async function GET() {
         let todayExpenseTotal = 0;
 
         if (!isShiftClosed) {
-          // Total cup terjual pada shift aktif
+          // Total cup terjual pada shift aktif (hanya cup berbayar, promo gratis dikecualikan dari target)
           const todayItems = await prisma.transactionItem.findMany({
             where: {
+              unit_price: { gt: 0 },
               transaction: {
                 outlet_id: outlet.id,
                 created_at: { gte: shiftStartTime },

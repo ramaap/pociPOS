@@ -1791,6 +1791,11 @@ export default function PosTerminalPage() {
 
     startTransition(async () => {
       const totalCartCups = expandedCart.reduce((acc, curr) => acc + curr.quantity, 0);
+      // Cup berbayar yang memenuhi syarat capaian target karyawan (promo gratis / voucher dikecualikan)
+      const targetEligibleCups = expandedCart
+        .filter((i) => !i.isPromoFree && !i.isPromoVoucher && (i.product?.price || 0) > 0)
+        .reduce((acc, curr) => acc + curr.quantity, 0);
+
       const payloadItems = expandedCart.map((i) => ({
         productId: i.product.id,
         quantity: i.quantity,
@@ -1850,7 +1855,11 @@ export default function PosTerminalPage() {
           });
         }
         deductBrewLiquidForCart(cart);
-        setTodayCupsSold((prev) => prev + totalCartCups);
+        setTodayCupsSold((prev) => {
+          const updated = prev + targetEligibleCups;
+          localStorage.setItem("cached_poci_today_cups_" + selectedOutletId, String(updated));
+          return updated;
+        });
         setPendingSyncCount(getPendingTransactions().length);
         setCompletedReceipt(receiptToPrint);
         setCheckoutSuccess(true);
@@ -1887,7 +1896,11 @@ export default function PosTerminalPage() {
             });
           }
           deductBrewLiquidForCart(cart);
-          setTodayCupsSold((prev) => prev + totalCartCups);
+          setTodayCupsSold((prev) => {
+            const updated = prev + targetEligibleCups;
+            localStorage.setItem("cached_poci_today_cups_" + selectedOutletId, String(updated));
+            return updated;
+          });
           setLastDeductions(data.inventoryDeductions || []);
           setCompletedReceipt(receiptToPrint);
           setCheckoutSuccess(true);
@@ -1935,7 +1948,11 @@ export default function PosTerminalPage() {
           totalAmount,
         });
         deductBrewLiquidForCart(cart);
-        setTodayCupsSold((prev) => prev + totalCartCups);
+        setTodayCupsSold((prev) => {
+          const updated = prev + targetEligibleCups;
+          localStorage.setItem("cached_poci_today_cups_" + selectedOutletId, String(updated));
+          return updated;
+        });
         setPendingSyncCount(getPendingTransactions().length);
         setCompletedReceipt(receiptToPrint);
         setCheckoutSuccess(true);
