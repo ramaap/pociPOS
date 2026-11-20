@@ -23,6 +23,7 @@ model Outlet {
   shiftClosings  ShiftClosing[]
   outletProducts OutletProduct[]
   expenses       Expense[]
+  fixedCosts     FixedCost[]
   sugarRefillLogs SugarRefillLog[]
   promoVouchers   PromoVoucher[]
   createdAt      DateTime        @default(now())
@@ -184,6 +185,21 @@ model Expense {
   outlet      Outlet?  @relation(fields: [outlet_id], references: [id], onDelete: SetNull)
 
   @@map("expenses")
+}
+
+model FixedCost {
+  id          String   @id @default(cuid())
+  outlet_id   String?  // null = berlaku untuk Semua Kedai (Konsolidasi)
+  name        String   // Field text dinamis: "Sewa Tempat", "Gaji Karyawan", "Listrik & Air", dll.
+  amount      Float    // Beban fix per bulan (Rp / bulan)
+  category    String   @default("operasional") // "sewa", "gaji", "utilitas", "kebersihan", "operasional", "lainnya"
+  notes       String?  // Catatan keterangan opsional
+  is_active   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  outlet      Outlet?  @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+
+  @@map("fixed_costs")
 }
 
 model SugarRefillLog {

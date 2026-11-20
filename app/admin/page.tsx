@@ -49,6 +49,7 @@ import {
   Calculator,
   Ticket,
   Copy,
+  Building2,
 } from "lucide-react";
 
 interface Outlet {
@@ -274,6 +275,28 @@ export default function AdminDashboardPage() {
   });
   const [expenseLoading, setExpenseLoading] = useState<boolean>(false);
   const [expenseMessage, setExpenseMessage] = useState<string | null>(null);
+
+  // ================= DYNAMIC FIXED OVERHEAD STATE =================
+  const [isAddFixedCostOpen, setIsAddFixedCostOpen] = useState<boolean>(false);
+  const [isEditFixedCostOpen, setIsEditFixedCostOpen] = useState<boolean>(false);
+  const [fixedCostForm, setFixedCostForm] = useState<{
+    id?: string;
+    name: string;
+    amount: string | number;
+    category: string;
+    outletId: string;
+    notes: string;
+    is_active?: boolean;
+  }>({
+    name: "",
+    amount: "",
+    category: "sewa",
+    outletId: "all",
+    notes: "",
+    is_active: true,
+  });
+  const [fixedCostLoading, setFixedCostLoading] = useState<boolean>(false);
+  const [fixedCostMessage, setFixedCostMessage] = useState<string | null>(null);
 
   // ================= TAB 3: OUTLET MANAGEMENT STATE =================
   const [outletsList, setOutletsList] = useState<any[]>([]);
@@ -762,6 +785,111 @@ export default function AdminDashboardPage() {
       }
     } catch (err) {
       console.error("Gagal membersihkan pengeluaran", err);
+    }
+  };
+
+  const handleAddFixedCost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fixedCostForm.name.trim() || !fixedCostForm.amount || Number(fixedCostForm.amount) <= 0) {
+      setFixedCostMessage("Nama beban tetap dan nominal per bulan wajib diisi dengan benar.");
+      return;
+    }
+    setFixedCostLoading(true);
+    setFixedCostMessage(null);
+    try {
+      const res = await fetch("/api/admin/financial-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add_fixed_cost",
+          name: fixedCostForm.name.trim(),
+          amount: Number(fixedCostForm.amount),
+          category: fixedCostForm.category,
+          outletId: fixedCostForm.outletId,
+          notes: fixedCostForm.notes,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setIsAddFixedCostOpen(false);
+        setFixedCostForm({ name: "", amount: "", category: "sewa", outletId: "all", notes: "", is_active: true });
+        loadFinancialReport(financeOutlet, financePeriod);
+      } else {
+        setFixedCostMessage(json.error || "Gagal menambahkan beban tetap");
+      }
+    } catch (err: any) {
+      setFixedCostMessage(err.message || "Gagal terhubung ke server");
+    } finally {
+      setFixedCostLoading(false);
+    }
+  };
+
+  const handleEditFixedCost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fixedCostForm.id || !fixedCostForm.name.trim() || !fixedCostForm.amount || Number(fixedCostForm.amount) <= 0) {
+      setFixedCostMessage("Nama beban dan nominal biaya bulanan wajib diisi dengan benar.");
+      return;
+    }
+    setFixedCostLoading(true);
+    setFixedCostMessage(null);
+    try {
+      const res = await fetch("/api/admin/financial-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "edit_fixed_cost",
+          id: fixedCostForm.id,
+          name: fixedCostForm.name.trim(),
+          amount: Number(fixedCostForm.amount),
+          category: fixedCostForm.category,
+          outletId: fixedCostForm.outletId,
+          notes: fixedCostForm.notes,
+          is_active: fixedCostForm.is_active,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setIsEditFixedCostOpen(false);
+        setFixedCostForm({ name: "", amount: "", category: "sewa", outletId: "all", notes: "", is_active: true });
+        loadFinancialReport(financeOutlet, financePeriod);
+      } else {
+        setFixedCostMessage(json.error || "Gagal mengupdate beban tetap");
+      }
+    } catch (err: any) {
+      setFixedCostMessage(err.message || "Gagal terhubung ke server");
+    } finally {
+      setFixedCostLoading(false);
+    }
+  };
+
+  const handleDeleteFixedCost = async (id: string, name: string) => {
+    if (!confirm(`Hapus beban tetap "${name}"? Perhitungan laba rugi akan otomatis disesuaikan.`)) return;
+    try {
+      const res = await fetch("/api/admin/financial-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_fixed_cost", id }),
+      });
+      if (res.ok) {
+        loadFinancialReport(financeOutlet, financePeriod);
+      }
+    } catch (err) {
+      console.error("Gagal menghapus beban tetap", err);
+    }
+  };
+
+  const handleToggleFixedCost = async (id: string, currentStatus: boolean) => {
+    try {
+      const res = await fetch("/api/admin/financial-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "toggle_fixed_cost", id, is_active: !currentStatus }),
+      });
+      if (res.ok) {
+        loadFinancialReport(financeOutlet, financePeriod);
+      }
+    } catch (err) {
+      console.error("Gagal mengubah status beban tetap", err);
     }
   };
 
@@ -2887,8 +3015,8 @@ export default function AdminDashboardPage() {
                         )}
                       </h3>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-2 font-mono truncate" title={`HPP: ${formatRupiah(financeData?.summary?.totalHPP || 0)} | Beban: ${formatRupiah(financeData?.summary?.totalExpenses || 0)}`}>
-                      HPP: {formatRupiah(financeData?.summary?.totalHPP || 0)}
+                    <p className="text-[11px] text-slate-500 mt-2 font-mono truncate" title={`HPP: ${formatRupiah(financeData?.summary?.totalHPP || 0)} | Beban Tetap: ${formatRupiah(financeData?.summary?.totalFixedExpenses || 0)} | Beban Harian: ${formatRupiah(financeData?.summary?.totalVariableExpenses || 0)}`}>
+                      HPP: {formatRupiah(financeData?.summary?.totalHPP || 0)} • Beban: {formatRupiah(financeData?.summary?.totalExpenses || 0)}
                     </p>
                   </div>
                 </div>
@@ -3616,31 +3744,108 @@ export default function AdminDashboardPage() {
 
                       {/* Laba Kotor */}
                       <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 text-emerald-900">
-                        <span className="font-bold font-sans">3. Laba Kotor Usaha (Gross Profit)</span>
+                        <div>
+                          <span className="font-bold font-sans block">3. Laba Kotor Usaha (Gross Profit)</span>
+                          <span className="text-[10px] text-emerald-700 font-sans font-medium">
+                            Gross Margin: {financeData?.summary?.grossMarginPercent || 0}%
+                          </span>
+                        </div>
                         <span className="font-black text-base">
                           {formatRupiah(financeData?.summary?.grossProfit || 0)}
                         </span>
                       </div>
 
-                      {/* Beban Operasional */}
+                      {/* Beban Operasional Variabel (Harian) */}
                       <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50/60 text-amber-900">
-                        <span className="font-bold font-sans">4. Beban &amp; Pengeluaran Operasional Toko</span>
+                        <div>
+                          <span className="font-bold font-sans block">4. Beban Operasional Harian (Variable Costs)</span>
+                          <span className="text-[10px] text-amber-700 font-sans font-normal">
+                            Belanja es batu kristal, gas LPG, kantong kresek, logistik harian kedai
+                          </span>
+                        </div>
                         <span className="font-bold text-sm">
+                          - {formatRupiah(financeData?.summary?.totalVariableExpenses ?? 0)}
+                        </span>
+                      </div>
+
+                      {/* Beban Tetap Bulanan (Fixed Overhead Costs) */}
+                      <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-150 text-indigo-950 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-bold font-sans flex items-center gap-1.5 text-xs">
+                              <Building2 className="w-3.5 h-3.5 text-indigo-700" />
+                              5. Beban Tetap Bulanan Terhitung ({financeData?.summary?.periodDays || 30} Hari)
+                            </span>
+                            <span className="text-[10px] text-indigo-600 font-sans font-normal block">
+                              Alokasi sewa tempat, gaji karyawan, listrik/air ({formatRupiah(financeData?.summary?.totalMonthlyFixedCost || 0)}/bulan)
+                            </span>
+                          </div>
+                          <span className="font-bold text-sm text-indigo-900">
+                            - {formatRupiah(financeData?.summary?.totalFixedExpenses ?? 0)}
+                          </span>
+                        </div>
+
+                        {/* Rincian Komponen Beban Tetap Terhitung */}
+                        {financeData?.fixedCostBreakdown && financeData.fixedCostBreakdown.length > 0 && (
+                          <div className="pt-2 border-t border-indigo-200/60 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-[11px]">
+                            {financeData.fixedCostBreakdown.map((fc: any) => (
+                              <div
+                                key={fc.id}
+                                className="bg-white/80 px-2.5 py-1.5 rounded-lg border border-indigo-200/80 flex items-center justify-between gap-1"
+                              >
+                                <span className="font-sans font-bold text-slate-700 truncate" title={fc.name}>
+                                  {fc.name}
+                                </span>
+                                <span className="font-mono font-bold text-indigo-800 shrink-0">
+                                  {formatRupiah(fc.amountProrated)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Total Beban Usaha */}
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-rose-50/60 text-rose-900 text-xs">
+                        <span className="font-bold font-sans">Total Beban Usaha (Variabel + Tetap)</span>
+                        <span className="font-bold font-mono">
                           - {formatRupiah(financeData?.summary?.totalExpenses || 0)}
                         </span>
                       </div>
 
-                      {/* Laba Bersih */}
-                      <div className="flex items-center justify-between p-4 rounded-xl bg-slate-900 text-white">
+                      {/* Laba Bersih Komprehensif (Net Profit / Loss) */}
+                      <div
+                        className={`flex items-center justify-between p-4 rounded-xl text-white ${
+                          (financeData?.summary?.netProfit || 0) >= 0 ? "bg-slate-900" : "bg-rose-950 border border-rose-800"
+                        }`}
+                      >
                         <div>
-                          <p className="font-black font-sans text-sm">5. Laba Bersih Berjalan (Net Profit)</p>
-                          <p className="text-[10px] text-slate-400 font-sans font-normal">
-                            Pendapatan setelah dikurangi HPP bahan dan biaya operasional
+                          <p className="font-black font-sans text-sm flex items-center gap-1.5">
+                            {(financeData?.summary?.netProfit || 0) >= 0 ? (
+                              <span className="text-emerald-400">🟢 6. Laba Bersih Berjalan (Net Profit)</span>
+                            ) : (
+                              <span className="text-rose-400">🔴 6. Defisit / Rugi Bersih Berjalan (Net Loss)</span>
+                            )}
+                          </p>
+                          <p className="text-[10px] text-slate-300 font-sans font-normal">
+                            {(financeData?.summary?.netProfit || 0) >= 0
+                              ? "Laba bersih riil setelah dikurangi HPP bahan baku, beban harian, dan beban tetap bulanan"
+                              : "Perhatian: Total beban operasional & HPP melampaui pendapatan pada periode ini"}
                           </p>
                         </div>
-                        <span className="font-black text-xl text-emerald-400">
-                          {formatRupiah(financeData?.summary?.netProfit || 0)}
-                        </span>
+                        <div className="text-right">
+                          <span
+                            className={`font-black text-xl ${
+                              (financeData?.summary?.netProfit || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+                            }`}
+                          >
+                            {(financeData?.summary?.netProfit || 0) >= 0 ? "+" : ""}
+                            {formatRupiah(financeData?.summary?.netProfit || 0)}
+                          </span>
+                          <span className="block text-[10px] text-slate-300 font-sans font-bold">
+                            Net Margin: {financeData?.summary?.netMarginPercent || 0}%
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -3843,18 +4048,183 @@ export default function AdminDashboardPage() {
                 </div>
               )}
 
-              {/* MODULE: CATATAN BIAYA & BEBAN (EXPENSES) */}
+              {/* MODULE: CATATAN BIAYA & BEBAN (EXPENSES & FIXED OVERHEAD) */}
               {financeModule === "expenses" && (
                 <div className="space-y-6">
+                  {/* SEKSI 1: BEBAN & BIAYA TETAP BULANAN (DYNAMIC FIXED COSTS) */}
+                  <div className="bg-white rounded-2xl border border-indigo-150 p-5 shadow-xs space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                      <div>
+                        <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-indigo-600" />
+                          Beban &amp; Biaya Tetap Bulanan (Dynamic Fixed Costs)
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          Beban rutin (sewa booth, gaji kasir, listrik, air, wifi, dll.) yang dapat diedit bebas dan otomatis dihitung ke rugi laba bulanan
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setFixedCostMessage(null);
+                            setFixedCostForm({
+                              name: "",
+                              amount: "",
+                              category: "sewa",
+                              outletId: financeOutlet === "all" ? "all" : financeOutlet,
+                              notes: "",
+                              is_active: true,
+                            });
+                            setIsAddFixedCostOpen(true);
+                          }}
+                          className="px-3.5 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>+ Tambah Beban Tetap</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Ringkasan Biaya Tetap */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-indigo-50/60 border border-indigo-100 text-xs">
+                      <div>
+                        <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
+                          Total Beban Tetap per Bulan
+                        </span>
+                        <span className="text-lg font-black font-mono text-indigo-950 mt-0.5 block">
+                          {formatRupiah(financeData?.summary?.totalMonthlyFixedCost || 0)}
+                          <span className="text-xs font-normal text-indigo-700"> /bln</span>
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
+                          Estimasi Beban Tetap Harian
+                        </span>
+                        <span className="text-lg font-black font-mono text-indigo-950 mt-0.5 block">
+                          {formatRupiah(financeData?.summary?.dailyFixedCost || 0)}
+                          <span className="text-xs font-normal text-indigo-700"> /hari</span>
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
+                          Terhitung di Periode ({financeData?.summary?.periodDays || 30} Hari)
+                        </span>
+                        <span className="text-lg font-black font-mono text-indigo-950 mt-0.5 block">
+                          {formatRupiah(financeData?.summary?.totalFixedExpenses || 0)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Tabel Beban Tetap */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                            <th className="py-2.5 px-3">Nama Beban Tetap</th>
+                            <th className="py-2.5 px-3">Kategori</th>
+                            <th className="py-2.5 px-3">Kedai / Alokasi</th>
+                            <th className="py-2.5 px-3 text-right">Biaya / Bulan</th>
+                            <th className="py-2.5 px-3 text-right">Biaya / Hari</th>
+                            <th className="py-2.5 px-3">Catatan</th>
+                            <th className="py-2.5 px-3 text-center">Status</th>
+                            <th className="py-2.5 px-3 text-center">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {!financeData?.fixedCosts || financeData.fixedCosts.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="py-8 text-center text-slate-400">
+                                Belum ada komponen beban tetap yang diatur. Klik &quot;+ Tambah Beban Tetap&quot; untuk menambahkan.
+                              </td>
+                            </tr>
+                          ) : (
+                            financeData.fixedCosts.map((fc: any) => (
+                              <tr key={fc.id} className="hover:bg-slate-50/70 transition">
+                                <td className="py-2.5 px-3 font-bold text-slate-900">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
+                                    <span>{fc.name}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 capitalize">
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-100">
+                                    {fc.category || "operasional"}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-700 font-medium">
+                                  {fc.outlet?.name || "Semua Kedai (Konsolidasi)"}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono font-bold text-indigo-900 text-xs">
+                                  {formatRupiah(fc.amount)}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono text-slate-600 text-[11px]">
+                                  {formatRupiah(fc.dailyAmount || Math.round(fc.amount / 30))}
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[180px] truncate" title={fc.notes || ""}>
+                                  {fc.notes || "-"}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <button
+                                    onClick={() => handleToggleFixedCost(fc.id, fc.is_active)}
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition ${
+                                      fc.is_active
+                                        ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                    }`}
+                                    title="Klik untuk mengubah status aktif"
+                                  >
+                                    {fc.is_active ? "Aktif" : "Nonaktif"}
+                                  </button>
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <button
+                                      onClick={() => {
+                                        setFixedCostMessage(null);
+                                        setFixedCostForm({
+                                          id: fc.id,
+                                          name: fc.name,
+                                          amount: fc.amount,
+                                          category: fc.category || "operasional",
+                                          outletId: fc.outlet_id || "all",
+                                          notes: fc.notes || "",
+                                          is_active: fc.is_active,
+                                        });
+                                        setIsEditFixedCostOpen(true);
+                                      }}
+                                      className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+                                      title="Edit Beban Tetap"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteFixedCost(fc.id, fc.name)}
+                                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                      title="Hapus Beban Tetap"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* SEKSI 2: LOG PENGELUARAN HARIAN & BEBAN VARIABEL */}
                   <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
                       <div>
                         <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
                           <CreditCard className="w-4 h-4 text-rose-600" />
-                          Log Pengeluaran &amp; Biaya Operasional
+                          Log Pengeluaran Operasional Harian (Variable Costs)
                         </h4>
                         <p className="text-xs text-slate-500">
-                          Total beban terdata: {formatRupiah(financeData?.summary?.totalExpenses || 0)}
+                          Total beban harian terdata: {formatRupiah(financeData?.summary?.totalVariableExpenses || financeData?.summary?.totalExpenses || 0)}
                         </p>
                       </div>
 
@@ -7992,7 +8362,279 @@ export default function AdminDashboardPage() {
       )}
 
       {/* ============================================================== */}
-      {/* MODAL: RESET POS & DATABASE                                    */}
+      {/* MODAL: TAMBAH BEBAN TETAP BULANAN (DYNAMIC FIXED COST)        */}
+      {/* ============================================================== */}
+      {isAddFixedCostOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
+                <Building2 className="w-5 h-5 text-indigo-700" />
+                Tambah Beban Tetap Bulanan (Fixed Overhead)
+              </h3>
+              <button
+                onClick={() => setIsAddFixedCostOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddFixedCost} className="space-y-4 my-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Nama Beban Tetap (Bebas Ditulis) *:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Sewa Tempat / Booth, Gaji Karyawan, Listrik & Air"
+                  value={fixedCostForm.name}
+                  onChange={(e) => setFixedCostForm({ ...fixedCostForm, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Nominal Beban per Bulan (Rp) *:
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  placeholder="Contoh: 1500000"
+                  value={fixedCostForm.amount}
+                  onChange={(e) => setFixedCostForm({ ...fixedCostForm, amount: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                />
+                {Number(fixedCostForm.amount) > 0 && (
+                  <p className="text-[10px] text-slate-500 mt-1 font-mono">
+                    ≈ Rp {Math.round(Number(fixedCostForm.amount) / 30).toLocaleString("id-ID")}/hari
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Kedai Bersangkutan:
+                  </label>
+                  <select
+                    value={fixedCostForm.outletId}
+                    onChange={(e) => setFixedCostForm({ ...fixedCostForm, outletId: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                  >
+                    <option value="all">Semua Kedai (Pusat)</option>
+                    {data?.outlets?.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Kategori Beban:
+                  </label>
+                  <select
+                    value={fixedCostForm.category}
+                    onChange={(e) => setFixedCostForm({ ...fixedCostForm, category: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                  >
+                    <option value="sewa">Sewa Tempat / Booth</option>
+                    <option value="gaji">Gaji Karyawan / Kasir</option>
+                    <option value="utilitas">Listrik &amp; Utilitas</option>
+                    <option value="kebersihan">Kebersihan &amp; Keamanan</option>
+                    <option value="internet">Internet &amp; POS</option>
+                    <option value="penyusutan">Penyusutan Peralatan</option>
+                    <option value="operasional">Operasional Rutin Lainnya</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Catatan / Keterangan (Opsional):
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Jatuh tempo tgl 5 tiap bulan"
+                  value={fixedCostForm.notes}
+                  onChange={(e) => setFixedCostForm({ ...fixedCostForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none"
+                />
+              </div>
+
+              {fixedCostMessage && (
+                <p className="text-xs font-bold text-rose-600 text-center">{fixedCostMessage}</p>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddFixedCostOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={fixedCostLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs shadow-md transition"
+                >
+                  {fixedCostLoading ? "Menyimpan..." : "Simpan Beban Tetap"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: EDIT BEBAN TETAP BULANAN                                 */}
+      {/* ============================================================== */}
+      {isEditFixedCostOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
+                <Edit3 className="w-5 h-5 text-indigo-700" />
+                Edit Beban Tetap Bulanan
+              </h3>
+              <button
+                onClick={() => setIsEditFixedCostOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleEditFixedCost} className="space-y-4 my-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Nama Beban Tetap (Bebas Ditulis) *:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Sewa Tempat / Booth, Gaji Karyawan, Listrik & Air"
+                  value={fixedCostForm.name}
+                  onChange={(e) => setFixedCostForm({ ...fixedCostForm, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Nominal Beban per Bulan (Rp) *:
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  placeholder="Contoh: 1500000"
+                  value={fixedCostForm.amount}
+                  onChange={(e) => setFixedCostForm({ ...fixedCostForm, amount: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                />
+                {Number(fixedCostForm.amount) > 0 && (
+                  <p className="text-[10px] text-slate-500 mt-1 font-mono">
+                    ≈ Rp {Math.round(Number(fixedCostForm.amount) / 30).toLocaleString("id-ID")}/hari
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Kedai Bersangkutan:
+                  </label>
+                  <select
+                    value={fixedCostForm.outletId}
+                    onChange={(e) => setFixedCostForm({ ...fixedCostForm, outletId: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                  >
+                    <option value="all">Semua Kedai (Pusat)</option>
+                    {data?.outlets?.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Kategori Beban:
+                  </label>
+                  <select
+                    value={fixedCostForm.category}
+                    onChange={(e) => setFixedCostForm({ ...fixedCostForm, category: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                  >
+                    <option value="sewa">Sewa Tempat / Booth</option>
+                    <option value="gaji">Gaji Karyawan / Kasir</option>
+                    <option value="utilitas">Listrik &amp; Utilitas</option>
+                    <option value="kebersihan">Kebersihan &amp; Keamanan</option>
+                    <option value="internet">Internet &amp; POS</option>
+                    <option value="penyusutan">Penyusutan Peralatan</option>
+                    <option value="operasional">Operasional Rutin Lainnya</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Catatan / Keterangan (Opsional):
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Jatuh tempo tgl 5 tiap bulan"
+                  value={fixedCostForm.notes}
+                  onChange={(e) => setFixedCostForm({ ...fixedCostForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <input
+                  type="checkbox"
+                  id="fixedCostActiveToggle"
+                  checked={Boolean(fixedCostForm.is_active)}
+                  onChange={(e) => setFixedCostForm({ ...fixedCostForm, is_active: e.target.checked })}
+                  className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
+                />
+                <label htmlFor="fixedCostActiveToggle" className="text-xs font-bold text-slate-800 cursor-pointer">
+                  Beban Tetap Ini Aktif (Dihitung dalam Laba Rugi)
+                </label>
+              </div>
+
+              {fixedCostMessage && (
+                <p className="text-xs font-bold text-rose-600 text-center">{fixedCostMessage}</p>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditFixedCostOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={fixedCostLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs shadow-md transition"
+                >
+                  {fixedCostLoading ? "Menyimpan..." : "Update Beban Tetap"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {/* ============================================================== */}
       {isResetModalOpen && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">

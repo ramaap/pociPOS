@@ -95,23 +95,28 @@ export async function GET(req: Request) {
     // 1. Tentukan Rentang Waktu (Date Range)
     let dateFilter: { gte?: Date; lte?: Date } | undefined = undefined;
     const now = new Date();
+    let periodDays = 30;
 
     if (period === "today") {
+      periodDays = 1;
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
       const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
       dateFilter = { gte: startOfDay, lte: endOfDay };
     } else if (period === "yesterday") {
+      periodDays = 1;
       const yesterday = new Date(now);
       yesterday.setDate(yesterday.getDate() - 1);
       const startOfYesterday = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0);
       const endOfYesterday = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999);
       dateFilter = { gte: startOfYesterday, lte: endOfYesterday };
     } else if (period === "7d") {
+      periodDays = 7;
       const sevenDaysAgo = new Date(now);
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       sevenDaysAgo.setHours(0, 0, 0, 0);
       dateFilter = { gte: sevenDaysAgo };
     } else if (period === "30d") {
+      periodDays = 30;
       const thirtyDaysAgo = new Date(now);
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       thirtyDaysAgo.setHours(0, 0, 0, 0);
@@ -121,6 +126,8 @@ export async function GET(req: Request) {
         gte: new Date(startDateParam),
         lte: new Date(endDateParam),
       };
+      const diffTime = Math.abs(new Date(endDateParam).getTime() - new Date(startDateParam).getTime());
+      periodDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
     }
 
     // 2. Query Transaksi dengan Filter
@@ -153,7 +160,7 @@ export async function GET(req: Request) {
       orderBy: { created_at: "desc" },
     });
 
-    // 3. Query Pengeluaran / Biaya Operasional (Expenses)
+    // 3. Query Pengeluaran / Biaya Operasional Harian (Variable Expenses)
     const expenseWhere: any = {};
     if (outletId && outletId !== "all") {
       expenseWhere.outlet_id = outletId;
@@ -169,6 +176,51 @@ export async function GET(req: Request) {
     });
 
     const totalExpenseAmount = expensesList.reduce((acc, curr) => acc + curr.amount, 0);
+
+    // 3b. Query & Kalkulasi Beban Tetap Dinamis (Fixed Overhead Costs)
+    const activeOutletsCount = outletId !== "all" ? 1 : Math.max(1, await prisma.outlet.count({ where: { active_status: true } }));
+
+    const allFixedCosts = await prisma.fixedCost.findMany({
+      include: { outlet: true },
+      orderBy: { createdAt: "asc" },
+    });
+
+    let totalMonthlyFixedCost = 0;
+    let totalFixedCostProrated = 0;
+
+    const activeFixedCostsBreakdown = allFixedCosts
+      .filter((fc) => fc.is_active)
+      .filter((fc) => {
+        if (!outletId || outletId === "all") return true;
+        return fc.outlet_id === outletId || fc.outlet_id === null;
+      })
+      .map((fc) => {
+        let allocatedMonthly = fc.amount;
+        if (outletId !== "all" && fc.outlet_id === null) {
+          allocatedMonthly = fc.amount / activeOutletsCount;
+        }
+        const prorated = Math.round((allocatedMonthly * periodDays) / 30);
+        totalMonthlyFixedCost += allocatedMonthly;
+        totalFixedCostProrated += prorated;
+
+        return {
+          id: fc.id,
+          name: fc.name,
+          category: fc.category,
+          amountMonthly: allocatedMonthly,
+          originalAmount: fc.amount,
+          amountProrated: prorated,
+          dailyAmount: Math.round(allocatedMonthly / 30),
+          notes: fc.notes,
+          outletId: fc.outlet_id,
+          outletName: fc.outlet?.name || "Semua Kedai (Konsolidasi Pusat)",
+          isShared: fc.outlet_id === null,
+        };
+      });
+
+    const totalVariableExpenses = totalExpenseAmount;
+    const totalFixedExpenses = totalFixedCostProrated;
+    const totalAllExpenses = totalVariableExpenses + totalFixedExpenses;
 
     // 4. Kalkulasi Ringkasan Finansial & HPP (COGS)
     let totalRevenue = 0;
@@ -393,11 +445,10 @@ export async function GET(req: Request) {
     // - Aset: Kas Tunai + Kas Bank (QRIS) + Nilai Persediaan Bahan Baku
     // - Liabilitas: Hutang/Piutang Selisih Closing + Beban Terutang
     // - Ekuitas: Modal Booth Awal (Asumsi Rp 5jt/booth) + Laba Ditahan (Retained Net Profit)
-    const activeOutletsCount = outletId !== "all" ? 1 : await prisma.outlet.count({ where: { active_status: true } });
     const modalAwalFranchise = activeOutletsCount * 5000000; // Rp 5.000.000 per booth
 
     const grossProfit = totalRevenue - totalHPP;
-    const netProfit = grossProfit - totalExpenseAmount;
+    const netProfit = grossProfit - totalAllExpenses;
 
     const aktivaLancar = {
       kasTunai: cashRevenue,
@@ -411,15 +462,15 @@ export async function GET(req: Request) {
     const pasiva = {
       kewajibanLancar: {
         hutangSelisihCup: totalEmployeeDebt,
-        bebanOperasionalTerutang: totalExpenseAmount,
-        totalKewajiban: totalEmployeeDebt + totalExpenseAmount,
+        bebanOperasionalTerutang: totalAllExpenses,
+        totalKewajiban: totalEmployeeDebt + totalAllExpenses,
       },
       ekuitas: {
         modalDisetor: modalAwalFranchise,
         labaDitahan: netProfit,
         totalEkuitas: modalAwalFranchise + netProfit,
       },
-      totalPasiva: totalEmployeeDebt + totalExpenseAmount + modalAwalFranchise + netProfit,
+      totalPasiva: totalEmployeeDebt + totalAllExpenses + modalAwalFranchise + netProfit,
     };
 
     // 8. Daily Timeline Generator untuk Chart Proyeksi & Arus Kas (Grafik seperti di gambar HashMicro)
@@ -436,8 +487,9 @@ export async function GET(req: Request) {
       projection: number;
     }[] = [];
 
-    // Rata-rata target harian per kedai: Rp 200.000 / hari
+    // Rata-rata target harian per kedai: Rp 250.000 / hari
     const dailyTarget = activeOutletsCount * 250000;
+    const dailyFixedCostRate = Math.round(totalMonthlyFixedCost / 30);
 
     for (let i = timelineDays - 1; i >= 0; i--) {
       const d = new Date(now);
@@ -451,7 +503,7 @@ export async function GET(req: Request) {
         return txDate === dayStr;
       });
 
-      // Hitung pengeluaran operasional (outflow) di hari tersebut
+      // Hitung pengeluaran operasional variabel di hari tersebut
       const dayExps = expensesList.filter((e) => {
         const expDate = new Date(e.date).toISOString().split("T")[0];
         return expDate === dayStr;
@@ -459,8 +511,9 @@ export async function GET(req: Request) {
 
       const dayRev = dayTxs.reduce((s, t) => s + t.total_amount, 0);
       const dayExpAmount = dayExps.reduce((s, e) => s + e.amount, 0);
+      const dayTotalOutflow = dayExpAmount + dailyFixedCostRate;
       const dayCOGS = Math.round(dayRev * 0.42); // Rata-rata COGS ~42%
-      const dayNet = dayRev - dayExpAmount; // Kas Masuk - Kas Keluar Riil
+      const dayNet = dayRev - dayTotalOutflow; // Kas Masuk - Total Kas Keluar Riil (Variabel + Tetap)
 
       // Proyeksi estimasi tren
       const dayTargetVal = dailyTarget;
@@ -472,7 +525,7 @@ export async function GET(req: Request) {
         revenue: dayRev,
         cogs: dayCOGS,
         inflow: dayRev,
-        outflow: dayExpAmount,
+        outflow: dayTotalOutflow,
         netCash: dayNet,
         target: dayTargetVal,
         projection: dayProj,
@@ -493,6 +546,7 @@ export async function GET(req: Request) {
       kemasan: { label: "Kemasan & Sedotan", amount: 0, count: 0, color: "bg-emerald-500", icon: "🥤" },
       kebersihan: { label: "Kebersihan & Tissue", amount: 0, count: 0, color: "bg-purple-500", icon: "🧹" },
       operasional: { label: "Operasional Toko", amount: 0, count: 0, color: "bg-amber-500", icon: "🏢" },
+      beban_tetap: { label: "Beban Tetap Bulanan", amount: totalFixedCostProrated, count: activeFixedCostsBreakdown.length, color: "bg-indigo-500", icon: "🏢" },
       lainnya: { label: "Biaya Lain-lain", amount: 0, count: 0, color: "bg-slate-500", icon: "📦" },
     };
 
@@ -509,18 +563,21 @@ export async function GET(req: Request) {
       .map(([key, val]) => ({
         key,
         ...val,
-        percent: totalExpenseAmount > 0 ? ((val.amount / totalExpenseAmount) * 100).toFixed(1) : "0",
+        percent: totalAllExpenses > 0 ? ((val.amount / totalAllExpenses) * 100).toFixed(1) : "0",
       }))
-      .filter((c) => c.amount > 0 || ["es_batu", "gas", "kemasan"].includes(c.key));
+      .filter((c) => c.amount > 0 || ["es_batu", "gas", "kemasan", "beban_tetap"].includes(c.key));
 
     // 10. AI Smart Insight Generator
     const topMenu = productSales[0]?.name || "Jasmine Poci Iced Tea";
     const qrisRatio = totalRevenue > 0 ? Math.round((qrisRevenue / totalRevenue) * 100) : 0;
     const grossMarginPercent = totalRevenue > 0 ? Math.round((grossProfit / totalRevenue) * 100) : 58;
+    const netMarginPercent = totalRevenue > 0 ? Number(((netProfit / totalRevenue) * 100).toFixed(1)) : 0;
 
-    let aiInsightText = `Arus kas beroperasi sehat dengan gross margin rata-rata ${grossMarginPercent}%. Varian "${topMenu}" memimpin kontribusi penjualan tertinggi. `;
-    if (qrisRatio >= 50) {
-      aiInsightText += `Penerimaan QRIS (${qrisRatio}%) sangat dominan dan meminimalisir risiko selisih kas fisik di kedai. Cadangan likuiditas aman untuk restock bahan baku.`;
+    let aiInsightText = `Arus kas mencatat gross margin ${grossMarginPercent}% dan net margin ${netMarginPercent}%. Varian "${topMenu}" memimpin kontribusi penjualan. `;
+    if (netProfit < 0) {
+      aiInsightText = `⚠️ Terdeteksi defisit bersih sebesar Rp ${Math.abs(netProfit).toLocaleString("id-ID")} karena beban operasional & beban tetap bulanan (Rp ${totalAllExpenses.toLocaleString("id-ID")}) melampaui laba kotor. Tingkatkan volume penjualan cup harian untuk mencapai break-even.`;
+    } else if (qrisRatio >= 50) {
+      aiInsightText += `Penerimaan QRIS (${qrisRatio}%) sangat dominan dan meminimalisir risiko selisih kas fisik di kedai. Cadangan likuiditas aman setelah dialokasikan untuk beban tetap bulanan.`;
     } else {
       aiInsightText += `Penerimaan kas tunai (${100 - qrisRatio}%) cukup tinggi. Pastikan rekonsiliasi setor kas harian di akhir shift selalu sesuai dengan audit closing.`;
     }
@@ -546,22 +603,44 @@ export async function GET(req: Request) {
         totalHPP: Math.round(totalHPP),
         grossProfit: Math.round(grossProfit),
         grossMarginPercent,
-        totalExpenses: totalExpenseAmount,
+        totalExpenses: totalAllExpenses, // Total beban (Variabel + Tetap)
+        totalVariableExpenses,
+        totalFixedExpenses,
+        totalMonthlyFixedCost: Math.round(totalMonthlyFixedCost),
+        dailyFixedCost: dailyFixedCostRate,
         netProfit: Math.round(netProfit),
+        netMarginPercent,
+        isProfit: netProfit >= 0,
         targetRevenue: targetTotal,
         gapVsTarget: gapVsTargetPercent,
         isAboveTarget,
-        deficitRisk: totalRevenue >= totalExpenseAmount ? "Rendah" : "Perhatian",
+        deficitRisk: totalRevenue >= totalAllExpenses ? "Rendah" : "Perhatian",
         avgTicket: transactions.length > 0 ? Math.round(totalRevenue / transactions.length) : 0,
+        periodDays,
       },
+      fixedCosts: allFixedCosts.map((fc) => ({
+        id: fc.id,
+        name: fc.name,
+        category: fc.category,
+        amount: fc.amount,
+        dailyAmount: Math.round(fc.amount / 30),
+        notes: fc.notes,
+        is_active: fc.is_active,
+        outlet_id: fc.outlet_id,
+        outlet: fc.outlet,
+        createdAt: fc.createdAt,
+      })),
+      fixedCostBreakdown: activeFixedCostsBreakdown,
       cashFlow: {
         totalInflow: totalRevenue,
-        totalOutflow: totalExpenseAmount,
-        netCashFlow: totalRevenue - totalExpenseAmount,
+        totalOutflow: totalAllExpenses,
+        variableOutflow: totalVariableExpenses,
+        fixedOutflow: totalFixedExpenses,
+        netCashFlow: totalRevenue - totalAllExpenses,
         cashOnHand: cashRevenue,
         cashInBank: qrisRevenue,
         closingLiquidity: cashRevenue + qrisRevenue,
-        burnRateDaily: timelineDays > 0 ? Math.round(totalExpenseAmount / timelineDays) : 0,
+        burnRateDaily: Math.round((totalVariableExpenses / (timelineDays || 1)) + dailyFixedCostRate),
         categories: expenseCategories,
       },
       aiInsight: aiInsightText,
@@ -638,6 +717,97 @@ export async function POST(req: Request) {
       return NextResponse.json({
         success: true,
         message: "Catatan pengeluaran berhasil dihapus.",
+      });
+    }
+
+    // 3. TAMBAH BEBAN TETAP BULANAN (FIXED COST DINAMIS)
+    if (action === "add_fixed_cost") {
+      const { name, amount, category = "operasional", outletId, notes } = body;
+
+      if (!name || !name.trim() || !amount || Number(amount) <= 0) {
+        return NextResponse.json({ error: "Nama beban tetap dan nominal per bulan wajib diisi dengan benar" }, { status: 400 });
+      }
+
+      const newFixedCost = await prisma.fixedCost.create({
+        data: {
+          name: name.trim(),
+          amount: Number(amount),
+          category: category || "operasional",
+          outlet_id: outletId && outletId !== "all" ? outletId : null,
+          notes: notes ? notes.trim() : null,
+        },
+        include: { outlet: true },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Beban tetap "${newFixedCost.name}" (Rp ${newFixedCost.amount.toLocaleString("id-ID")}/bln) berhasil ditambahkan.`,
+        fixedCost: newFixedCost,
+      });
+    }
+
+    // 4. EDIT BEBAN TETAP BULANAN
+    if (action === "edit_fixed_cost") {
+      const { id, name, amount, category, outletId, notes, is_active } = body;
+
+      if (!id) {
+        return NextResponse.json({ error: "ID beban tetap wajib disertakan" }, { status: 400 });
+      }
+
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name.trim();
+      if (amount !== undefined) updateData.amount = Number(amount);
+      if (category !== undefined) updateData.category = category;
+      if (outletId !== undefined) updateData.outlet_id = outletId && outletId !== "all" ? outletId : null;
+      if (notes !== undefined) updateData.notes = notes ? notes.trim() : null;
+      if (is_active !== undefined) updateData.is_active = Boolean(is_active);
+
+      const updated = await prisma.fixedCost.update({
+        where: { id },
+        data: updateData,
+        include: { outlet: true },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Beban tetap "${updated.name}" berhasil diperbarui.`,
+        fixedCost: updated,
+      });
+    }
+
+    // 5. HAPUS BEBAN TETAP BULANAN
+    if (action === "delete_fixed_cost") {
+      const { id } = body;
+
+      if (!id) {
+        return NextResponse.json({ error: "ID beban tetap wajib disertakan" }, { status: 400 });
+      }
+
+      await prisma.fixedCost.delete({ where: { id } });
+
+      return NextResponse.json({
+        success: true,
+        message: "Beban tetap berhasil dihapus.",
+      });
+    }
+
+    // 6. TOGGLE STATUS BEBAN TETAP
+    if (action === "toggle_fixed_cost") {
+      const { id, is_active } = body;
+
+      if (!id) {
+        return NextResponse.json({ error: "ID beban tetap wajib disertakan" }, { status: 400 });
+      }
+
+      const updated = await prisma.fixedCost.update({
+        where: { id },
+        data: { is_active: Boolean(is_active) },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Status beban tetap "${updated.name}" berhasil diubah menjadi ${updated.is_active ? "Aktif" : "Nonaktif"}.`,
+        fixedCost: updated,
       });
     }
 

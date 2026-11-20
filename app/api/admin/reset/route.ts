@@ -51,6 +51,7 @@ export async function POST(req: Request) {
       });
     } else if (action === "reset_database") {
       // 2. Reset Database Lengkap (Hanya untuk Testing): Membersihkan dan men-seed ulang semua data awal
+      await prisma.fixedCost.deleteMany();
       await prisma.expense.deleteMany();
       await prisma.outletProduct.deleteMany();
       await prisma.bOM_Recipe.deleteMany();
@@ -287,6 +288,18 @@ export async function POST(req: Request) {
         await prisma.outletProduct.create({
           data: { outlet_id: outlet2.id, product_id: p.id, is_available: true },
         });
+      }
+
+      // Seed default fixed costs
+      const defaultFixedCosts = [
+        { name: "Sewa Tempat / Booth Teras", amount: 1000000, category: "sewa", notes: "Sewa teras bulanan per kedai/booth" },
+        { name: "Gaji Pokok Kasir / Karyawan", amount: 1500000, category: "gaji", notes: "Gaji operasional kasir jaga kedai per bulan" },
+        { name: "Listrik & Utilitas Kedai", amount: 300000, category: "utilitas", notes: "Token listrik sealer/blender dan air seduhan" },
+        { name: "Iuran Kebersihan & Keamanan", amount: 100000, category: "kebersihan", notes: "Retribusi sampah & keamanan teras" },
+        { name: "Internet & Wi-Fi POS", amount: 150000, category: "utilitas", notes: "Koneksi online POS & mesin QRIS" },
+      ];
+      for (const fc of defaultFixedCosts) {
+        await prisma.fixedCost.create({ data: fc });
       }
 
       return NextResponse.json({
