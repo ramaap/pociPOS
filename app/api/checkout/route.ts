@@ -93,12 +93,13 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. Ambil data produk & resep BOM
-    const productIds = items.map((i) => i.productId);
-    const products = await prisma.product.findMany({
+    // 3. Ambil data produk unik & resep BOM
+    const uniqueProductIds = Array.from(new Set(items.map((i) => i.productId)));
+    
+    // Query seluruh produk berdasarkan ID yang ada di keranjang
+    const allMatchingProducts = await prisma.product.findMany({
       where: {
-        id: { in: productIds },
-        active_status: true,
+        id: { in: uniqueProductIds },
       },
       include: {
         recipes: {
@@ -109,14 +110,62 @@ export async function POST(req: Request) {
       },
     });
 
-    if (products.length !== productIds.length) {
+    const foundProductMap = new Map(allMatchingProducts.map((p) => [p.id, p]));
+    const missingProductIds = uniqueProductIds.filter((id) => !foundProductMap.has(id));
+    const inactiveProducts = allMatchingProducts.filter((p) => !p.active_status);
+
+    // Validasi 3A: Cek produk tidak ditemukan atau dinonaktifkan
+    if (missingProductIds.length > 0 || inactiveProducts.length > 0) {
+      const errorDetails: string[] = [];
+      const problematicIds: string[] = [];
+      const problematicNames: string[] = [];
+
+      for (const p of inactiveProducts) {
+        errorDetails.push(`"${p.name}" (Status: Dinonaktifkan di master menu)`);
+        problematicIds.push(p.id);
+        problematicNames.push(p.name);
+      }
+
+      for (const id of missingProductIds) {
+        errorDetails.push(`ID "${id}" (Tidak terdaftar di database master menu)`);
+        problematicIds.push(id);
+        problematicNames.push(`ID: ${id}`);
+      }
+
       return NextResponse.json(
-        { error: "Beberapa produk tidak ditemukan atau dinonaktifkan." },
-        { status: 404 }
+        {
+          error: `Transaksi Gagal: Produk berikut tidak dapat diproses checkout: ${errorDetails.join(", ")}. Silakan hapus produk ini dari keranjang pesanan.`,
+          problematicProductIds: problematicIds,
+          problematicProductNames: problematicNames,
+        },
+        { status: 400 }
       );
     }
 
-    const productMap = new Map(products.map((p) => [p.id, p]));
+    // Validasi 3B: Cek Ketersediaan Menu per Kedai (OutletProduct)
+    const outletProducts = await prisma.outletProduct.findMany({
+      where: {
+        outlet_id: resolvedOutletId,
+        product_id: { in: uniqueProductIds },
+      },
+      include: { product: true },
+    });
+
+    const disabledAtOutlet = outletProducts.filter((op) => !op.is_available);
+    if (disabledAtOutlet.length > 0) {
+      const disabledNames = disabledAtOutlet.map((op) => `"${op.product.name}"`).join(", ");
+      return NextResponse.json(
+        {
+          error: `Transaksi Gagal: Menu ${disabledNames} sedang dinonaktifkan di ${currentOutlet.name}. Silakan hapus dari keranjang.`,
+          problematicProductIds: disabledAtOutlet.map((op) => op.product_id),
+          problematicProductNames: disabledAtOutlet.map((op) => op.product.name),
+        },
+        { status: 400 }
+      );
+    }
+
+    const products = allMatchingProducts;
+    const productMap = foundProductMap;
 
     // 4. Hitung total amount & agregasi pengurangan BOM
     let totalAmount = 0;
@@ -197,7 +246,11 @@ export async function POST(req: Request) {
         });
 
         if (!boothStock) {
-          throw new Error(`Data stok ${deduction.name} belum terdaftar di kedai ini.`);
+          const affectedProducts = items
+            .map((i) => productMap.get(i.productId))
+            .filter((p) => p && p.recipes.some((r) => r.raw_material_id === deduction.rawMaterialId));
+          const affectedNames = Array.from(new Set(affectedProducts.map((p) => `"${p?.name}"`))).join(", ");
+          throw new Error(`Data stok bahan "${deduction.name}" untuk menu ${affectedNames || "pesanan"} belum terdaftar di ${currentOutlet.name}.`);
         }
 
         const dedNameLower = deduction.name.toLowerCase();
@@ -213,8 +266,12 @@ export async function POST(req: Request) {
 
         // Strict Check: Larang jika stok tidak mencukupi / menjadi minus (Termasuk Gula Cair, Cup, Sachet)
         if (boothStock.current_stock < deduction.deductQuantity) {
+          const affectedProducts = items
+            .map((i) => productMap.get(i.productId))
+            .filter((p) => p && p.recipes.some((r) => r.raw_material_id === deduction.rawMaterialId));
+          const affectedNames = Array.from(new Set(affectedProducts.map((p) => `"${p?.name}"`))).join(", ");
           throw new Error(
-            `Stok ${deduction.name} di kedai ini tidak mencukupi! Sisa: ${Math.round(
+            `Stok "${deduction.name}" untuk menu ${affectedNames || "pesanan"} di ${currentOutlet.name} tidak mencukupi! Sisa: ${Math.round(
               boothStock.current_stock
             )} ${deduction.unit}, dibutuhkan: ${deduction.deductQuantity} ${deduction.unit}.`
           );

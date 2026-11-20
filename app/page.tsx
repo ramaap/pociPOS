@@ -84,6 +84,8 @@ interface Product {
   price: number;
   active_status: boolean;
   total_sold?: number;
+  is_available?: boolean;
+  outletProducts?: { is_available: boolean; outlet_id?: string }[];
   recipes: BOMRecipe[];
 }
 
@@ -739,7 +741,13 @@ export default function PosTerminalPage() {
         const data = await res.json();
         const validOutlets: Outlet[] = data.outlets || [];
         setOutlets(validOutlets);
-        setProducts(data.products || []);
+        const validProducts: Product[] = data.products || [];
+        setProducts(validProducts);
+        // Otomatis bersihkan keranjang dari produk yang sudah dihapus/dinonaktifkan
+        if (validProducts.length > 0) {
+          const activeIdSet = new Set(validProducts.map((p) => p.id));
+          setCart((prev) => prev.filter((item) => activeIdSet.has(item.product.id)));
+        }
         setRawMaterials(data.rawMaterials || []);
         if (data.promoCampaign) {
           setPromoCampaign(data.promoCampaign);
@@ -1010,6 +1018,19 @@ export default function PosTerminalPage() {
       return { canAdd: false, reason: "Shift kedai masih tutup. Silakan klik 'Opening Shift' terlebih dahulu." };
     }
 
+    if (!product) {
+      return { canAdd: false, reason: "Data produk tidak ditemukan." };
+    }
+
+    // 0. Cek Status Aktif & Ketersediaan Produk di Kedai Ini
+    if (product.active_status === false) {
+      return { canAdd: false, reason: `Menu "${product.name}" sedang dinonaktifkan di master menu.` };
+    }
+
+    if (product.outletProducts && product.outletProducts.length > 0 && !product.outletProducts[0].is_available) {
+      return { canAdd: false, reason: `Menu "${product.name}" dinonaktifkan di kedai ini.` };
+    }
+
     // 1. Cek Ketersediaan Cairan Teh di Dispenser Barrel (Reguler: 180 ml, Jumbo / Varian: 200 ml, Topping: 0 ml)
     const pName = product.name.toLowerCase();
     const isTopping = pName.includes("topping");
@@ -1029,18 +1050,14 @@ export default function PosTerminalPage() {
     }
 
     // 2. Cek Ketersediaan Bahan Baku Resep (Cup, Gula Pasir/Cair, Perisa Bubuk, dsb)
+    if (!product.recipes || product.recipes.length === 0) {
+      return { canAdd: false, reason: `Resep bahan baku untuk "${product.name}" belum disetting oleh Admin.` };
+    }
+
     for (const recipe of product.recipes) {
-      const matId = recipe.raw_material.id;
+      const matId = recipe.raw_material?.id;
       const material = rawMaterials.find((m) => m.id === matId);
-      if (!material) continue;
-
-      let neededPerCup = recipe.quantity;
-      const matNameLower = material.name.toLowerCase();
-
-      if (matNameLower.includes("gula")) {
-        if (sugarLevel === "tawar") neededPerCup = 0;
-        else if (sugarLevel === "less") neededPerCup = 20;
-      }
+      const matNameLower = (recipe.raw_material?.name || "").toLowerCase();
 
       // Jangan jadikan Kantong Teh / Premix Teh sebagai acuan disable pada kasir
       if (
@@ -1050,6 +1067,19 @@ export default function PosTerminalPage() {
         matNameLower.includes("liquid tea")
       ) {
         continue;
+      }
+
+      if (!material) {
+        return {
+          canAdd: false,
+          reason: `Bahan "${recipe.raw_material?.name || "baku"}" untuk menu "${product.name}" belum terdaftar di kedai ini!`,
+        };
+      }
+
+      let neededPerCup = recipe.quantity;
+      if (matNameLower.includes("gula")) {
+        if (sugarLevel === "tawar") neededPerCup = 0;
+        else if (sugarLevel === "less") neededPerCup = 20;
       }
 
       const currentUsedInCart = cartMaterialUsage.get(matId) || 0;
@@ -1924,7 +1954,17 @@ export default function PosTerminalPage() {
             ch.close();
           } catch {}
         } else {
-          alert("Transaksi Gagal: " + (data.error || "Gagal checkout"));
+          const errMsg = data.error || "Gagal checkout transaksi.";
+          if (data.problematicProductIds && Array.isArray(data.problematicProductIds) && data.problematicProductIds.length > 0) {
+            const shouldRemove = confirm(
+              `${errMsg}\n\nApakah Anda ingin langsung menghapus produk yang bermasalah tersebut dari keranjang pesanan?`
+            );
+            if (shouldRemove) {
+              setCart((prev) => prev.filter((item) => !data.problematicProductIds.includes(item.product.id)));
+            }
+          } else {
+            alert(errMsg);
+          }
         }
       } catch {
         saveOfflineTransaction({
@@ -3104,9 +3144,12 @@ export default function PosTerminalPage() {
                 const { baseName, meta, reguler, jumbo } = item;
 
                 // Produk default untuk kartu single-size (Jumbo atau Reguler atau Topping)
-                const defaultProd = jumbo || reguler || item.single;
-                const checkDefault = defaultProd ? checkCanAddProduct(defaultProd, 1) : { canAdd: false };
-                const isSingleSize = (!reguler && jumbo) || (reguler && !jumbo) || (!reguler && !jumbo && item.single);
+                const isProdActive = (p?: Product) => p && p.active_status !== false;
+                const activeJumbo = isProdActive(jumbo) ? jumbo : undefined;
+                const activeReguler = isProdActive(reguler) ? reguler : undefined;
+                const defaultProd = activeJumbo || activeReguler || item.single || jumbo || reguler;
+                const checkDefault = defaultProd ? checkCanAddProduct(defaultProd, 1) : { canAdd: false, reason: "Menu tidak aktif" };
+                const isSingleSize = (!activeReguler && !!activeJumbo) || (!!activeReguler && !activeJumbo) || (!reguler && !jumbo && !!item.single);
 
                 return (
                   <div
@@ -3159,7 +3202,7 @@ export default function PosTerminalPage() {
                     </div>
 
                     {/* Action Area: Dual Size (Jasmine) vs Single Size */}
-                    {reguler && jumbo ? (
+                    {reguler && jumbo && isProdActive(reguler) && isProdActive(jumbo) ? (
                       <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-slate-100">
                         {(() => {
                           const checkReg = checkCanAddProduct(reguler, 1);
@@ -3170,7 +3213,7 @@ export default function PosTerminalPage() {
                               disabled={isDisabled}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                addToCart(reguler);
+                                if (checkReg.canAdd) addToCart(reguler);
                               }}
                               title={isDisabled ? checkReg.reason : "Tambah Reguler"}
                               className={`py-2 px-1.5 rounded-xl font-bold transition flex flex-col items-center justify-center border text-center ${
@@ -3179,7 +3222,7 @@ export default function PosTerminalPage() {
                                   : "bg-slate-50 hover:bg-emerald-600 hover:text-white text-slate-800 border-slate-200 shadow-2xs active:scale-95 cursor-pointer"
                               }`}
                             >
-                              <span className="text-[10px] sm:text-xs font-bold">{isDisabled ? "Habis" : "Reguler"}</span>
+                              <span className="text-[10px] sm:text-xs font-bold">{isDisabled ? (reguler.active_status === false ? "Nonaktif" : "Habis") : "Reguler"}</span>
                               <span className={`text-[11px] sm:text-xs font-mono font-black ${isDisabled ? "text-slate-400 line-through" : "text-emerald-800 hover:text-white"}`}>
                                 {formatRupiah(reguler.price)}
                               </span>
@@ -3196,7 +3239,7 @@ export default function PosTerminalPage() {
                               disabled={isDisabled}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                addToCart(jumbo);
+                                if (checkJumbo.canAdd) addToCart(jumbo);
                               }}
                               title={isDisabled ? checkJumbo.reason : "Tambah Jumbo"}
                               className={`py-2 px-1.5 rounded-xl font-bold transition flex flex-col items-center justify-center border text-center ${
@@ -3205,7 +3248,7 @@ export default function PosTerminalPage() {
                                   : "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-xs active:scale-95 cursor-pointer"
                               }`}
                             >
-                              <span className="text-[10px] sm:text-xs font-bold">{isDisabled ? "Habis" : "Jumbo"}</span>
+                              <span className="text-[10px] sm:text-xs font-bold">{isDisabled ? (jumbo.active_status === false ? "Nonaktif" : "Habis") : "Jumbo"}</span>
                               <span className={`text-[11px] sm:text-xs font-mono font-black ${isDisabled ? "text-slate-300 line-through" : "text-white"}`}>
                                 {formatRupiah(jumbo.price)}
                               </span>
@@ -3226,8 +3269,9 @@ export default function PosTerminalPage() {
                           disabled={!checkDefault.canAdd}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (defaultProd) addToCart(defaultProd);
+                            if (defaultProd && checkDefault.canAdd) addToCart(defaultProd);
                           }}
+                          title={!checkDefault.canAdd ? checkDefault.reason : "Pesan Menu"}
                           className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center gap-1 shadow-2xs ${
                             !checkDefault.canAdd
                               ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60"
@@ -3235,7 +3279,7 @@ export default function PosTerminalPage() {
                           }`}
                         >
                           <Plus className="w-3.5 h-3.5" />
-                          <span>{!checkDefault.canAdd ? "Habis" : "Pesan"}</span>
+                          <span>{!checkDefault.canAdd ? (defaultProd?.active_status === false ? "Nonaktif" : "Habis") : "Pesan"}</span>
                         </button>
                       </div>
                     )}
