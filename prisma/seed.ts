@@ -133,17 +133,20 @@ async function main() {
     // Hanya Jasmine Tea original yang memiliki opsi Reguler & Jumbo.
     if (!item.flavorMaterialId && item.priceReg) {
       const regBreakdown = [
-        { name: "Cup Reguler", cost: 450 },
-        { name: "Gula Syrup (40ml)", cost: 500 },
-        { name: "Larutan Teh (180ml)", cost: 400 },
-        { name: "Sedotan", cost: 100 },
-        { name: "Es Batu", cost: 200 },
+        { name: "Poci Jasmine Kantong (180ml)", cost: 170 },
+        { name: "Gula Pasir Rose Brand (40ml)", cost: 558 },
+        { name: "Cup Es Teh Reguler Poci", cost: 600 },
+        { name: "Sedotan Poci Single Wrap", cost: 93 },
+        { name: "Plastik Seal Kecil", cost: 200 },
+        { name: "Estimasi Air Galon", cost: 71 },
+        { name: "Estimasi Es Batu Kristal", cost: 250 },
+        { name: "Estimasi Kantong Plastik Cup", cost: 50 },
       ];
       const prodReg = await prisma.product.create({
         data: {
           name: `${item.name} (Reguler)`,
           price: item.priceReg,
-          cost_price: 1650,
+          cost_price: 1992,
           hpp_breakdown: JSON.stringify(regBreakdown),
           category: item.category,
           active_status: true,
@@ -158,22 +161,55 @@ async function main() {
     }
 
     const isOriginal = !item.flavorMaterialId;
-    const isMilky = item.category === "milky";
-    let sachetCost = 1200;
-    if (["Aren Latte", "Coconut Latte", "Teh Tarik"].some((k) => item.name.includes(k))) {
-      sachetCost = 1800;
-    } else if (isMilky) {
-      sachetCost = 1500;
-    }
     const jumBreakdown = [
-      { name: "Cup Jumbo", cost: 650 },
-      { name: "Gula Syrup (50ml)", cost: 650 },
-      { name: "Larutan Teh (200ml)", cost: 450 },
-      { name: "Sedotan", cost: 100 },
-      { name: "Es Batu", cost: 250 },
+      { name: "Poci Jasmine Kantong Jumbo", cost: 188 },
+      { name: "Gula Pasir Rose Brand (1 kg)", cost: 697 },
+      { name: "Cup Es Teh 22 oz Poci", cost: 800 },
+      { name: "Sedotan Poci Single Wrap", cost: 93 },
+      { name: "Plastik Seal Kecil", cost: 200 },
+      { name: "Estimasi Air Galon (8 liter)", cost: 79 },
+      { name: "Estimasi Es Batu Kristal (250 g)", cost: 300 },
+      { name: "Estimasi Kantong Plastik Cup", cost: 50 },
     ];
     if (!isOriginal) {
-      jumBreakdown.push({ name: "Sachet Poci Mix", cost: sachetCost });
+      let mixName = "Poci Mix";
+      let mixCost = 1000;
+      const n = item.name.toLowerCase();
+      if (n.includes("apple") || n.includes("blackcurrant") || n.includes("mango") || n.includes("orange")) {
+        mixName = `Poci Mix ${item.name} 3g`;
+        mixCost = 850;
+      } else if (n.includes("lemon honey") || n.includes("lychee")) {
+        mixName = `Poci Mix ${item.name} 3g`;
+        mixCost = 1000;
+      } else if (n.includes("milk tea")) {
+        mixName = "Poci Mix Milk Tea 15g";
+        mixCost = 1500;
+      } else if (n.includes("krampul")) {
+        mixName = "ETP Teh Krampul Selasih";
+        mixCost = 1500;
+      } else if (n.includes("cappuccino")) {
+        mixName = "Poci Mix Cappuccino 10g";
+        mixCost = 1600;
+      } else if (n.includes("chocolate")) {
+        mixName = "Poci Mix Chocolate";
+        mixCost = 1600;
+      } else if (n.includes("tarik")) {
+        mixName = "ETP Teh Tarik Gula Aren";
+        mixCost = 2000;
+      } else if (n.includes("thai")) {
+        mixName = "Poci Mix Thai Tea 12g";
+        mixCost = 2500;
+      } else if (n.includes("matcha")) {
+        mixName = "Poci Mix Matcha 12g";
+        mixCost = 3000;
+      } else if (n.includes("aren latte")) {
+        mixName = "Poci Mix Aren Latte 25g";
+        mixCost = 3000;
+      } else if (n.includes("coconut latte")) {
+        mixName = "Poci Mix Coconut Latte 25g";
+        mixCost = 3000;
+      }
+      jumBreakdown.push({ name: mixName, cost: mixCost });
     }
     const jumTotalHpp = jumBreakdown.reduce((a, b) => a + b.cost, 0);
 

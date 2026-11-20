@@ -6,45 +6,49 @@ export const revalidate = 0;
 
 // Biaya modal satuan estimasi standar franchise Es Teh Poci (HPP BOM)
 const MATERIAL_COST_PER_UNIT: Record<string, number> = {
-  "cup reguler": 450, // Rp 450 / pcs
-  "cup jumbo": 650, // Rp 650 / pcs
-  "kantong teh": 15000, // Rp 15.000 / kantong (bisa menyeduh ~30 porsi es teh)
-  "gula cair": 15, // Rp 15 / ml (Simple syrup)
+  "cup reguler": 600, // Rp 600 / pcs
+  "cup jumbo": 800, // Rp 800 / pcs (Cup 22 oz Poci)
+  "kantong teh": 6000, // Rp 6.000 / kantong jumbo (32 cup)
+  "gula cair": 14, // Rp 14 / ml (~Rp 697 / porsi 50ml)
   "liquid tea premix": 12, // Rp 12 / ml (Rp 12.000 / liter)
   "sachet extra creamy": 1000, // Rp 1.000 / sachet
   "extra creamy foam": 1000,
 
-  // 15 Varian Sachet Resmi Vendor Teh Poci
-  "poci mix thai tea 12g": 1500,
-  "poci mix cappuccino 10g": 1500,
-  "poci mix lemon honey 3g": 1200,
-  "poci mix lychee 3g": 1200,
-  "poci mix chocolate": 1500,
-  "poci mix apple 3g": 1200,
-  "poci mix orange 3g": 1200,
-  "poci mix blackcurrant 3g": 1200,
-  "poci mix mango 3g": 1200,
+  // 15 Varian Sachet Resmi Vendor Teh Poci (Sesuai Daftar Resmi Vendor)
+  "poci mix apple 3g": 850,
+  "poci mix blackcurrant 3g": 850,
+  "poci mix mango 3g": 850,
+  "poci mix orange 3g": 850,
+  "poci mix guava 3g": 850,
+  "poci mix lemon honey 3g": 1000,
+  "poci mix lychee 3g": 1000,
   "poci mix milk tea 15g": 1500,
-  "poci mix matcha 12g": 1500,
-  "poci mix aren latte 25g": 1800,
-  "poci mix coconut latte 25g": 1800,
-  "poci teh tarik gula aren": 1800,
   "poci teh krampul selasih": 1500,
+  "etp teh krampul selasih": 1500,
+  "poci mix cappuccino 10g": 1600,
+  "poci mix chocolate": 1600,
+  "poci teh tarik gula aren": 2000,
+  "etp teh tarik gula aren": 2000,
+  "poci mix thai tea 12g": 2500,
+  "poci mix matcha 12g": 3000,
+  "poci mix aren latte 25g": 3000,
+  "poci mix coconut latte 25g": 3000,
+  "poci mix vanilla": 1200,
 
   // Variasi spasi/huruf besar-kecil & format alternatif
-  "poci mix thai tea 12 g": 1500,
-  "poci mix cappuccino 10 g": 1500,
-  "poci mix lemon honey 3 g": 1200,
-  "poci mix lychee 3 g": 1200,
-  "poci mix apple 3 g": 1200,
-  "poci mix orange 3 g": 1200,
-  "poci mix blackcurrant 3 g": 1200,
-  "poci mix mango 3 g": 1200,
+  "poci mix thai tea 12 g": 2500,
+  "poci mix cappuccino 10 g": 1600,
+  "poci mix lemon honey 3 g": 1000,
+  "poci mix lychee 3 g": 1000,
+  "poci mix apple 3 g": 850,
+  "poci mix orange 3 g": 850,
+  "poci mix blackcurrant 3 g": 850,
+  "poci mix mango 3 g": 850,
   "poci mix milk tea 15 g": 1500,
-  "poci mix matcha 12 g": 1500,
-  "poci mix aren latte 25 g": 1800,
-  "poci mix coconut latte 25 g": 1800,
-  "es teh poci teh tarik gula aren": 1800,
+  "poci mix matcha 12 g": 3000,
+  "poci mix aren latte 25 g": 3000,
+  "poci mix coconut latte 25 g": 3000,
+  "es teh poci teh tarik gula aren": 2000,
   "es teh poci teh krampul selasih": 1500,
 
   // Backward compatibility (Nama sachet & syrup lama)

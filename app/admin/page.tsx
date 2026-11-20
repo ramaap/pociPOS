@@ -382,40 +382,62 @@ export default function AdminDashboardPage() {
   const [hppLoading, setHppLoading] = useState<boolean>(false);
   const [hppMessage, setHppMessage] = useState<string | null>(null);
 
+  const getProductMixInfo = (nameLower: string): { name: string; cost: number } | null => {
+    if (nameLower.includes("jasmine") || nameLower.includes("original")) return null;
+    if (nameLower.includes("apple")) return { name: "Poci Mix Apple 3g", cost: 850 };
+    if (nameLower.includes("blackcurrant")) return { name: "Poci Mix Blackcurrant 3g", cost: 850 };
+    if (nameLower.includes("mango")) return { name: "Poci Mix Mango 3g", cost: 850 };
+    if (nameLower.includes("orange")) return { name: "Poci Mix Orange 3g", cost: 850 };
+    if (nameLower.includes("guava")) return { name: "Poci Mix Guava 3g", cost: 850 };
+    if (nameLower.includes("lemon honey")) return { name: "Poci Mix Lemon Honey 3g", cost: 1000 };
+    if (nameLower.includes("lychee")) return { name: "Poci Mix Lychee 3g", cost: 1000 };
+    if (nameLower.includes("milk")) return { name: "Poci Mix Milk Tea 15g", cost: 1500 };
+    if (nameLower.includes("krampul")) return { name: "ETP Teh Krampul Selasih", cost: 1500 };
+    if (nameLower.includes("cappuccino")) return { name: "Poci Mix Cappuccino 10g", cost: 1600 };
+    if (nameLower.includes("chocolate")) return { name: "Poci Mix Chocolate", cost: 1600 };
+    if (nameLower.includes("tarik")) return { name: "ETP Teh Tarik Gula Aren", cost: 2000 };
+    if (nameLower.includes("thai")) return { name: "Poci Mix Thai Tea 12g", cost: 2500 };
+    if (nameLower.includes("matcha")) return { name: "Poci Mix Matcha 12g", cost: 3000 };
+    if (nameLower.includes("aren")) return { name: "Poci Mix Aren Latte 25g", cost: 3000 };
+    if (nameLower.includes("coconut")) return { name: "Poci Mix Coconut Latte 25g", cost: 3000 };
+    if (nameLower.includes("vanilla")) return { name: "Poci Mix Vanilla", cost: 1200 };
+    return null;
+  };
+
   const getDefaultHppTemplate = (product: any): HppComponentItem[] => {
     const isReg = product.name?.toLowerCase().includes("reguler");
-    const isOriginal = product.category === "original" || product.name?.toLowerCase().includes("jasmine");
     const pNameLower = product.name?.toLowerCase() || "";
-    const isMilky = product.category === "milky" || ["thai", "milk", "cappuccino", "chocolate", "matcha", "aren", "coconut", "tarik"].some((k) => pNameLower.includes(k));
 
     if (isReg) {
       const items: HppComponentItem[] = [
-        { name: "Cup Reguler", cost: 450 },
-        { name: "Gula Syrup (40ml)", cost: 500 },
-        { name: "Larutan Teh (180ml)", cost: 400 },
-        { name: "Sedotan", cost: 100 },
-        { name: "Es Batu", cost: 200 },
+        { name: "Poci Jasmine Kantong (180ml)", cost: 170 },
+        { name: "Gula Pasir Rose Brand (40ml)", cost: 558 },
+        { name: "Cup Es Teh Reguler Poci", cost: 600 },
+        { name: "Sedotan Poci Single Wrap", cost: 93 },
+        { name: "Plastik Seal Kecil", cost: 200 },
+        { name: "Estimasi Air Galon", cost: 71 },
+        { name: "Estimasi Es Batu Kristal", cost: 250 },
+        { name: "Estimasi Kantong Plastik Cup", cost: 50 },
       ];
-      if (!isOriginal) {
-        items.push({ name: "Sachet Bubuk Perasa", cost: isMilky ? 1500 : 1200 });
+      const mix = getProductMixInfo(pNameLower);
+      if (mix) {
+        items.push({ name: mix.name, cost: mix.cost });
       }
       return items;
     } else {
       const items: HppComponentItem[] = [
-        { name: "Cup Jumbo", cost: 650 },
-        { name: "Gula Syrup (50ml)", cost: 650 },
-        { name: "Larutan Teh (200ml)", cost: 450 },
-        { name: "Sedotan", cost: 100 },
-        { name: "Es Batu", cost: 250 },
+        { name: "Poci Jasmine Kantong Jumbo", cost: 188 },
+        { name: "Gula Pasir Rose Brand (1 kg)", cost: 697 },
+        { name: "Cup Es Teh 22 oz Poci", cost: 800 },
+        { name: "Sedotan Poci Single Wrap", cost: 93 },
+        { name: "Plastik Seal Kecil", cost: 200 },
+        { name: "Estimasi Air Galon (8 liter)", cost: 79 },
+        { name: "Estimasi Es Batu Kristal (250 g)", cost: 300 },
+        { name: "Estimasi Kantong Plastik Cup", cost: 50 },
       ];
-      if (!isOriginal) {
-        let sachetCost = 1200;
-        if (["aren", "coconut", "tarik"].some((k) => pNameLower.includes(k))) {
-          sachetCost = 1800;
-        } else if (isMilky) {
-          sachetCost = 1500;
-        }
-        items.push({ name: "Sachet Poci Mix", cost: sachetCost });
+      const mix = getProductMixInfo(pNameLower);
+      if (mix) {
+        items.push({ name: mix.name, cost: mix.cost });
       }
       return items;
     }
@@ -466,35 +488,44 @@ export default function AdminDashboardPage() {
 
     switch (type) {
       case "cup":
-        name = isReg ? "Cup Reguler" : "Cup Jumbo";
-        defaultCost = isReg ? 450 : 650;
+        name = isReg ? "Cup Es Teh Reguler Poci" : "Cup Es Teh 22 oz Poci";
+        defaultCost = isReg ? 600 : 800;
         break;
       case "gula":
-        name = isReg ? "Gula Syrup (40ml)" : "Gula Syrup (50ml)";
-        defaultCost = isReg ? 500 : 650;
+        name = isReg ? "Gula Pasir Rose Brand (40ml)" : "Gula Pasir Rose Brand (1 kg)";
+        defaultCost = isReg ? 558 : 697;
         break;
       case "teh":
-        name = isReg ? "Larutan Teh (180ml)" : "Larutan Teh (200ml)";
-        defaultCost = isReg ? 400 : 450;
+        name = isReg ? "Poci Jasmine Kantong (180ml)" : "Poci Jasmine Kantong Jumbo";
+        defaultCost = isReg ? 170 : 188;
         break;
       case "sedotan":
-        name = "Sedotan";
-        defaultCost = 100;
+        name = "Sedotan Poci Single Wrap";
+        defaultCost = 93;
         break;
-      case "sachet":
-        name = isReg ? "Sachet Bubuk Perasa" : "Sachet Poci Mix";
-        defaultCost = 1200;
+      case "seal":
+        name = "Plastik Seal Kecil";
+        defaultCost = 200;
+        break;
+      case "air":
+        name = isReg ? "Estimasi Air Galon" : "Estimasi Air Galon (8 liter)";
+        defaultCost = isReg ? 71 : 79;
         break;
       case "es":
-        name = "Es Batu";
-        defaultCost = isReg ? 200 : 250;
+        name = isReg ? "Estimasi Es Batu Kristal" : "Estimasi Es Batu Kristal (250 g)";
+        defaultCost = isReg ? 250 : 300;
         break;
       case "plastik":
-        name = "Kantong Plastik / Sealer";
-        defaultCost = 100;
+        name = "Estimasi Kantong Plastik Cup";
+        defaultCost = 50;
+        break;
+      case "sachet":
+        const mix = getProductMixInfo(selectedHppProduct?.name?.toLowerCase() || "");
+        name = mix ? mix.name : (isReg ? "Sachet Bubuk Perasa" : "Sachet Poci Mix");
+        defaultCost = mix ? mix.cost : 1200;
         break;
       case "custom":
-        name = "Bahan Lainnya";
+        name = "Bahan Tambahan";
         defaultCost = 500;
         break;
     }
@@ -7055,14 +7086,16 @@ export default function AdminDashboardPage() {
                           onChange={(e) => handleQuickSelectComponent(idx, e.target.value)}
                           defaultValue=""
                         >
-                          <option value="" disabled>-- Pilih Dropdown --</option>
-                          <option value="cup">🥤 Cup</option>
-                          <option value="gula">🍯 Gula Syrup</option>
-                          <option value="teh">🫖 Larutan Teh</option>
-                          <option value="sedotan">🥤 Sedotan</option>
-                          <option value="sachet">📦 Sachet / Perasa</option>
-                          <option value="es">🧊 Es Batu</option>
-                          <option value="plastik">🛍️ Plastik / Sealer</option>
+                          <option value="" disabled>-- Pilih Dropdown Standar --</option>
+                          <option value="cup">🥤 Cup ({selectedHppProduct?.name?.toLowerCase()?.includes("reguler") ? "Reguler" : "22 oz Poci"})</option>
+                          <option value="gula">🍯 Gula Pasir Rose Brand</option>
+                          <option value="teh">🫖 Poci Jasmine Kantong</option>
+                          <option value="sedotan">🥤 Sedotan Poci Single Wrap</option>
+                          <option value="seal">🏷️ Plastik Seal Kecil</option>
+                          <option value="air">💧 Estimasi Air Galon</option>
+                          <option value="es">🧊 Estimasi Es Batu Kristal</option>
+                          <option value="plastik">🛍️ Estimasi Kantong Plastik Cup</option>
+                          <option value="sachet">📦 Sachet / Poci Mix Perasa</option>
                           <option value="custom">✏️ Custom (Manual)</option>
                         </select>
                       </div>
