@@ -31,6 +31,7 @@ export async function GET(req: Request) {
         const shiftStartTime = outlet.last_opened_at ? new Date(outlet.last_opened_at) : todayStart;
 
         let todayCupsSold = 0;
+        let todayFreeCups = 0;
         let todayCashIn = 0;
         let todayExpenseTotal = 0;
 
@@ -47,6 +48,19 @@ export async function GET(req: Request) {
             select: { quantity: true },
           });
           todayCupsSold = todayItems.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
+
+          // Total cup promo gratis pada shift aktif
+          const freeItems = await prisma.transactionItem.findMany({
+            where: {
+              unit_price: 0,
+              transaction: {
+                outlet_id: outlet.id,
+                created_at: { gte: shiftStartTime },
+              },
+            },
+            select: { quantity: true },
+          });
+          todayFreeCups = freeItems.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
 
           const cashTxs = await prisma.transaction.findMany({
             where: {
@@ -87,6 +101,9 @@ export async function GET(req: Request) {
         return {
           ...outlet,
           todayCupsSold,
+          todayPaidCups: todayCupsSold,
+          todayFreeCups,
+          todayTotalCups: todayCupsSold + todayFreeCups,
           todayCashIn,
           todayExpenseTotal,
           currentCashBalance,
@@ -142,14 +159,21 @@ export async function GET(req: Request) {
       .reduce((sum, tx) => sum + tx.total_amount, 0);
 
     let totalRegCupsSold = 0;
+    let totalRegCupsFree = 0;
     let totalJumboCupsSold = 0;
+    let totalJumboCupsFree = 0;
+    let totalPaidCups = 0;
+    let totalFreeCups = 0;
     let totalLiquidMlSold = 0;
-    const flavorStats: Record<string, number> = {};
-    const outletSalesMap: Record<string, { name: string; sales: number; cups: number }> = {};
+    const flavorStats: Record<string, { total: number; paid: number; free: number }> = {};
+    const outletSalesMap: Record<
+      string,
+      { name: string; sales: number; cups: number; paidCups: number; freeCups: number }
+    > = {};
 
     // Init outlet sales map
     for (const out of outlets) {
-      outletSalesMap[out.id] = { name: out.name, sales: 0, cups: 0 };
+      outletSalesMap[out.id] = { name: out.name, sales: 0, cups: 0, paidCups: 0, freeCups: 0 };
     }
 
     for (const tx of todayTransactions) {
@@ -159,17 +183,41 @@ export async function GET(req: Request) {
 
       for (const item of tx.items) {
         const prodName = item.product.name;
-        flavorStats[prodName] = (flavorStats[prodName] || 0) + item.quantity;
-        if (outletSalesMap[tx.outlet_id]) {
-          outletSalesMap[tx.outlet_id].cups += item.quantity;
+        const isFree = item.unit_price === 0;
+        const qty = item.quantity || 0;
+
+        if (!flavorStats[prodName]) {
+          flavorStats[prodName] = { total: 0, paid: 0, free: 0 };
+        }
+        flavorStats[prodName].total += qty;
+        if (isFree) {
+          flavorStats[prodName].free += qty;
+          totalFreeCups += qty;
+        } else {
+          flavorStats[prodName].paid += qty;
+          totalPaidCups += qty;
         }
 
-        if (prodName.toLowerCase().includes("reguler")) {
-          totalRegCupsSold += item.quantity;
-          totalLiquidMlSold += item.quantity * 300;
-        } else if (prodName.toLowerCase().includes("jumbo")) {
-          totalJumboCupsSold += item.quantity;
-          totalLiquidMlSold += item.quantity * 450;
+        if (outletSalesMap[tx.outlet_id]) {
+          outletSalesMap[tx.outlet_id].cups += qty;
+          if (isFree) {
+            outletSalesMap[tx.outlet_id].freeCups += qty;
+          } else {
+            outletSalesMap[tx.outlet_id].paidCups += qty;
+          }
+        }
+
+        const isReg = prodName.toLowerCase().includes("reguler");
+        const isJumbo = prodName.toLowerCase().includes("jumbo");
+
+        if (isReg) {
+          if (isFree) totalRegCupsFree += qty;
+          else totalRegCupsSold += qty;
+          totalLiquidMlSold += qty * 300;
+        } else if (isJumbo) {
+          if (isFree) totalJumboCupsFree += qty;
+          else totalJumboCupsSold += qty;
+          totalLiquidMlSold += qty * 450;
         }
       }
     }
@@ -209,8 +257,13 @@ export async function GET(req: Request) {
         qrisSalesToday,
         cashSalesToday,
         transactionCount: todayTransactions.length,
+        totalPaidCups,
+        totalFreeCups,
+        totalCups: totalPaidCups + totalFreeCups,
         totalRegCupsSold,
+        totalRegCupsFree,
         totalJumboCupsSold,
+        totalJumboCupsFree,
         totalLiquidMlSold,
         flavorStats,
         outletSalesList: Object.values(outletSalesMap),

@@ -26,6 +26,7 @@ export async function GET() {
         const shiftStartTime = outlet.last_opened_at ? new Date(outlet.last_opened_at) : todayStart;
 
         let todayCupsSold = 0;
+        let todayFreeCups = 0;
         let todayCashIn = 0;
         let todayExpenseTotal = 0;
 
@@ -42,6 +43,19 @@ export async function GET() {
             select: { quantity: true },
           });
           todayCupsSold = todayItems.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
+
+          // Total cup promo gratis pada shift aktif
+          const freeItems = await prisma.transactionItem.findMany({
+            where: {
+              unit_price: 0,
+              transaction: {
+                outlet_id: outlet.id,
+                created_at: { gte: shiftStartTime },
+              },
+            },
+            select: { quantity: true },
+          });
+          todayFreeCups = freeItems.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
 
           // Pemasukan kas tunai pada shift aktif
           const cashTxs = await prisma.transaction.findMany({
@@ -84,6 +98,9 @@ export async function GET() {
         return {
           ...outlet,
           todayCupsSold,
+          todayPaidCups: todayCupsSold,
+          todayFreeCups,
+          todayTotalCups: todayCupsSold + todayFreeCups,
           todayCashIn,
           todayExpenseTotal,
           currentCashBalance,

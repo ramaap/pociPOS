@@ -173,9 +173,16 @@ export async function GET(req: Request) {
     let cashRevenue = 0;
     let cashCount = 0;
     let totalCups = 0;
+    let paidCups = 0;
+    let freeCups = 0;
     let cupReguler = 0;
+    let paidCupReguler = 0;
+    let freeCupReguler = 0;
     let cupJumbo = 0;
+    let paidCupJumbo = 0;
+    let freeCupJumbo = 0;
     let totalHPP = 0;
+    let freeCupsHPP = 0; // Biaya bahan baku (HPP) yang dialokasikan untuk cup promo gratis
 
     const productMap = new Map<
       string,
@@ -184,6 +191,8 @@ export async function GET(req: Request) {
         name: string;
         category: string;
         quantity: number;
+        paidQuantity: number;
+        freeQuantity: number;
         revenue: number;
         hpp: number;
         grossProfit: number;
@@ -198,6 +207,8 @@ export async function GET(req: Request) {
         name: string;
         revenue: number;
         cupCount: number;
+        paidCupCount: number;
+        freeCupCount: number;
         transactionCount: number;
       }
     >();
@@ -222,6 +233,8 @@ export async function GET(req: Request) {
           name: tx.outlet.name,
           revenue: 0,
           cupCount: 0,
+          paidCupCount: 0,
+          freeCupCount: 0,
           transactionCount: 0,
         });
       }
@@ -233,15 +246,28 @@ export async function GET(req: Request) {
       for (const item of tx.items) {
         const pName = item.product?.name || "Produk";
         const isTopping = pName.toLowerCase().includes("topping");
+        const isFree = item.unit_price === 0 || item.unit_price === null;
+        const itemQty = item.quantity || 0;
 
         if (!isTopping) {
-          totalCups += item.quantity;
-          outEntry.cupCount += item.quantity;
+          totalCups += itemQty;
+          outEntry.cupCount += itemQty;
+          if (isFree) {
+            freeCups += itemQty;
+            outEntry.freeCupCount += itemQty;
+          } else {
+            paidCups += itemQty;
+            outEntry.paidCupCount += itemQty;
+          }
 
           if (pName.includes("(Reguler)") || pName.toLowerCase().includes("reguler")) {
-            cupReguler += item.quantity;
+            cupReguler += itemQty;
+            if (isFree) freeCupReguler += itemQty;
+            else paidCupReguler += itemQty;
           } else if (pName.includes("(Jumbo)") || pName.toLowerCase().includes("jumbo")) {
-            cupJumbo += item.quantity;
+            cupJumbo += itemQty;
+            if (isFree) freeCupJumbo += itemQty;
+            else paidCupJumbo += itemQty;
           }
         }
 
@@ -260,8 +286,11 @@ export async function GET(req: Request) {
           itemUnitHPP = 2500; // Fallback jika resep kosong
         }
 
-        const totalItemHPP = itemUnitHPP * item.quantity;
+        const totalItemHPP = itemUnitHPP * itemQty;
         totalHPP += totalItemHPP;
+        if (isFree && !isTopping) {
+          freeCupsHPP += totalItemHPP;
+        }
 
         const pId = item.product_id;
         if (!productMap.has(pId)) {
@@ -270,14 +299,21 @@ export async function GET(req: Request) {
             name: pName,
             category: item.product?.category || "fruity",
             quantity: 0,
+            paidQuantity: 0,
+            freeQuantity: 0,
             revenue: 0,
             hpp: 0,
             grossProfit: 0,
           });
         }
         const prodEntry = productMap.get(pId)!;
-        prodEntry.quantity += item.quantity;
-        prodEntry.revenue += item.quantity * item.unit_price;
+        prodEntry.quantity += itemQty;
+        if (isFree) {
+          prodEntry.freeQuantity += itemQty;
+        } else {
+          prodEntry.paidQuantity += itemQty;
+        }
+        prodEntry.revenue += itemQty * (item.unit_price || 0);
         prodEntry.hpp += totalItemHPP;
         prodEntry.grossProfit = prodEntry.revenue - prodEntry.hpp;
       }
@@ -301,18 +337,32 @@ export async function GET(req: Request) {
       .sort((a, b) => b.revenue - a.revenue);
 
     // Format Transaksi Ringkas untuk Tabel Audit
-    const recentTransactions = transactions.slice(0, 100).map((tx) => ({
-      id: tx.id,
-      orderCode: tx.offline_id || `#TX-${tx.id.slice(-6).toUpperCase()}`,
-      outletName: tx.outlet.name,
-      outletCode: tx.outlet.code,
-      totalAmount: tx.total_amount,
-      paymentMethod: tx.payment_method,
-      createdAt: tx.created_at,
-      isOffline: Boolean(tx.offline_id),
-      itemCount: tx.items.reduce((s, i) => s + i.quantity, 0),
-      itemsSummary: tx.items.map((i) => `${i.quantity}x ${i.product?.name || "Item"}`).join(", "),
-    }));
+    const recentTransactions = transactions.slice(0, 100).map((tx) => {
+      const freeItemCount = tx.items
+        .filter((i) => i.unit_price === 0 || i.unit_price === null)
+        .reduce((s, i) => s + i.quantity, 0);
+      const paidItemCount = tx.items
+        .filter((i) => (i.unit_price || 0) > 0)
+        .reduce((s, i) => s + i.quantity, 0);
+
+      return {
+        id: tx.id,
+        orderCode: tx.offline_id || `#TX-${tx.id.slice(-6).toUpperCase()}`,
+        outletName: tx.outlet.name,
+        outletCode: tx.outlet.code,
+        totalAmount: tx.total_amount,
+        paymentMethod: tx.payment_method,
+        createdAt: tx.created_at,
+        isOffline: Boolean(tx.offline_id),
+        itemCount: tx.items.reduce((s, i) => s + i.quantity, 0),
+        paidItemCount,
+        freeItemCount,
+        hasPromoFree: freeItemCount > 0,
+        itemsSummary: tx.items
+          .map((i) => `${i.quantity}x ${i.product?.name || "Item"}${i.unit_price === 0 ? " [GRATIS]" : ""}`)
+          .join(", "),
+      };
+    });
 
     // 5. Hitung Nilai Persediaan Stok Bahan Baku Fisik (Untuk Neraca Aset)
     const boothStocks = await prisma.boothStock.findMany({
@@ -478,8 +528,15 @@ export async function GET(req: Request) {
         cashRevenue,
         cashCount,
         totalCups,
+        paidCups,
+        freeCups,
+        freeCupsHPP: Math.round(freeCupsHPP),
         cupReguler,
+        paidCupReguler,
+        freeCupReguler,
         cupJumbo,
+        paidCupJumbo,
+        freeCupJumbo,
         totalHPP: Math.round(totalHPP),
         grossProfit: Math.round(grossProfit),
         grossMarginPercent,

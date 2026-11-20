@@ -87,9 +87,17 @@ export async function GET() {
 
     const computed = computeCampaignStatus(campaign);
 
+    // Hitung akumulasi cup promo gratis yang telah dibagikan ke pelanggan
+    const freeItems = await prisma.transactionItem.findMany({
+      where: { unit_price: 0 },
+      select: { quantity: true },
+    });
+    const totalFreeCupsGiven = freeItems.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
+
     return NextResponse.json({
       campaign,
       ...computed,
+      totalFreeCupsGiven,
     });
   } catch (error: any) {
     console.error("Error fetching promo campaign:", error);

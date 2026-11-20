@@ -60,6 +60,9 @@ interface Outlet {
   todayCashIn?: number;
   todayExpenseTotal?: number;
   todayCupsSold?: number;
+  todayPaidCups?: number;
+  todayFreeCups?: number;
+  todayTotalCups?: number;
   currentCashBalance?: number;
   shift_status?: "open" | "closed" | string;
   active_status?: boolean;
@@ -149,11 +152,16 @@ interface AdminData {
     qrisSalesToday: number;
     cashSalesToday: number;
     transactionCount: number;
+    totalPaidCups?: number;
+    totalFreeCups?: number;
+    totalCups?: number;
     totalRegCupsSold: number;
+    totalRegCupsFree?: number;
     totalJumboCupsSold: number;
+    totalJumboCupsFree?: number;
     totalLiquidMlSold: number;
-    flavorStats?: Record<string, number>;
-    outletSalesList?: { name: string; sales: number; cups: number }[];
+    flavorStats?: Record<string, any>;
+    outletSalesList?: { name: string; sales: number; cups: number; paidCups?: number; freeCups?: number }[];
   };
   closings: ShiftClosingRecord[];
   boothStocks: BoothStockRecord[];
@@ -446,12 +454,23 @@ export default function AdminDashboardPage() {
       alert("Belum ada data transaksi untuk diekspor pada filter ini.");
       return;
     }
-    const headers = ["Waktu", "No Nota", "Kedai", "Item Pesanan", "Metode Pembayaran", "Total Penjualan (Rp)"];
+    const headers = [
+      "Waktu",
+      "No Nota",
+      "Kedai",
+      "Item Pesanan",
+      "Cup Terjual",
+      "Cup Promo Gratis",
+      "Metode Pembayaran",
+      "Total Penjualan (Rp)",
+    ];
     const rows = financeData.transactions.map((t: any) => [
       `"${new Date(t.createdAt).toLocaleString("id-ID")}"`,
       `"${t.orderCode}"`,
       `"${t.outletName}"`,
       `"${(t.itemsSummary || "").replace(/"/g, '""')}"`,
+      t.paidItemCount ?? 0,
+      t.freeItemCount ?? 0,
       `"${t.paymentMethod}"`,
       t.totalAmount,
     ]);
@@ -2593,8 +2612,16 @@ export default function AdminDashboardPage() {
                         {formatRupiah(financeData?.summary?.totalRevenue || 0)}
                       </h3>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-2 flex items-center gap-1">
-                      <span className="font-bold text-slate-700 font-mono">{financeData?.summary?.totalTransactions || 0}</span> nota penjualan
+                    <p className="text-[11px] text-slate-500 mt-2 flex items-center gap-1 flex-wrap">
+                      <span className="font-bold text-slate-700 font-mono">{financeData?.summary?.totalTransactions || 0}</span> nota
+                      <span className="text-slate-300">•</span>
+                      <span className="font-bold text-emerald-700 font-mono">{financeData?.summary?.paidCups ?? financeData?.summary?.totalCups ?? 0}</span> terjual
+                      {(financeData?.summary?.freeCups || 0) > 0 && (
+                        <>
+                          <span className="text-slate-300">•</span>
+                          <span className="font-bold text-amber-600 font-mono">+{financeData?.summary?.freeCups} gratis</span>
+                        </>
+                      )}
                     </p>
                   </div>
 
@@ -2926,7 +2953,13 @@ export default function AdminDashboardPage() {
                                   <div>
                                     <p className="font-bold text-slate-900">{p.name}</p>
                                     <p className="text-[10px] text-slate-500">
-                                      {p.quantity} cup terjual • Margin {p.marginPercent}%
+                                      {p.paidQuantity !== undefined ? p.paidQuantity : p.quantity} cup terjual
+                                      {(p.freeQuantity || 0) > 0 && (
+                                        <span className="font-bold text-amber-700 ml-1">
+                                          (+{p.freeQuantity} gratis)
+                                        </span>
+                                      )}{" "}
+                                      • Margin {p.marginPercent}%
                                     </p>
                                   </div>
                                 </div>
@@ -2973,7 +3006,13 @@ export default function AdminDashboardPage() {
                                   <span className="font-bold text-slate-900">{o.name}</span>
                                 </div>
                                 <p className="text-[10px] text-slate-500 mt-0.5">
-                                  {o.cupCount} cup • {o.transactionCount} transaksi
+                                  {o.paidCupCount !== undefined ? o.paidCupCount : o.cupCount} terjual
+                                  {(o.freeCupCount || 0) > 0 && (
+                                    <span className="font-bold text-amber-700 ml-1">
+                                      (+{o.freeCupCount} gratis)
+                                    </span>
+                                  )}{" "}
+                                  • {o.transactionCount} transaksi
                                 </p>
                               </div>
                               <div className="text-right">
@@ -3345,11 +3384,23 @@ export default function AdminDashboardPage() {
                       </div>
 
                       {/* HPP Bahan Baku */}
-                      <div className="flex items-center justify-between p-3 rounded-xl bg-rose-50/50 text-rose-800">
-                        <span className="font-bold font-sans">2. Harga Pokok Penjualan (HPP BOM Resep Bahan Baku)</span>
-                        <span className="font-bold text-sm">
-                          - {formatRupiah(financeData?.summary?.totalHPP || 0)}
-                        </span>
+                      <div className="p-3 rounded-xl bg-rose-50/50 text-rose-800 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold font-sans">2. Harga Pokok Penjualan (HPP BOM Resep Bahan Baku)</span>
+                          <span className="font-bold text-sm">
+                            - {formatRupiah(financeData?.summary?.totalHPP || 0)}
+                          </span>
+                        </div>
+                        {(financeData?.summary?.freeCupsHPP || 0) > 0 && (
+                          <div className="flex items-center justify-between text-[11px] text-amber-800 bg-amber-50/80 px-2.5 py-1 rounded-lg border border-amber-200">
+                            <span className="font-sans flex items-center gap-1.5 font-bold">
+                              <span>🎁 Termasuk Biaya Modal Promo Gratis ({financeData?.summary?.freeCups || 0} Cup):</span>
+                            </span>
+                            <span className="font-bold font-mono">
+                              {formatRupiah(financeData?.summary?.freeCupsHPP || 0)}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Laba Kotor */}
@@ -3417,7 +3468,14 @@ export default function AdminDashboardPage() {
                               <tr key={p.id} className="hover:bg-slate-50/70 transition">
                                 <td className="py-2.5 px-3 font-bold font-sans text-slate-900">{p.name}</td>
                                 <td className="py-2.5 px-3 font-sans text-slate-500 capitalize">{p.category}</td>
-                                <td className="py-2.5 px-3 text-center font-bold text-slate-700">{p.quantity} cup</td>
+                                <td className="py-2.5 px-3 text-center font-bold text-slate-700">
+                                  <div>{p.paidQuantity !== undefined ? p.paidQuantity : p.quantity} cup</div>
+                                  {(p.freeQuantity || 0) > 0 && (
+                                    <div className="text-[10px] text-amber-700 font-bold">
+                                      +{p.freeQuantity} gratis
+                                    </div>
+                                  )}
+                                </td>
                                 <td className="py-2.5 px-3 text-right font-bold text-slate-900">{formatRupiah(p.revenue)}</td>
                                 <td className="py-2.5 px-3 text-right text-rose-600">{formatRupiah(p.hpp)}</td>
                                 <td className="py-2.5 px-3 text-right font-bold text-emerald-700">{formatRupiah(p.grossProfit)}</td>
@@ -3740,10 +3798,17 @@ export default function AdminDashboardPage() {
                                 <td className="py-2.5 px-3 font-bold text-slate-900">{t.orderCode}</td>
                                 <td className="py-2.5 px-3 font-sans text-slate-700">{t.outletName}</td>
                                 <td
-                                  className="py-2.5 px-3 font-sans text-slate-600 max-w-xs truncate"
+                                  className="py-2.5 px-3 font-sans text-slate-600 max-w-sm"
                                   title={t.itemsSummary}
                                 >
-                                  {t.itemsSummary}
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="truncate max-w-xs">{t.itemsSummary}</span>
+                                    {t.hasPromoFree && (
+                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                                        🎁 Promo ({t.freeItemCount} cup)
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="py-2.5 px-3">
                                   <span
@@ -4115,6 +4180,27 @@ export default function AdminDashboardPage() {
                           </div>
 
                           <div className="flex items-center gap-2 flex-wrap">
+                            {/* Ringkasan Cup Shift Ini (Terjual vs Promo Gratis) */}
+                            {!isClosed && (
+                              <div
+                                className="px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs border bg-emerald-50 text-emerald-950 border-emerald-300"
+                                title={`Total Cup Keluar Shift Ini: ${(fullOutlet.todayPaidCups ?? fullOutlet.todayCupsSold ?? 0) + (fullOutlet.todayFreeCups ?? 0)} Cup (${fullOutlet.todayPaidCups ?? fullOutlet.todayCupsSold ?? 0} terjual berbayar, ${fullOutlet.todayFreeCups ?? 0} promo gratis)`}
+                              >
+                                <Coffee className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                                <span>
+                                  Cup:{" "}
+                                  <strong className="text-emerald-800">
+                                    {fullOutlet.todayPaidCups ?? fullOutlet.todayCupsSold ?? 0} terjual
+                                  </strong>
+                                  {(fullOutlet.todayFreeCups || 0) > 0 && (
+                                    <span className="ml-1 text-[10px] font-black text-amber-700 bg-amber-100 px-1 py-0.2 rounded">
+                                      +{fullOutlet.todayFreeCups} gratis
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            )}
+
                             {/* Total Uang Cash Fisik di Laci Saat Ini (Real-time di Booth) */}
                             <div
                               className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs border ${
@@ -4539,6 +4625,18 @@ export default function AdminDashboardPage() {
                         <Target className="w-3.5 h-3.5 text-sky-600" />
                         <span>Target: <strong>{outlet.target_cups || 100} cup / hari</strong></span>
                       </span>
+
+                      {outlet.todayCupsSold !== undefined && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-300 text-xs font-bold">
+                          <Coffee className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Terjual: <strong>{outlet.todayPaidCups ?? outlet.todayCupsSold ?? 0} cup</strong></span>
+                          {(outlet.todayFreeCups || 0) > 0 && (
+                            <span className="ml-1 text-[10px] font-black text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                              +{outlet.todayFreeCups} gratis
+                            </span>
+                          )}
+                        </span>
+                      )}
 
                       {(() => {
                         const isClosed = outlet.shift_status === "closed";
@@ -5079,6 +5177,11 @@ export default function AdminDashboardPage() {
                         </span>
                       )}
                       <span>{promoCampaignData?.statusLabel || "Memuat Status..."}</span>
+                    </span>
+
+                    {/* Stat Total Cup Gratis Dibagikan */}
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                      <span>🥤 Total Dibagikan: <strong>{promoCampaignData?.totalFreeCupsGiven || 0} Cup Gratis</strong></span>
                     </span>
                   </div>
                   <p className="text-xs text-slate-600">
