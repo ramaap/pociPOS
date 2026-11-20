@@ -42,6 +42,9 @@ import {
   Delete,
   ShieldCheck,
   KeyRound,
+  Sliders,
+  Download,
+  Smartphone,
 } from "lucide-react";
 import {
   getPendingTransactions,
@@ -118,29 +121,30 @@ interface FlavorMeta {
   badgeBg: string;
   badgeText: string;
   icon: string;
+  imageUrl?: string;
   isNew?: boolean;
 }
 
 const FLAVOR_METAS: Record<string, FlavorMeta> = {
-  "Jasmine Poci Iced Tea": { baseName: "Jasmine Poci Iced Tea", category: "original", circleBg: "bg-emerald-600", badgeBg: "bg-emerald-100", badgeText: "text-emerald-800", icon: "🍃" },
-  "Vanilla Poci Iced Tea": { baseName: "Vanilla Poci Iced Tea", category: "original", circleBg: "bg-pink-700", badgeBg: "bg-pink-100", badgeText: "text-pink-800", icon: "🌼" },
-  "Thai Iced Tea": { baseName: "Thai Iced Tea", category: "milky", circleBg: "bg-orange-600", badgeBg: "bg-orange-100", badgeText: "text-orange-800", icon: "🧋" },
-  "Milk Iced Tea": { baseName: "Milk Iced Tea", category: "milky", circleBg: "bg-amber-500", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "🥛" },
-  "Chocolate Iced Tea": { baseName: "Chocolate Iced Tea", category: "milky", circleBg: "bg-amber-950", badgeBg: "bg-stone-200", badgeText: "text-stone-900", icon: "🍫" },
-  "Lychee Iced Tea": { baseName: "Lychee Iced Tea", category: "fruity", circleBg: "bg-pink-500", badgeBg: "bg-pink-100", badgeText: "text-pink-800", icon: "🍒" },
-  "Cappuccino Iced Tea": { baseName: "Cappuccino Iced Tea", category: "milky", circleBg: "bg-amber-800", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "☕" },
-  "Guava Iced Tea": { baseName: "Guava Iced Tea", category: "fruity", circleBg: "bg-rose-500", badgeBg: "bg-rose-100", badgeText: "text-rose-800", icon: "🍈" },
-  "Mango Iced Tea": { baseName: "Mango Iced Tea", category: "fruity", circleBg: "bg-emerald-500", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "🥭" },
-  "Blackcurrant Iced Tea": { baseName: "Blackcurrant Iced Tea", category: "fruity", circleBg: "bg-indigo-600", badgeBg: "bg-indigo-100", badgeText: "text-indigo-900", icon: "🍇" },
-  "Apple Iced Tea": { baseName: "Apple Iced Tea", category: "fruity", circleBg: "bg-red-600", badgeBg: "bg-red-100", badgeText: "text-red-900", icon: "🍎" },
-  "Orange Iced Tea": { baseName: "Orange Iced Tea", category: "fruity", circleBg: "bg-orange-500", badgeBg: "bg-orange-100", badgeText: "text-orange-900", icon: "🍊" },
-  "Lemon Honey Iced Tea": { baseName: "Lemon Honey Iced Tea", category: "fruity", circleBg: "bg-yellow-500", badgeBg: "bg-yellow-100", badgeText: "text-yellow-900", icon: "🍋" },
+  "Jasmine Poci Iced Tea": { baseName: "Jasmine Poci Iced Tea", category: "original", circleBg: "bg-emerald-600", badgeBg: "bg-emerald-100", badgeText: "text-emerald-800", icon: "🍃", imageUrl: "/images/products/original_jumbo.png" },
+  "Vanilla Poci Iced Tea": { baseName: "Vanilla Poci Iced Tea", category: "original", circleBg: "bg-pink-700", badgeBg: "bg-pink-100", badgeText: "text-pink-800", icon: "🌼", imageUrl: "/images/products/milk_tea.png" },
+  "Thai Iced Tea": { baseName: "Thai Iced Tea", category: "milky", circleBg: "bg-orange-600", badgeBg: "bg-orange-100", badgeText: "text-orange-800", icon: "🧋", imageUrl: "/images/products/thai_tea.png" },
+  "Milk Iced Tea": { baseName: "Milk Iced Tea", category: "milky", circleBg: "bg-amber-500", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "🥛", imageUrl: "/images/products/milk_tea.png" },
+  "Chocolate Iced Tea": { baseName: "Chocolate Iced Tea", category: "milky", circleBg: "bg-amber-950", badgeBg: "bg-stone-200", badgeText: "text-stone-900", icon: "🍫", imageUrl: "/images/products/chocolate.png" },
+  "Lychee Iced Tea": { baseName: "Lychee Iced Tea", category: "fruity", circleBg: "bg-pink-500", badgeBg: "bg-pink-100", badgeText: "text-pink-800", icon: "🍒", imageUrl: "/images/products/lychee.png" },
+  "Cappuccino Iced Tea": { baseName: "Cappuccino Iced Tea", category: "milky", circleBg: "bg-amber-800", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "☕", imageUrl: "/images/products/cappuccino.png" },
+  "Guava Iced Tea": { baseName: "Guava Iced Tea", category: "fruity", circleBg: "bg-rose-500", badgeBg: "bg-rose-100", badgeText: "text-rose-800", icon: "🍈", imageUrl: "/images/products/lychee.png" },
+  "Mango Iced Tea": { baseName: "Mango Iced Tea", category: "fruity", circleBg: "bg-emerald-500", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "🥭", imageUrl: "/images/products/mango.png" },
+  "Blackcurrant Iced Tea": { baseName: "Blackcurrant Iced Tea", category: "fruity", circleBg: "bg-indigo-600", badgeBg: "bg-indigo-100", badgeText: "text-indigo-900", icon: "🍇", imageUrl: "/images/products/blackcurrant.png" },
+  "Apple Iced Tea": { baseName: "Apple Iced Tea", category: "fruity", circleBg: "bg-red-600", badgeBg: "bg-red-100", badgeText: "text-red-900", icon: "🍎", imageUrl: "/images/products/apple.png" },
+  "Orange Iced Tea": { baseName: "Orange Iced Tea", category: "fruity", circleBg: "bg-orange-500", badgeBg: "bg-orange-100", badgeText: "text-orange-900", icon: "🍊", imageUrl: "/images/products/orange.png" },
+  "Lemon Honey Iced Tea": { baseName: "Lemon Honey Iced Tea", category: "fruity", circleBg: "bg-yellow-500", badgeBg: "bg-yellow-100", badgeText: "text-yellow-900", icon: "🍋", imageUrl: "/images/products/lemon_honey.png" },
   // 5 Varian Baru Vendor Resmi Es Teh Poci
-  "Matcha Iced Tea": { baseName: "Matcha Iced Tea", category: "milky", circleBg: "bg-emerald-700", badgeBg: "bg-emerald-100", badgeText: "text-emerald-900", icon: "🍵" },
-  "Aren Latte Iced Tea": { baseName: "Aren Latte Iced Tea", category: "milky", circleBg: "bg-amber-800", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "☕" },
-  "Coconut Latte Iced Tea": { baseName: "Coconut Latte Iced Tea", category: "milky", circleBg: "bg-teal-700", badgeBg: "bg-teal-100", badgeText: "text-teal-900", icon: "🥥" },
-  "Teh Tarik Gula Aren": { baseName: "Teh Tarik Gula Aren", category: "milky", circleBg: "bg-amber-900", badgeBg: "bg-amber-100", badgeText: "text-amber-950", icon: "🧋" },
-  "Teh Krampul Selasih": { baseName: "Teh Krampul Selasih", category: "fruity", circleBg: "bg-lime-600", badgeBg: "bg-lime-100", badgeText: "text-lime-900", icon: "🍹" },
+  "Matcha Iced Tea": { baseName: "Matcha Iced Tea", category: "milky", circleBg: "bg-emerald-700", badgeBg: "bg-emerald-100", badgeText: "text-emerald-900", icon: "🍵", imageUrl: "/images/products/matcha.png" },
+  "Aren Latte Iced Tea": { baseName: "Aren Latte Iced Tea", category: "milky", circleBg: "bg-amber-800", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "☕", imageUrl: "/images/products/aren_latte.png" },
+  "Coconut Latte Iced Tea": { baseName: "Coconut Latte Iced Tea", category: "milky", circleBg: "bg-teal-700", badgeBg: "bg-teal-100", badgeText: "text-teal-900", icon: "🥥", imageUrl: "/images/products/coconut_latte.png" },
+  "Teh Tarik Gula Aren": { baseName: "Teh Tarik Gula Aren", category: "milky", circleBg: "bg-amber-900", badgeBg: "bg-amber-100", badgeText: "text-amber-950", icon: "🧋", imageUrl: "/images/products/teh_tarik_gula_aren.png" },
+  "Teh Krampul Selasih": { baseName: "Teh Krampul Selasih", category: "fruity", circleBg: "bg-lime-600", badgeBg: "bg-lime-100", badgeText: "text-lime-900", icon: "🍹", imageUrl: "/images/products/teh_krampul_selasih.png" },
 };
 
 export default function PosTerminalPage() {
@@ -153,6 +157,7 @@ export default function PosTerminalPage() {
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isMobileOperasionalOpen, setIsMobileOperasionalOpen] = useState<boolean>(false);
 
   // Target & Realisasi Penjualan Cup Harian
   const [todayCupsSold, setTodayCupsSold] = useState<number>(0);
@@ -2138,19 +2143,20 @@ export default function PosTerminalPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
-      {/* Top Navbar */}
+            {/* Top Navbar */}
       <header className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 text-white relative lg:sticky lg:top-0 z-30 shadow-md w-full">
-        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-2 sm:py-2.5 space-y-2 lg:space-y-0 lg:flex lg:items-center lg:justify-between lg:gap-4">
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-2.5 sm:py-3 space-y-2 lg:space-y-0 lg:flex lg:items-center lg:justify-between lg:gap-4">
           
-          {/* Row 1 di Mobile & Tablet (<lg) / Sisi Kiri di Desktop (lg+) */}
+          {/* ================= BARIS BRAND HEADER & STATUS ================= */}
           <div className="flex items-center justify-between gap-2 min-w-0">
+            {/* Logo & Brand Name */}
             <div className="flex items-center space-x-2 sm:space-x-2.5 min-w-0">
-              <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-white p-0.5 sm:p-1 flex items-center justify-center shadow-md shrink-0 border border-amber-300 overflow-hidden">
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-white p-1 flex items-center justify-center shadow-md shrink-0 border border-amber-300 overflow-hidden">
                 <img src="/logo.jpg" alt="Logo Teh Cap Poci" className="w-full h-full object-contain" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center space-x-1.5">
-                  <h1 className="font-black text-xs sm:text-base md:text-lg lg:text-xl tracking-tight text-white whitespace-nowrap">
+                  <h1 className="font-black text-sm sm:text-base md:text-lg lg:text-xl tracking-tight text-white whitespace-nowrap">
                     TEH CAP POCI
                   </h1>
                   <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-400 text-slate-950 uppercase shrink-0">
@@ -2163,93 +2169,303 @@ export default function PosTerminalPage() {
               </div>
             </div>
 
-            {/* Tombol Pengeluaran, Tutup Shift & Admin Cepat di Mobile & Tablet (<lg) */}
-            <div className="flex lg:hidden items-center space-x-1 sm:space-x-1.5 shrink-0">
-              <button
-                type="button"
-                disabled={currentOutletObj?.shift_status !== "closed"}
-                onClick={() => openOpeningModal()}
-                className={`flex items-center space-x-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition shadow-2xs ${
-                  currentOutletObj?.shift_status === "closed"
-                    ? "bg-amber-400 hover:bg-amber-300 text-slate-950 ring-2 ring-amber-300 animate-pulse font-extrabold cursor-pointer"
-                    : "opacity-40 cursor-not-allowed bg-emerald-950/40 text-emerald-300/70 border border-emerald-800/40 shadow-none"
+            {/* Status Online/Offline & Sync di Mobile (Kanan Atas) */}
+            <div className="flex lg:hidden items-center space-x-1.5 shrink-0">
+              <div
+                className={`flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-2xs shrink-0 transition ${
+                  isOnline
+                    ? "bg-emerald-950/80 text-emerald-200 border border-emerald-600/50"
+                    : "bg-rose-950/90 text-rose-200 border border-rose-500 animate-pulse"
                 }`}
-                title={
-                  currentOutletObj?.shift_status === "closed"
-                    ? "Shift tutup. Klik untuk Buka Shift / Opening Kedai"
-                    : "Shift sudah dibuka (Sedang Aktif)"
-                }
               >
-                <Sunrise className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Buka Shift</span>
-                <span className="sm:hidden">Buka</span>
-              </button>
+                {isOnline ? (
+                  <>
+                    <Wifi className="w-3 h-3 text-emerald-400" />
+                    <span>Online</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-3 h-3 text-rose-400" />
+                    <span>Offline</span>
+                  </>
+                )}
+              </div>
 
-              <button
-                type="button"
-                disabled={currentOutletObj?.shift_status === "closed"}
-                onClick={() => {
-                  setExpenseMessage(null);
-                  setIsExpenseModalOpen(true);
-                  loadTodayExpenses();
-                }}
-                className={`flex items-center space-x-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition shadow-2xs ${
-                  currentOutletObj?.shift_status === "closed"
-                    ? "opacity-40 cursor-not-allowed bg-amber-950/40 text-amber-300/60 border border-amber-800/40 shadow-none"
-                    : "bg-amber-400 hover:bg-amber-300 text-slate-950 cursor-pointer"
-                }`}
-                title={
-                  currentOutletObj?.shift_status === "closed"
-                    ? "Buka shift terlebih dahulu untuk mencatat pengeluaran"
-                    : "Catat Pengeluaran (+ Beban)"
-                }
-              >
-                <Receipt className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">+ Pengeluaran</span>
-                <span className="sm:hidden">Beban</span>
-              </button>
-
-              {currentOutletObj?.shift_status === "closed" ? (
+              {pendingSyncCount > 0 && (
                 <button
                   type="button"
-                  disabled
-                  className="opacity-40 cursor-not-allowed bg-emerald-950/40 text-emerald-300/60 border border-emerald-800/40 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold flex items-center space-x-1 shadow-none"
-                  title="Shift belum dibuka. Buka shift terlebih dahulu sebelum dapat menutup shift."
+                  onClick={handleSync}
+                  className="flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-400 hover:bg-amber-500 text-slate-950 transition shadow shrink-0"
                 >
-                  <ClipboardList className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Tutup Shift</span>
-                  <span className="sm:hidden">Shift</span>
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  <span>Sync ({pendingSyncCount})</span>
                 </button>
-              ) : (
-                <Link
-                  href="/closing"
-                  className="flex items-center space-x-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold bg-emerald-700 hover:bg-emerald-600 text-white transition shadow-2xs"
-                  title="Tutup Shift (Blind Count)"
-                >
-                  <ClipboardList className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Tutup Shift</span>
-                  <span className="sm:hidden">Shift</span>
-                </Link>
               )}
-
-              <Link
-                href="/download"
-                className="flex items-center space-x-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-semibold bg-emerald-950/70 border border-emerald-600/40 text-emerald-300 hover:bg-emerald-800 hover:text-white transition shadow-2xs"
-                title="Download APK Android POS untuk Tablet/HP"
-              >
-                <span>📲</span>
-                <span className="hidden md:inline">APK</span>
-              </Link>
             </div>
           </div>
 
-          {/* Row 2 di Mobile & Tablet (<lg) / Sisi Kanan di Desktop (lg+) */}
-          <div className="flex items-center justify-between lg:justify-end gap-1.5 sm:gap-2 flex-nowrap min-w-0">
+          {/* ================= 2 PILIHAN UTAMA KHUSUS MOBILE (KEDAI & OPERASIONAL) ================= */}
+          <div className="grid grid-cols-2 gap-2 w-full pt-1 lg:hidden">
+            {/* 1. Pilihan Kedai Mana (Besar, Jelas, & Akses PIN Cepat) */}
+            <button
+              type="button"
+              onClick={() => {
+                setOutletPinInput("");
+                setOutletPinError(null);
+                setIsOutletPinVerified(false);
+                setTempSwitchOutletId(selectedOutletId);
+                setIsOutletPinModalOpen(true);
+              }}
+              className="h-14 px-3 rounded-xl bg-emerald-950/90 border border-emerald-500/70 hover:border-amber-400 flex items-center justify-between text-left shadow-sm active:scale-[0.98] transition cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded-lg bg-emerald-800 flex items-center justify-center shrink-0 border border-emerald-600/50">
+                  <Store className="w-4 h-4 text-amber-400" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-1">
+                    <span>Kedai</span>
+                    <Lock className="w-2.5 h-2.5 text-amber-400" />
+                  </div>
+                  <div className="font-extrabold text-xs text-white truncate" title={currentOutletObj?.name || "Kedai Cap Poci"}>
+                    {currentOutletObj?.name || "Pilih Kedai"}
+                  </div>
+                </div>
+              </div>
+            </button>
+
+            {/* 2. Pilihan Operasional dengan Dropdown */}
+            <button
+              type="button"
+              onClick={() => setIsMobileOperasionalOpen((prev) => !prev)}
+              className="h-14 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black flex items-center justify-between shadow-md border border-amber-300 active:scale-[0.98] transition cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-slate-950 text-amber-400 flex items-center justify-center shrink-0">
+                  <Sliders className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 text-left">
+                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-amber-950/80">Menu</div>
+                  <div className="font-black text-xs leading-tight">Operasional</div>
+                </div>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-slate-950 shrink-0 transition-transform duration-200 ${isMobileOperasionalOpen ? "rotate-180" : ""}`} />
+            </button>
+          </div>
+
+          {/* ================= DROPDOWN MENU OPERASIONAL (KHUSUS MOBILE) ================= */}
+          {isMobileOperasionalOpen && (
+            <>
+              {/* Backdrop klik di luar untuk menutup */}
+              <div
+                className="fixed inset-0 bg-black/60 z-40 backdrop-blur-xs transition-opacity lg:hidden"
+                onClick={() => setIsMobileOperasionalOpen(false)}
+              />
+              <div className="absolute top-full left-0 right-0 mx-2.5 mt-2 bg-white rounded-2xl shadow-2xl border-2 border-emerald-600 z-50 p-3.5 space-y-2 text-slate-800 lg:hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-emerald-700" />
+                    <span className="font-black text-xs sm:text-sm text-slate-900 uppercase tracking-wide">
+                      Menu Operasional Kedai
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsMobileOperasionalOpen(false)}
+                    className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 pt-1">
+                  {/* a. Buka Tutup Shift */}
+                  {currentOutletObj?.shift_status === "closed" ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMobileOperasionalOpen(false);
+                        openOpeningModal();
+                      }}
+                      className="w-full flex items-center justify-between p-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black shadow-sm border border-amber-300 text-left cursor-pointer transition active:scale-[0.98]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-slate-950 text-amber-400 flex items-center justify-center shrink-0">
+                          <Sunrise className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="text-xs sm:text-sm font-extrabold">a. Buka Shift (Opening Kedai)</div>
+                          <div className="text-[11px] font-semibold text-amber-950/80">Shift Masih Tutup • Mulai Penjualan</div>
+                        </div>
+                      </div>
+                      <span className="text-[11px] bg-slate-950 text-amber-300 font-bold px-2.5 py-1 rounded-lg">
+                        Buka →
+                      </span>
+                    </button>
+                  ) : (
+                    <Link
+                      href="/closing"
+                      onClick={() => setIsMobileOperasionalOpen(false)}
+                      className="w-full flex items-center justify-between p-3 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-black shadow-sm border border-emerald-600 text-left transition active:scale-[0.98]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-emerald-950 text-emerald-300 flex items-center justify-center shrink-0">
+                          <ClipboardList className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="text-xs sm:text-sm font-extrabold">a. Tutup Shift (Blind Count)</div>
+                          <div className="text-[11px] font-semibold text-emerald-100/90">Shift Sedang Aktif • Akhiri Shift</div>
+                        </div>
+                      </div>
+                      <span className="text-[11px] bg-emerald-900 text-emerald-200 font-bold px-2.5 py-1 rounded-lg">
+                        Tutup →
+                      </span>
+                    </Link>
+                  )}
+
+                  {/* b. Link Download */}
+                  <Link
+                    href="/download"
+                    onClick={() => setIsMobileOperasionalOpen(false)}
+                    className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold border border-slate-200 text-left transition active:scale-[0.98]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 text-lg">
+                        📲
+                      </div>
+                      <div>
+                        <div className="text-xs sm:text-sm font-extrabold text-slate-900">b. Link Download APK Kasir</div>
+                        <div className="text-[11px] font-medium text-slate-500">Unduh installer Android HP/Tablet kasir</div>
+                      </div>
+                    </div>
+                    <span className="text-[11px] text-emerald-700 font-extrabold">Unduh →</span>
+                  </Link>
+
+                  {/* c. Pengeluaran Beban Harian */}
+                  <button
+                    type="button"
+                    disabled={currentOutletObj?.shift_status === "closed"}
+                    onClick={() => {
+                      setIsMobileOperasionalOpen(false);
+                      setExpenseMessage(null);
+                      setIsExpenseModalOpen(true);
+                      loadTodayExpenses();
+                    }}
+                    className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition active:scale-[0.98] ${
+                      currentOutletObj?.shift_status === "closed"
+                        ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
+                        : "bg-amber-50 hover:bg-amber-100 text-amber-950 border-amber-200 cursor-pointer shadow-2xs"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                        currentOutletObj?.shift_status === "closed"
+                          ? "bg-slate-200 text-slate-400"
+                          : "bg-amber-500 text-slate-950"
+                      }`}>
+                        <Receipt className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="text-xs sm:text-sm font-extrabold text-slate-900">c. Pengeluaran Beban Harian</div>
+                        <div className="text-[11px] font-medium text-slate-500">
+                          {currentOutletObj?.shift_status === "closed"
+                            ? "Buka shift dahulu untuk catat pengeluaran"
+                            : "Catat beli es batu, gas LPG, kresek, dll"}
+                        </div>
+                      </div>
+                    </div>
+                    <span className={`text-[11px] font-extrabold ${currentOutletObj?.shift_status === "closed" ? "text-slate-400" : "text-amber-800"}`}>
+                      Catat +
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ================= SISI KANAN NAVBAR DESKTOP (lg+) ================= */}
+          <div className="hidden lg:flex items-center justify-end gap-2 flex-nowrap min-w-0">
+            {/* Tombol Buka Shift */}
+            <button
+              type="button"
+              disabled={currentOutletObj?.shift_status !== "closed"}
+              onClick={() => openOpeningModal()}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm ${
+                currentOutletObj?.shift_status === "closed"
+                  ? "bg-amber-400 hover:bg-amber-300 text-slate-950 ring-2 ring-amber-300 animate-pulse font-extrabold cursor-pointer"
+                  : "opacity-40 cursor-not-allowed bg-emerald-950/40 text-emerald-300/70 border border-emerald-800/40 shadow-none"
+              }`}
+              title={
+                currentOutletObj?.shift_status === "closed"
+                  ? "Shift tutup. Klik untuk Buka Shift / Opening Kedai (Refresh Stok & Uang Cash Dibawa)"
+                  : "Shift sudah dibuka (Sedang Aktif)"
+              }
+            >
+              <Sunrise className="w-3.5 h-3.5" />
+              <span>Buka Shift</span>
+            </button>
+
+            {/* Tombol Pengeluaran Beban */}
+            <button
+              type="button"
+              disabled={currentOutletObj?.shift_status !== "closed"}
+              onClick={() => {
+                setExpenseMessage(null);
+                setIsExpenseModalOpen(true);
+                loadTodayExpenses();
+              }}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm ${
+                currentOutletObj?.shift_status === "closed"
+                  ? "opacity-40 cursor-not-allowed bg-amber-950/40 text-amber-300/60 border border-amber-800/40 shadow-none"
+                  : "bg-amber-400 hover:bg-amber-300 text-slate-950 cursor-pointer"
+              }`}
+              title={
+                currentOutletObj?.shift_status === "closed"
+                  ? "Buka shift terlebih dahulu untuk mencatat pengeluaran"
+                  : "Catat Pengeluaran Kedai (Es Batu, Gas LPG, Sedotan, dll)"
+              }
+            >
+              <Receipt className="w-3.5 h-3.5" />
+              <span>+ Pengeluaran (Beban)</span>
+            </button>
+
+            {/* Tombol Tutup Shift */}
+            {currentOutletObj?.shift_status === "closed" ? (
+              <button
+                type="button"
+                disabled
+                className="opacity-40 cursor-not-allowed bg-emerald-950/40 text-emerald-300/60 border border-emerald-800/40 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1 shadow-none"
+                title="Shift belum dibuka. Buka shift terlebih dahulu sebelum dapat menutup shift."
+              >
+                <ClipboardList className="w-3.5 h-3.5" />
+                <span>Tutup Shift</span>
+              </button>
+            ) : (
+              <Link
+                href="/closing"
+                className="flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-600 text-white transition shadow-sm"
+                title="Tutup Shift (Blind Count)"
+              >
+                <ClipboardList className="w-3.5 h-3.5" />
+                <span>Tutup Shift</span>
+              </Link>
+            )}
+
+            {/* Tombol Download APK */}
+            <Link
+              href="/download"
+              className="flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-950/80 border border-emerald-600/50 text-emerald-200 hover:bg-emerald-800 hover:text-white transition shadow-sm"
+              title="Download APK Android POS untuk Tablet/HP"
+            >
+              <span>📲</span>
+              <span>Download APK</span>
+            </Link>
+
             {/* Badge Outlet Terkunci Per Perangkat */}
-            <div className="flex-1 sm:flex-initial flex items-center justify-between bg-emerald-950/80 border border-emerald-600/50 rounded-lg sm:rounded-xl px-2.5 py-1 text-xs min-w-0 max-w-[210px] xs:max-w-[260px] sm:max-w-[320px] lg:max-w-none gap-1.5 shadow-2xs">
+            <div className="flex items-center justify-between bg-emerald-950/80 border border-emerald-600/50 rounded-xl px-3 py-1.5 text-xs min-w-0 gap-2 shadow-2xs">
               <div className="flex items-center min-w-0 gap-1.5 truncate">
                 <Store className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="font-extrabold text-white text-xs truncate" title={currentOutletObj?.name || "Kedai Teh Poci"}>
+                <span className="font-extrabold text-white text-xs truncate max-w-[140px]" title={currentOutletObj?.name || "Kedai Teh Poci"}>
                   {currentOutletObj?.name || "Kedai Cap Poci"}
                 </span>
               </div>
@@ -2262,17 +2478,17 @@ export default function PosTerminalPage() {
                   setTempSwitchOutletId(selectedOutletId);
                   setIsOutletPinModalOpen(true);
                 }}
-                className="shrink-0 px-1.5 py-0.5 hover:bg-emerald-800/80 text-emerald-300 hover:text-white rounded-md transition flex items-center gap-1 text-[10px] font-bold border border-emerald-700/60 cursor-pointer"
+                className="shrink-0 px-2 py-0.5 hover:bg-emerald-800 text-emerald-300 hover:text-white rounded-md transition flex items-center gap-1 text-[11px] font-bold border border-emerald-700/60 cursor-pointer"
                 title="Outlet dikunci di perangkat ini. Klik untuk ganti kedai (Butuh PIN Admin)"
               >
                 <Lock className="w-2.5 h-2.5 text-amber-400" />
-                <span className="hidden xs:inline">Ubah</span>
+                <span>Ubah</span>
               </button>
             </div>
 
             {/* Status Online/Offline */}
             <div
-              className={`flex items-center space-x-1 px-2 sm:px-2.5 py-1 rounded-lg sm:rounded-full text-[10px] sm:text-[11px] font-semibold shadow-2xs shrink-0 transition ${
+              className={`flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-2xs shrink-0 transition ${
                 isOnline
                   ? "bg-emerald-950/70 text-emerald-200 border border-emerald-600/50"
                   : "bg-rose-950/90 text-rose-200 border border-rose-500 animate-pulse"
@@ -2291,86 +2507,22 @@ export default function PosTerminalPage() {
               )}
             </div>
 
+            {/* Sync Button */}
             {pendingSyncCount > 0 && (
               <button
+                type="button"
                 onClick={handleSync}
-                className="flex items-center space-x-1 px-2 py-1 rounded-lg sm:rounded-full text-[10px] font-bold bg-amber-400 hover:bg-amber-500 text-slate-950 transition shadow shrink-0"
+                className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-400 hover:bg-amber-500 text-slate-950 transition shadow shrink-0"
               >
                 <RefreshCw className="w-3 h-3 animate-spin" />
                 <span>Sync ({pendingSyncCount})</span>
               </button>
             )}
-
-            {/* Desktop Only Links (lg+) */}
-            <div className="hidden lg:flex items-center space-x-2 shrink-0">
-              <button
-                type="button"
-                disabled={currentOutletObj?.shift_status !== "closed"}
-                onClick={() => openOpeningModal()}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm ${
-                  currentOutletObj?.shift_status === "closed"
-                    ? "bg-amber-400 hover:bg-amber-300 text-slate-950 ring-2 ring-amber-300 animate-pulse font-extrabold cursor-pointer"
-                    : "opacity-40 cursor-not-allowed bg-emerald-950/40 text-emerald-300/70 border border-emerald-800/40 shadow-none"
-                }`}
-                title={
-                  currentOutletObj?.shift_status === "closed"
-                    ? "Shift tutup. Klik untuk Buka Shift / Opening Kedai (Refresh Stok & Uang Cash Dibawa)"
-                    : "Shift sudah dibuka (Sedang Aktif)"
-                }
-              >
-                <Sunrise className="w-3.5 h-3.5" />
-                <span>Buka Shift</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={currentOutletObj?.shift_status === "closed"}
-                onClick={() => {
-                  setExpenseMessage(null);
-                  setIsExpenseModalOpen(true);
-                  loadTodayExpenses();
-                }}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm ${
-                  currentOutletObj?.shift_status === "closed"
-                    ? "opacity-40 cursor-not-allowed bg-amber-950/40 text-amber-300/60 border border-amber-800/40 shadow-none"
-                    : "bg-amber-400 hover:bg-amber-300 text-slate-950 cursor-pointer"
-                }`}
-                title={
-                  currentOutletObj?.shift_status === "closed"
-                    ? "Buka shift terlebih dahulu untuk mencatat pengeluaran"
-                    : "Catat Pengeluaran Kedai (Es Batu, Gas LPG, Sedotan, dll)"
-                }
-              >
-                <Receipt className="w-3.5 h-3.5" />
-                <span>+ Pengeluaran (Es, Gas)</span>
-              </button>
-
-              {currentOutletObj?.shift_status === "closed" ? (
-                <button
-                  type="button"
-                  disabled
-                  className="opacity-40 cursor-not-allowed bg-emerald-950/40 text-emerald-300/60 border border-emerald-800/40 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1 shadow-none"
-                  title="Shift belum dibuka. Buka shift terlebih dahulu sebelum dapat menutup shift."
-                >
-                  <ClipboardList className="w-3.5 h-3.5" />
-                  <span>Tutup Shift</span>
-                </button>
-              ) : (
-                <Link
-                  href="/closing"
-                  className="flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-600 text-white transition shadow-sm"
-                  title="Tutup Shift (Blind Count)"
-                >
-                  <ClipboardList className="w-3.5 h-3.5" />
-                  <span>Tutup Shift</span>
-                </Link>
-              )}
-            </div>
           </div>
         </div>
       </header>
 
-      {/* Main Container */}
+{/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-6 pb-28 lg:pb-6">
         {/* Left Column: Menu Catalog */}
         <div className="lg:col-span-8 flex flex-col space-y-3 sm:space-y-4">
@@ -3015,15 +3167,15 @@ export default function PosTerminalPage() {
             </div>
           </div>
 
-          {/* Grid Menu Padat & Ringkas (4 Kolom di Desktop agar Tidak Scroll) */}
+                    {/* Grid Menu Produk Besar & Menarik dengan Foto Asli */}
           {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <div key={i} className="h-28 bg-white rounded-xl animate-pulse border border-slate-200" />
+                <div key={i} className="h-64 bg-white rounded-2xl animate-pulse border border-slate-200" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
               {filteredFlavors.map((item) => {
                 const { baseName, meta, reguler, jumbo } = item;
 
@@ -3041,47 +3193,50 @@ export default function PosTerminalPage() {
                         addToCart(defaultProd);
                       }
                     }}
-                    className={`bg-white rounded-xl p-2 sm:p-2.5 shadow-2xs hover:shadow-md border border-slate-200/90 flex flex-col justify-between relative overflow-hidden transition select-none ${
+                    className={`bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs hover:shadow-lg border border-slate-200/90 flex flex-col justify-between relative overflow-hidden transition select-none group ${
                       isSingleSize && checkDefault.canAdd
                         ? "cursor-pointer active:scale-[0.98] hover:border-emerald-500"
                         : ""
                     }`}
                   >
                     <div>
-                      <div className="flex items-start gap-1.5 sm:gap-2 mb-1.5">
-                        <div
-                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg ${meta.circleBg} text-white flex items-center justify-center text-sm sm:text-base shadow-inner shrink-0 mt-0.5`}
-                        >
-                          {meta.icon}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <span className={`px-1.5 py-0.2 rounded text-[8px] sm:text-[9px] font-bold ${meta.badgeBg} ${meta.badgeText}`}>
-                              {meta.category === "original"
-                                ? "Original"
-                                : meta.category === "milky"
-                                ? "Milky"
-                                : "Fruit"}
+                      {/* Foto Minuman Asli dari Poster Teh Poci */}
+                      <div className="relative w-full h-32 xs:h-36 sm:h-40 bg-gradient-to-b from-amber-50/70 via-white to-emerald-50/40 rounded-xl overflow-hidden flex items-center justify-center p-2 mb-2 border border-slate-100">
+                        <img
+                          src={meta.imageUrl || "/images/products/original_jumbo.png"}
+                          alt={baseName}
+                          className="h-full w-auto max-h-[145px] object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                        {/* Badge Kategori & Utama */}
+                        <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase shadow-xs ${meta.badgeBg} ${meta.badgeText}`}>
+                            {meta.category === "original"
+                              ? "Original"
+                              : meta.category === "milky"
+                              ? "Milky"
+                              : "Fruit"}
+                          </span>
+                          {baseName.toLowerCase().includes("jasmine") && (
+                            <span className="bg-emerald-600 text-white text-[8px] sm:text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow-xs">
+                              ⭐ Utama
                             </span>
-                            {baseName.toLowerCase().includes("jasmine") && (
-                              <span className="bg-emerald-600 text-white text-[7px] sm:text-[8px] font-black uppercase px-1 py-0.2 rounded shadow-2xs">
-                                ⭐ Utama
-                              </span>
-                            )}
-                          </div>
-                          <h3
-                            className="font-extrabold text-[11px] sm:text-xs text-slate-900 leading-tight mt-0.5 line-clamp-2 min-h-[2rem] flex items-center"
-                            title={baseName}
-                          >
-                            {baseName}
-                          </h3>
+                          )}
                         </div>
                       </div>
+
+                      {/* Judul Minuman (Ukuran Lebih Besar & Tebal) */}
+                      <h3
+                        className="font-extrabold text-xs xs:text-sm sm:text-base text-slate-900 leading-snug line-clamp-2 min-h-[2.4rem] flex items-center mb-1"
+                        title={baseName}
+                      >
+                        {baseName}
+                      </h3>
                     </div>
 
-                    {/* Action Area: Dual Size (Jasmine) vs Single Size (15 Varian Jumbo / Topping) */}
+                    {/* Action Area: Dual Size (Jasmine) vs Single Size */}
                     {reguler && jumbo ? (
-                      <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100">
+                      <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-slate-100">
                         {(() => {
                           const checkReg = checkCanAddProduct(reguler, 1);
                           const isDisabled = !checkReg.canAdd;
@@ -3094,14 +3249,14 @@ export default function PosTerminalPage() {
                                 addToCart(reguler);
                               }}
                               title={isDisabled ? checkReg.reason : "Tambah Reguler"}
-                              className={`py-1 px-1.5 rounded-lg font-bold transition flex flex-col items-center justify-center border text-center ${
+                              className={`py-2 px-1.5 rounded-xl font-bold transition flex flex-col items-center justify-center border text-center ${
                                 isDisabled
                                   ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
-                                  : "bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-800 border-slate-200 active:scale-95 cursor-pointer"
+                                  : "bg-slate-50 hover:bg-emerald-600 hover:text-white text-slate-800 border-slate-200 shadow-2xs active:scale-95 cursor-pointer"
                               }`}
                             >
-                              <span className="text-[9px]">{isDisabled ? "Habis" : "Reguler"}</span>
-                              <span className={`text-[10px] sm:text-xs font-mono font-black ${isDisabled ? "text-slate-400 line-through" : "text-emerald-800 hover:text-white"}`}>
+                              <span className="text-[10px] sm:text-xs font-bold">{isDisabled ? "Habis" : "Reguler"}</span>
+                              <span className={`text-[11px] sm:text-xs font-mono font-black ${isDisabled ? "text-slate-400 line-through" : "text-emerald-800 hover:text-white"}`}>
                                 {formatRupiah(reguler.price)}
                               </span>
                             </button>
@@ -3120,14 +3275,14 @@ export default function PosTerminalPage() {
                                 addToCart(jumbo);
                               }}
                               title={isDisabled ? checkJumbo.reason : "Tambah Jumbo"}
-                              className={`py-1 px-1.5 rounded-lg font-bold transition flex flex-col items-center justify-center border text-center ${
+                              className={`py-2 px-1.5 rounded-xl font-bold transition flex flex-col items-center justify-center border text-center ${
                                 isDisabled
                                   ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
-                                  : "bg-emerald-50 hover:bg-emerald-700 hover:text-white text-emerald-900 border-emerald-200 active:scale-95 cursor-pointer"
+                                  : "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-xs active:scale-95 cursor-pointer"
                               }`}
                             >
-                              <span className="text-[9px]">{isDisabled ? "Habis" : "Jumbo"}</span>
-                              <span className={`text-[10px] sm:text-xs font-mono font-black ${isDisabled ? "text-slate-400 line-through" : "text-emerald-900 hover:text-white"}`}>
+                              <span className="text-[10px] sm:text-xs font-bold">{isDisabled ? "Habis" : "Jumbo"}</span>
+                              <span className={`text-[11px] sm:text-xs font-mono font-black ${isDisabled ? "text-slate-300 line-through" : "text-white"}`}>
                                 {formatRupiah(jumbo.price)}
                               </span>
                             </button>
@@ -3135,10 +3290,10 @@ export default function PosTerminalPage() {
                         })()}
                       </div>
                     ) : (
-                      // Single Size (Semua varian rasa jumbo & topping) - Tap Anywhere & Quick Add Bar
-                      <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-1">
+                      // Single Size (Semua varian rasa jumbo & topping)
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5">
                         <div>
-                          <span className={`text-xs sm:text-sm font-mono font-black ${!checkDefault.canAdd ? "text-slate-400 line-through" : "text-emerald-800"}`}>
+                          <span className={`text-xs xs:text-sm sm:text-base font-mono font-black ${!checkDefault.canAdd ? "text-slate-400 line-through" : "text-emerald-900"}`}>
                             {defaultProd ? formatRupiah(defaultProd.price) : "-"}
                           </span>
                         </div>
@@ -3149,13 +3304,13 @@ export default function PosTerminalPage() {
                             e.stopPropagation();
                             if (defaultProd) addToCart(defaultProd);
                           }}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-extrabold transition flex items-center gap-1 ${
+                          className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center gap-1 shadow-2xs ${
                             !checkDefault.canAdd
-                              ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-60"
-                              : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs active:scale-95 cursor-pointer"
+                              ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60"
+                              : "bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95 cursor-pointer"
                           }`}
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus className="w-3.5 h-3.5" />
                           <span>{!checkDefault.canAdd ? "Habis" : "Pesan"}</span>
                         </button>
                       </div>
@@ -3166,8 +3321,7 @@ export default function PosTerminalPage() {
             </div>
           )}
         </div>
-
-        {/* Right Column: Active Cart & Checkout (Desktop Only - Dynamic Full Height) */}
+{/* Right Column: Active Cart & Checkout (Desktop Only - Dynamic Full Height) */}
         <div className="hidden lg:flex lg:col-span-4 flex-col lg:sticky lg:top-14 lg:h-[calc(100vh-4.5rem)]">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3.5 sm:p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Header: Pesanan Aktif */}
