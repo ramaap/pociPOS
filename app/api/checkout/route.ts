@@ -150,16 +150,16 @@ export async function POST(req: Request) {
       for (const bom of product.recipes) {
         let requiredAmount = bom.quantity * item.quantity;
 
-        // Potong stok gula cair sesuai opsi gula: Full portion (default), Less sugar (20ml utk Jumbo / 50%), Tawar (0%)
+        // Potong stok gula cair sesuai opsi gula: Full portion (Jumbo 50ml, Reguler 40ml), Less sugar (20ml), Tawar (0ml)
         const isSugar = bom.raw_material.name.toLowerCase().includes("gula");
         if (isSugar) {
           if (item.sugarLevel === "tawar") {
             requiredAmount = 0; // Tanpa gula sama sekali
           } else if (item.sugarLevel === "less") {
-            const perCupSugar = bom.quantity >= 40 ? 20 : bom.quantity * 0.5; // Jumbo & Varian 20ml, Reguler 15ml
+            const perCupSugar = 20; // Standar less sugar: 20ml untuk semua jenis cup (Jumbo & Reguler)
             requiredAmount = perCupSugar * item.quantity;
           } else {
-            requiredAmount = bom.quantity * item.quantity; // Normal full portion (Jumbo 50ml, Reguler 30ml)
+            requiredAmount = bom.quantity * item.quantity; // Normal full portion (Jumbo 50ml, Reguler 40ml)
           }
         }
 

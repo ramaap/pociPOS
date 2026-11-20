@@ -984,12 +984,12 @@ export default function PosTerminalPage() {
         const matNameLower = recipe.raw_material.name.toLowerCase();
         let qtyPerCup = recipe.quantity;
 
-        // Potong stok gula cair sesuai opsi level gula: Full (Jumbo 50ml, Reguler 30ml), Less (Jumbo 20ml, Reguler 15ml), Tawar (0ml)
+        // Potong stok gula cair sesuai opsi level gula: Full (Jumbo 50ml, Reguler 40ml), Less (20ml), Tawar (0ml)
         if (matNameLower.includes("gula")) {
           if (item.sugarLevel === "tawar") {
             qtyPerCup = 0;
           } else if (item.sugarLevel === "less") {
-            qtyPerCup = recipe.quantity >= 40 ? 20 : recipe.quantity * 0.5;
+            qtyPerCup = 20;
           }
         }
 
@@ -1039,7 +1039,7 @@ export default function PosTerminalPage() {
 
       if (matNameLower.includes("gula")) {
         if (sugarLevel === "tawar") neededPerCup = 0;
-        else if (sugarLevel === "less") neededPerCup = recipe.quantity >= 40 ? 20 : recipe.quantity * 0.5;
+        else if (sugarLevel === "less") neededPerCup = 20;
       }
 
       // Jangan jadikan Kantong Teh / Premix Teh sebagai acuan disable pada kasir
@@ -1629,7 +1629,7 @@ export default function PosTerminalPage() {
               nonPromoCupUsed += r.quantity * item.quantity;
             }
             if (r.raw_material.name.toLowerCase().includes("gula")) {
-              const perCupSugar = item.sugarLevel === "tawar" ? 0 : item.sugarLevel === "less" ? (r.quantity >= 40 ? 20 : r.quantity * 0.5) : r.quantity;
+              const perCupSugar = item.sugarLevel === "tawar" ? 0 : item.sugarLevel === "less" ? 20 : r.quantity;
               nonPromoGulaUsed += perCupSugar * item.quantity;
             }
           }
@@ -2973,7 +2973,7 @@ export default function PosTerminalPage() {
                     <p className="text-xs text-white/95 mt-1 leading-snug">
                       Sisa cairan gula tinggal <strong>{Math.round(availableGulaStockMl)} ml</strong> (cukup untuk{" "}
                       <strong>~{gulaJumboCupsLeft} cup Jumbo</strong> @50ml atau{" "}
-                      <strong>~{Math.floor(availableGulaStockMl / 30)} cup Reguler</strong> @30ml).
+                      <strong>~{Math.floor(availableGulaStockMl / 40)} cup Reguler</strong> @40ml).
                       Standar SOP Poci: Larutkan <strong>1 kg Gula Pasir + 1 Liter Air Panas</strong> (menghasilkan ~1.600 ml sirup kental).
                     </p>
                   </div>
@@ -3431,7 +3431,7 @@ export default function PosTerminalPage() {
                               {/* Normal */}
                               <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.normal > 0 ? "bg-white border-emerald-300 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
                                 <span className={`text-[10px] font-black leading-tight ${b.normal > 0 ? "text-emerald-800" : "text-slate-500"}`}>Normal</span>
-                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">{item.product.name.toLowerCase().includes("reguler") ? "30ml" : "50ml"}</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">{item.product.name.toLowerCase().includes("reguler") ? "40ml" : "50ml"}</span>
                                 <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
                                   <button
                                     type="button"
@@ -3455,7 +3455,7 @@ export default function PosTerminalPage() {
                               {/* Less */}
                               <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.less > 0 ? "bg-white border-amber-300 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
                                 <span className={`text-[10px] font-black leading-tight ${b.less > 0 ? "text-amber-800" : "text-slate-500"}`}>Less</span>
-                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">{item.product.name.toLowerCase().includes("reguler") ? "15ml" : "20ml"}</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">20ml</span>
                                 <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
                                   <button
                                     type="button"
@@ -3514,7 +3514,7 @@ export default function PosTerminalPage() {
                                 }`}
                               >
                                 <span>Normal</span>
-                                <span className="text-[8.5px] opacity-70 font-mono">{item.product.name.toLowerCase().includes("reguler") ? "30ml" : "50ml"}</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">{item.product.name.toLowerCase().includes("reguler") ? "40ml" : "50ml"}</span>
                               </button>
                               <button
                                 type="button"
@@ -3526,7 +3526,7 @@ export default function PosTerminalPage() {
                                 }`}
                               >
                                 <span>Less</span>
-                                <span className="text-[8.5px] opacity-70 font-mono">{item.product.name.toLowerCase().includes("reguler") ? "15ml" : "20ml"}</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">20ml</span>
                               </button>
                               <button
                                 type="button"
@@ -3954,7 +3954,7 @@ export default function PosTerminalPage() {
                               {/* Normal */}
                               <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.normal > 0 ? "bg-white border-emerald-300 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
                                 <span className={`text-[10px] font-black leading-tight ${b.normal > 0 ? "text-emerald-800" : "text-slate-500"}`}>Normal</span>
-                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">{item.product.name.toLowerCase().includes("reguler") ? "30ml" : "50ml"}</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">{item.product.name.toLowerCase().includes("reguler") ? "40ml" : "50ml"}</span>
                                 <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
                                   <button
                                     type="button"
@@ -3978,7 +3978,7 @@ export default function PosTerminalPage() {
                               {/* Less */}
                               <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.less > 0 ? "bg-white border-amber-300 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
                                 <span className={`text-[10px] font-black leading-tight ${b.less > 0 ? "text-amber-800" : "text-slate-500"}`}>Less</span>
-                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">{item.product.name.toLowerCase().includes("reguler") ? "15ml" : "20ml"}</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">20ml</span>
                                 <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
                                   <button
                                     type="button"
@@ -4037,7 +4037,7 @@ export default function PosTerminalPage() {
                                 }`}
                               >
                                 <span>Normal</span>
-                                <span className="text-[8.5px] opacity-70 font-mono">{item.product.name.toLowerCase().includes("reguler") ? "30ml" : "50ml"}</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">{item.product.name.toLowerCase().includes("reguler") ? "40ml" : "50ml"}</span>
                               </button>
                               <button
                                 type="button"
@@ -4049,7 +4049,7 @@ export default function PosTerminalPage() {
                                 }`}
                               >
                                 <span>Less</span>
-                                <span className="text-[8.5px] opacity-70 font-mono">{item.product.name.toLowerCase().includes("reguler") ? "15ml" : "20ml"}</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">20ml</span>
                               </button>
                               <button
                                 type="button"
@@ -5379,9 +5379,9 @@ export default function PosTerminalPage() {
                   </span>
                 </div>
                 <div className="p-2.5 bg-white rounded-xl border border-slate-200 text-center">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Cup Reguler Normal (30 ml)</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Cup Reguler Normal (40 ml)</span>
                   <span className="text-base font-black font-mono text-slate-800">
-                    ~{Math.floor(availableGulaStockMl / 30)} Cup
+                    ~{Math.floor(availableGulaStockMl / 40)} Cup
                   </span>
                 </div>
               </div>

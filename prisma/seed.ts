@@ -137,7 +137,7 @@ async function main() {
       });
       const bomRegData = [
         { product_id: prodReg.id, raw_material_id: cupReg.id, quantity: 1 },
-        { product_id: prodReg.id, raw_material_id: gulaCair.id, quantity: 30 },
+        { product_id: prodReg.id, raw_material_id: gulaCair.id, quantity: 40 },
       ];
       await prisma.bOM_Recipe.createMany({ data: bomRegData });
       createdProducts.push(prodReg);
