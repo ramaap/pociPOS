@@ -126,25 +126,25 @@ interface FlavorMeta {
 }
 
 const FLAVOR_METAS: Record<string, FlavorMeta> = {
-  "Jasmine Poci Iced Tea": { baseName: "Jasmine Poci Iced Tea", category: "original", circleBg: "bg-emerald-600", badgeBg: "bg-emerald-100", badgeText: "text-emerald-800", icon: "🍃", imageUrl: "/images/products/original_jumbo.png" },
-  "Vanilla Poci Iced Tea": { baseName: "Vanilla Poci Iced Tea", category: "original", circleBg: "bg-pink-700", badgeBg: "bg-pink-100", badgeText: "text-pink-800", icon: "🌼", imageUrl: "/images/products/milk_tea.png" },
-  "Thai Iced Tea": { baseName: "Thai Iced Tea", category: "milky", circleBg: "bg-orange-600", badgeBg: "bg-orange-100", badgeText: "text-orange-800", icon: "🧋", imageUrl: "/images/products/thai_tea.png" },
-  "Milk Iced Tea": { baseName: "Milk Iced Tea", category: "milky", circleBg: "bg-amber-500", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "🥛", imageUrl: "/images/products/milk_tea.png" },
-  "Chocolate Iced Tea": { baseName: "Chocolate Iced Tea", category: "milky", circleBg: "bg-amber-950", badgeBg: "bg-stone-200", badgeText: "text-stone-900", icon: "🍫", imageUrl: "/images/products/chocolate.png" },
-  "Lychee Iced Tea": { baseName: "Lychee Iced Tea", category: "fruity", circleBg: "bg-pink-500", badgeBg: "bg-pink-100", badgeText: "text-pink-800", icon: "🍒", imageUrl: "/images/products/lychee.png" },
-  "Cappuccino Iced Tea": { baseName: "Cappuccino Iced Tea", category: "milky", circleBg: "bg-amber-800", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "☕", imageUrl: "/images/products/cappuccino.png" },
-  "Guava Iced Tea": { baseName: "Guava Iced Tea", category: "fruity", circleBg: "bg-rose-500", badgeBg: "bg-rose-100", badgeText: "text-rose-800", icon: "🍈", imageUrl: "/images/products/lychee.png" },
-  "Mango Iced Tea": { baseName: "Mango Iced Tea", category: "fruity", circleBg: "bg-emerald-500", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "🥭", imageUrl: "/images/products/mango.png" },
-  "Blackcurrant Iced Tea": { baseName: "Blackcurrant Iced Tea", category: "fruity", circleBg: "bg-indigo-600", badgeBg: "bg-indigo-100", badgeText: "text-indigo-900", icon: "🍇", imageUrl: "/images/products/blackcurrant.png" },
-  "Apple Iced Tea": { baseName: "Apple Iced Tea", category: "fruity", circleBg: "bg-red-600", badgeBg: "bg-red-100", badgeText: "text-red-900", icon: "🍎", imageUrl: "/images/products/apple.png" },
-  "Orange Iced Tea": { baseName: "Orange Iced Tea", category: "fruity", circleBg: "bg-orange-500", badgeBg: "bg-orange-100", badgeText: "text-orange-900", icon: "🍊", imageUrl: "/images/products/orange.png" },
-  "Lemon Honey Iced Tea": { baseName: "Lemon Honey Iced Tea", category: "fruity", circleBg: "bg-yellow-500", badgeBg: "bg-yellow-100", badgeText: "text-yellow-900", icon: "🍋", imageUrl: "/images/products/lemon_honey.png" },
+  "Jasmine Poci Iced Tea": { baseName: "Jasmine Poci Iced Tea", category: "original", circleBg: "bg-emerald-600", badgeBg: "bg-emerald-100", badgeText: "text-emerald-800", icon: "🍃", imageUrl: "/images/products/jasmine.jpg" },
+  "Vanilla Poci Iced Tea": { baseName: "Vanilla Poci Iced Tea", category: "original", circleBg: "bg-pink-700", badgeBg: "bg-pink-100", badgeText: "text-pink-800", icon: "🌼", imageUrl: "/images/products/milk_tea.jpg" },
+  "Thai Iced Tea": { baseName: "Thai Iced Tea", category: "milky", circleBg: "bg-orange-600", badgeBg: "bg-orange-100", badgeText: "text-orange-800", icon: "🧋", imageUrl: "/images/products/thai_tea.jpg" },
+  "Milk Iced Tea": { baseName: "Milk Iced Tea", category: "milky", circleBg: "bg-amber-500", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "🥛", imageUrl: "/images/products/milk_tea.jpg" },
+  "Chocolate Iced Tea": { baseName: "Chocolate Iced Tea", category: "milky", circleBg: "bg-amber-950", badgeBg: "bg-stone-200", badgeText: "text-stone-900", icon: "🍫", imageUrl: "/images/products/chocolate.jpg" },
+  "Lychee Iced Tea": { baseName: "Lychee Iced Tea", category: "fruity", circleBg: "bg-pink-500", badgeBg: "bg-pink-100", badgeText: "text-pink-800", icon: "🍒", imageUrl: "/images/products/lychee.jpg" },
+  "Cappuccino Iced Tea": { baseName: "Cappuccino Iced Tea", category: "milky", circleBg: "bg-amber-800", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "☕", imageUrl: "/images/products/cappuccino.jpg" },
+  "Guava Iced Tea": { baseName: "Guava Iced Tea", category: "fruity", circleBg: "bg-rose-500", badgeBg: "bg-rose-100", badgeText: "text-rose-800", icon: "🍈", imageUrl: "/images/products/lychee.jpg" },
+  "Mango Iced Tea": { baseName: "Mango Iced Tea", category: "fruity", circleBg: "bg-emerald-500", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "🥭", imageUrl: "/images/products/mango.jpg" },
+  "Blackcurrant Iced Tea": { baseName: "Blackcurrant Iced Tea", category: "fruity", circleBg: "bg-indigo-600", badgeBg: "bg-indigo-100", badgeText: "text-indigo-900", icon: "🍇", imageUrl: "/images/products/blackcurrant.jpg" },
+  "Apple Iced Tea": { baseName: "Apple Iced Tea", category: "fruity", circleBg: "bg-red-600", badgeBg: "bg-red-100", badgeText: "text-red-900", icon: "🍎", imageUrl: "/images/products/apple.jpg" },
+  "Orange Iced Tea": { baseName: "Orange Iced Tea", category: "fruity", circleBg: "bg-orange-500", badgeBg: "bg-orange-100", badgeText: "text-orange-900", icon: "🍊", imageUrl: "/images/products/orange.jpg" },
+  "Lemon Honey Iced Tea": { baseName: "Lemon Honey Iced Tea", category: "fruity", circleBg: "bg-yellow-500", badgeBg: "bg-yellow-100", badgeText: "text-yellow-900", icon: "🍋", imageUrl: "/images/products/lemon_honey.jpg" },
   // 5 Varian Baru Vendor Resmi Es Teh Poci
-  "Matcha Iced Tea": { baseName: "Matcha Iced Tea", category: "milky", circleBg: "bg-emerald-700", badgeBg: "bg-emerald-100", badgeText: "text-emerald-900", icon: "🍵", imageUrl: "/images/products/matcha.png" },
-  "Aren Latte Iced Tea": { baseName: "Aren Latte Iced Tea", category: "milky", circleBg: "bg-amber-800", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "☕", imageUrl: "/images/products/aren_latte.png" },
-  "Coconut Latte Iced Tea": { baseName: "Coconut Latte Iced Tea", category: "milky", circleBg: "bg-teal-700", badgeBg: "bg-teal-100", badgeText: "text-teal-900", icon: "🥥", imageUrl: "/images/products/coconut_latte.png" },
-  "Teh Tarik Gula Aren": { baseName: "Teh Tarik Gula Aren", category: "milky", circleBg: "bg-amber-900", badgeBg: "bg-amber-100", badgeText: "text-amber-950", icon: "🧋", imageUrl: "/images/products/teh_tarik_gula_aren.png" },
-  "Teh Krampul Selasih": { baseName: "Teh Krampul Selasih", category: "fruity", circleBg: "bg-lime-600", badgeBg: "bg-lime-100", badgeText: "text-lime-900", icon: "🍹", imageUrl: "/images/products/teh_krampul_selasih.png" },
+  "Matcha Iced Tea": { baseName: "Matcha Iced Tea", category: "milky", circleBg: "bg-emerald-700", badgeBg: "bg-emerald-100", badgeText: "text-emerald-900", icon: "🍵", imageUrl: "/images/products/matcha.jpg" },
+  "Aren Latte Iced Tea": { baseName: "Aren Latte Iced Tea", category: "milky", circleBg: "bg-amber-800", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "☕", imageUrl: "/images/products/aren_latte.jpg" },
+  "Coconut Latte Iced Tea": { baseName: "Coconut Latte Iced Tea", category: "milky", circleBg: "bg-teal-700", badgeBg: "bg-teal-100", badgeText: "text-teal-900", icon: "🥥", imageUrl: "/images/products/coconut_latte.jpg" },
+  "Teh Tarik Gula Aren": { baseName: "Teh Tarik Gula Aren", category: "milky", circleBg: "bg-amber-900", badgeBg: "bg-amber-100", badgeText: "text-amber-950", icon: "🧋", imageUrl: "/images/products/aren_latte.jpg" },
+  "Teh Krampul Selasih": { baseName: "Teh Krampul Selasih", category: "fruity", circleBg: "bg-lime-600", badgeBg: "bg-lime-100", badgeText: "text-lime-900", icon: "🍹", imageUrl: "/images/products/teh_krampul_selasih.jpg" },
 };
 
 export default function PosTerminalPage() {
@@ -3205,7 +3205,7 @@ export default function PosTerminalPage() {
                         <img
                           src={meta.imageUrl || "/images/products/original_jumbo.png"}
                           alt={baseName}
-                          className="h-full w-auto max-h-[145px] object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-300"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           loading="lazy"
                         />
                         {/* Badge Kategori & Utama */}
