@@ -6420,7 +6420,7 @@ export default function AdminDashboardPage() {
                   <input
                     type="number"
                     min="0"
-                    step="1000"
+                    step="any"
                     placeholder="Contoh: 100000"
                     value={newOutletForm.initial_cash || ""}
                     onChange={(e) => setNewOutletForm({ ...newOutletForm, initial_cash: Number(e.target.value) || 0 })}
@@ -6547,7 +6547,7 @@ export default function AdminDashboardPage() {
                   <input
                     type="number"
                     min="0"
-                    step="1000"
+                    step="any"
                     placeholder="Contoh: 100000"
                     value={editOutletForm.initial_cash || 0}
                     onChange={(e) => setEditOutletForm({ ...editOutletForm, initial_cash: Number(e.target.value) || 0 })}
@@ -7489,11 +7489,17 @@ export default function AdminDashboardPage() {
                           <input
                             type="number"
                             min="0"
-                            step="50"
+                            step="any"
                             required
                             placeholder="0"
-                            value={item.cost || ""}
-                            onChange={(e) => handleUpdateHppComponent(idx, "cost", Number(e.target.value))}
+                            value={item.cost === 0 ? 0 : item.cost ?? ""}
+                            onChange={(e) =>
+                              handleUpdateHppComponent(
+                                idx,
+                                "cost",
+                                e.target.value === "" ? "" : Number(e.target.value)
+                              )
+                            }
                             className="w-full pl-6 pr-2 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-right"
                           />
                         </div>
@@ -8751,7 +8757,7 @@ export default function AdminDashboardPage() {
                   <input
                     type="number"
                     min="0"
-                    step="1000"
+                    step="any"
                     required
                     value={cashFloatValue}
                     onChange={(e) => setCashFloatValue(Number(e.target.value) || 0)}
@@ -8953,7 +8959,7 @@ export default function AdminDashboardPage() {
                   <input
                     type="number"
                     min="0"
-                    step="10000"
+                    step="any"
                     required
                     value={centralCashAmount}
                     onChange={(e) => setCentralCashAmount(Number(e.target.value) || 0)}
