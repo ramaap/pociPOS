@@ -2323,25 +2323,7 @@ export default function PosTerminalPage() {
                     </Link>
                   )}
 
-                  {/* b. Link Download */}
-                  <Link
-                    href="/download"
-                    onClick={() => setIsMobileOperasionalOpen(false)}
-                    className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold border border-slate-200 text-left transition active:scale-[0.98]"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 text-lg">
-                        📲
-                      </div>
-                      <div>
-                        <div className="text-xs sm:text-sm font-extrabold text-slate-900">b. Link Download APK Kasir</div>
-                        <div className="text-[11px] font-medium text-slate-500">Unduh installer Android HP/Tablet kasir</div>
-                      </div>
-                    </div>
-                    <span className="text-[11px] text-emerald-700 font-extrabold">Unduh →</span>
-                  </Link>
-
-                  {/* c. Pengeluaran Beban Harian */}
+                  {/* b. Pengeluaran Beban Harian */}
                   <button
                     type="button"
                     disabled={currentOutletObj?.shift_status === "closed"}
@@ -2366,7 +2348,7 @@ export default function PosTerminalPage() {
                         <Receipt className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-xs sm:text-sm font-extrabold text-slate-900">c. Pengeluaran Beban Harian</div>
+                        <div className="text-xs sm:text-sm font-extrabold text-slate-900">b. Pengeluaran Beban Harian</div>
                         <div className="text-[11px] font-medium text-slate-500">
                           {currentOutletObj?.shift_status === "closed"
                             ? "Buka shift dahulu untuk catat pengeluaran"
@@ -2450,16 +2432,6 @@ export default function PosTerminalPage() {
                 <span>Tutup Shift</span>
               </Link>
             )}
-
-            {/* Tombol Download APK */}
-            <Link
-              href="/download"
-              className="flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-950/80 border border-emerald-600/50 text-emerald-200 hover:bg-emerald-800 hover:text-white transition shadow-sm"
-              title="Download APK Android POS untuk Tablet/HP"
-            >
-              <span>📲</span>
-              <span>Download APK</span>
-            </Link>
 
             {/* Badge Outlet Terkunci Per Perangkat */}
             <div className="flex items-center justify-between bg-emerald-950/80 border border-emerald-600/50 rounded-xl px-3 py-1.5 text-xs min-w-0 gap-2 shadow-2xs">
@@ -2562,28 +2534,14 @@ export default function PosTerminalPage() {
               </div>
             </div>
 
-            {/* Grid 2 Kolom di Mobile 320px, Inline Flex di Tablet & Desktop */}
+            {/* Hanya Tampilkan 5 Indikator: Dispenser Teh, Cairan Gula, Terjual, Kas di Laci, Kas Keluar */}
             <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-stretch sm:items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-mono">
-              <div className="px-2 py-1 bg-slate-100 rounded-lg text-slate-700 font-semibold border border-slate-200 flex items-center justify-between sm:justify-start gap-1">
-                <span className="text-slate-500">Cup Reg:</span>
-                <strong className={cupRegMaterial && cupRegMaterial.current_stock < 20 ? "text-rose-600" : "text-emerald-700"}>
-                  {cupRegMaterial ? Math.max(0, Math.round(cupRegMaterial.current_stock)) : 0} pcs
-                </strong>
-              </div>
-
-              <div className="px-2 py-1 bg-slate-100 rounded-lg text-slate-700 font-semibold border border-slate-200 flex items-center justify-between sm:justify-start gap-1">
-                <span className="text-slate-500">Cup Jumbo:</span>
-                <strong className={cupJumboMaterial && cupJumboMaterial.current_stock < 20 ? "text-rose-600" : "text-emerald-700"}>
-                  {cupJumboMaterial ? Math.max(0, Math.round(cupJumboMaterial.current_stock)) : 0} pcs
-                </strong>
-              </div>
-
-              {/* Sisa Teh Dispenser (Batch 8L) */}
+              {/* 1. Sisa Teh Dispenser (Batch 8L) */}
               <button
                 type="button"
                 onClick={() => setIsBrewModalOpen(true)}
-                title={`Sisa Teh Dispenser: ${(availableTeaStockMl / 1000).toFixed(1)}L / 8L (${Math.round(availableTeaStockMl)} ml) - Cukup untuk ~${teaJumboCupsLeft} cup Jumbo atau ~${teaRegulerCupsLeft} cup Reguler. Klik untuk kelola seduhan`}
-                className={`col-span-2 sm:col-span-1 px-2 py-1 rounded-lg text-xs font-mono font-semibold border flex items-center justify-between sm:justify-start gap-1.5 transition cursor-pointer shadow-2xs ${
+                title={`Sisa Teh Dispenser: ${(availableTeaStockMl / 1000).toFixed(1)}L / 8L (${Math.round(availableTeaStockMl)} ml) - Klik untuk kelola seduhan`}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold border flex items-center justify-between sm:justify-start gap-1.5 transition cursor-pointer shadow-2xs ${
                   isTeaCritical
                     ? "bg-rose-100 text-rose-800 border-rose-300 font-black animate-pulse"
                     : isTeaLow
@@ -2607,12 +2565,12 @@ export default function PosTerminalPage() {
                 )}
               </button>
 
-              {/* Sisa Gula Cair (Simple Syrup) */}
+              {/* 2. Sisa Cairan Gula (Simple Syrup) */}
               <button
                 type="button"
                 onClick={() => setIsSugarModalOpen(true)}
-                title={`Sisa Gula Cair: ${(availableGulaStockMl / 1000).toFixed(2)}L (${Math.round(availableGulaStockMl)} ml) - Cukup untuk ~${gulaJumboCupsLeft} cup Jumbo. Klik untuk kelola / isi ulang seduhan gula`}
-                className={`col-span-2 sm:col-span-1 px-2 py-1 rounded-lg text-xs font-mono font-semibold border flex items-center justify-between sm:justify-start gap-1.5 transition cursor-pointer shadow-2xs ${
+                title={`Sisa Gula Cair: ${(availableGulaStockMl / 1000).toFixed(2)}L (${Math.round(availableGulaStockMl)} ml) - Klik untuk kelola seduhan gula`}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold border flex items-center justify-between sm:justify-start gap-1.5 transition cursor-pointer shadow-2xs ${
                   isGulaCritical
                     ? "bg-rose-100 text-rose-800 border-rose-300 font-black animate-pulse"
                     : isGulaLow
@@ -2638,54 +2596,23 @@ export default function PosTerminalPage() {
                 ) : null}
               </button>
 
-              {/* Sisa Gula Pasir di Kedai (Bahan Baku Masak Sirup) */}
-              <button
-                type="button"
-                onClick={() => setIsSugarModalOpen(true)}
-                title={`Sisa Gula Pasir: ${(availableGulaPasirStockGram / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} kg (${availableGulaPasirStockGram.toLocaleString("id-ID")} gr) - Cukup untuk ~${gulaPasirBatchesLeft} kali masak re-brew sirup gula.`}
-                className={`col-span-2 sm:col-span-1 px-2 py-1 rounded-lg text-xs font-mono font-semibold border flex items-center justify-between sm:justify-start gap-1.5 transition cursor-pointer shadow-2xs ${
-                  isGulaPasirEmpty
-                    ? "bg-rose-100 text-rose-800 border-rose-300 font-black animate-pulse"
-                    : isGulaPasirLow
-                    ? "bg-amber-100 text-amber-900 border-amber-300 font-bold"
-                    : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
-                }`}
-              >
-                <span className="flex items-center gap-1">
-                  <span className="text-xs">🍬</span>
-                  <span className="text-slate-500">G.Pasir:</span>
-                </span>
-                <strong className={isGulaPasirEmpty ? "text-rose-700 font-black" : isGulaPasirLow ? "text-amber-800 font-bold" : "text-emerald-700"}>
-                  {(availableGulaPasirStockGram / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} kg
-                </strong>
-                {isGulaPasirEmpty ? (
-                  <span className="text-[9px] px-1 py-0.2 rounded font-black uppercase text-white bg-rose-600">
-                    Habis!
-                  </span>
-                ) : isGulaPasirLow ? (
-                  <span className="text-[9px] px-1 py-0.2 rounded font-black uppercase text-white bg-amber-600">
-                    {gulaPasirBatchesLeft}x
-                  </span>
-                ) : null}
-              </button>
-
-              {/* Cup Terjual Hari Ini */}
-              <div className="px-2 py-1 bg-emerald-50 rounded-lg text-emerald-900 font-bold border border-emerald-300 flex items-center justify-between sm:justify-start gap-1 shadow-2xs">
+              {/* 3. Terjual Berapa Per Hari */}
+              <div className="px-2.5 py-1.5 bg-emerald-50 rounded-lg text-emerald-900 font-bold border border-emerald-300 flex items-center justify-between sm:justify-start gap-1.5 shadow-2xs">
                 <span className="flex items-center gap-1 text-emerald-700">
-                  <ShoppingBag className="w-3 h-3 shrink-0" />
+                  <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
                   <span>Terjual:</span>
                 </span>
                 <strong>{todayCupsSold} cup</strong>
               </div>
 
-              {/* Uang Cash di Kedai (Modal Cash Dibawa + Transaksi Cash - Kas Keluar) */}
+              {/* 4. Uang di Laci Kasir */}
               <div
                 title={
                   isShiftClosed
                     ? "Shift Sedang Tutup: Kas fisik di laci saat ini Rp 0 (sudah disetor saat penutupan shift)"
                     : `Total Uang Cash Fisik di Laci Booth: Modal Awal Dibawa (Rp ${initialCash.toLocaleString("id-ID")}) + Penjualan Tunai Masuk (Rp ${todayCashIn.toLocaleString("id-ID")}) - Kas Keluar (Rp ${todayExpenseTotal.toLocaleString("id-ID")}) = Rp ${currentCashBalance.toLocaleString("id-ID")}`
                 }
-                className={`px-2 py-1 rounded-lg font-bold border flex items-center justify-between sm:justify-start gap-1.5 shadow-2xs ${
+                className={`px-2.5 py-1.5 rounded-lg font-bold border flex items-center justify-between sm:justify-start gap-1.5 shadow-2xs ${
                   isShiftClosed
                     ? "bg-slate-100 text-slate-600 border-slate-300"
                     : "bg-teal-50 text-teal-950 border-teal-300"
@@ -2699,18 +2626,15 @@ export default function PosTerminalPage() {
                   <strong className={isShiftClosed ? "text-slate-700" : currentCashBalance < 0 ? "text-rose-600" : "text-teal-950"}>
                     Rp {currentCashBalance.toLocaleString("id-ID")}
                   </strong>
-                  {isShiftClosed ? (
+                  {isShiftClosed && (
                     <span className="text-[10px] text-slate-500 font-semibold bg-slate-200 px-1 py-0.2 rounded">
                       Shift Tutup
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-teal-700/80 font-normal hidden lg:inline">
-                      (Modal {Math.round(initialCash / 1000)}k + Tunai {Math.round(todayCashIn / 1000)}k)
                     </span>
                   )}
                 </div>
               </div>
 
+              {/* 5. Kas Keluar */}
               <button
                 type="button"
                 onClick={() => {
@@ -2718,7 +2642,7 @@ export default function PosTerminalPage() {
                   setIsExpenseModalOpen(true);
                   loadTodayExpenses();
                 }}
-                className="col-span-2 sm:col-span-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg text-[11px] sm:text-xs font-bold border border-amber-300 flex items-center justify-between sm:justify-start gap-2 transition cursor-pointer shadow-2xs"
+                className="col-span-2 sm:col-span-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg text-xs font-bold border border-amber-300 flex items-center justify-between sm:justify-start gap-2 transition cursor-pointer shadow-2xs"
                 title="Catat pengeluaran tunai booth (Es, Gas, Galon, dll)"
               >
                 <span className="flex items-center gap-1.5">
