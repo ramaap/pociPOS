@@ -148,7 +148,7 @@ async function main() {
     });
     const bomJumboData = [
       { product_id: prodJumbo.id, raw_material_id: cupJumbo.id, quantity: 1 },
-      { product_id: prodJumbo.id, raw_material_id: gulaCair.id, quantity: 40 },
+      { product_id: prodJumbo.id, raw_material_id: gulaCair.id, quantity: 50 },
     ];
     if (item.flavorMaterialId) {
       bomJumboData.push({ product_id: prodJumbo.id, raw_material_id: item.flavorMaterialId, quantity: 1 });

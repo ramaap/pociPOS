@@ -269,14 +269,14 @@ export default function PosTerminalPage() {
     } catch {}
   };
 
-  // Helper kalkulasi penggunaan cairan teh per cup: Reguler = 180 ml, Jumbo = 250 ml, Topping = 0 ml
+  // Helper kalkulasi penggunaan cairan teh per cup: Reguler = 180 ml, Jumbo = 200 ml, Topping = 0 ml
   // Catatan: Item bertanda isPromoVoucher tidak memotong cairan teh saat ini karena dicetak jadi voucher klaim nanti.
   const calculateCartTeaLiquid = (items: CartItem[]) => {
     return items.reduce((sum, item) => {
       if (item.isPromoVoucher) return sum;
       const pName = item.product.name.toLowerCase();
       if (pName.includes("topping")) return sum;
-      const mlPerCup = pName.includes("reguler") ? 180 : 250;
+      const mlPerCup = pName.includes("reguler") ? 180 : 200;
       return sum + mlPerCup * item.quantity;
     }, 0);
   };
@@ -984,12 +984,12 @@ export default function PosTerminalPage() {
         const matNameLower = recipe.raw_material.name.toLowerCase();
         let qtyPerCup = recipe.quantity;
 
-        // Potong stok gula cair sesuai opsi level gula: Full (100%), Less (50%), Tawar (0%)
+        // Potong stok gula cair sesuai opsi level gula: Full (Jumbo 50ml, Reguler 30ml), Less (Jumbo 20ml, Reguler 15ml), Tawar (0ml)
         if (matNameLower.includes("gula")) {
           if (item.sugarLevel === "tawar") {
             qtyPerCup = 0;
           } else if (item.sugarLevel === "less") {
-            qtyPerCup = recipe.quantity * 0.5;
+            qtyPerCup = recipe.quantity >= 40 ? 20 : recipe.quantity * 0.5;
           }
         }
 
@@ -1010,11 +1010,11 @@ export default function PosTerminalPage() {
       return { canAdd: false, reason: "Shift kedai masih tutup. Silakan klik 'Opening Shift' terlebih dahulu." };
     }
 
-    // 1. Cek Ketersediaan Cairan Teh di Dispenser Barrel (Reguler: 180 ml, Jumbo / Varian: 250 ml, Topping: 0 ml)
+    // 1. Cek Ketersediaan Cairan Teh di Dispenser Barrel (Reguler: 180 ml, Jumbo / Varian: 200 ml, Topping: 0 ml)
     const pName = product.name.toLowerCase();
     const isTopping = pName.includes("topping");
     if (!isTopping) {
-      const teaPerCup = pName.includes("reguler") ? 180 : 250;
+      const teaPerCup = pName.includes("reguler") ? 180 : 200;
       const additionalTeaNeeded = teaPerCup * delta;
       const currentTeaInCart = calculateCartTeaLiquid(cart);
       const remainingTeaDispenser = brewLiquidMl - currentTeaInCart;
@@ -1039,7 +1039,7 @@ export default function PosTerminalPage() {
 
       if (matNameLower.includes("gula")) {
         if (sugarLevel === "tawar") neededPerCup = 0;
-        else if (sugarLevel === "less") neededPerCup = recipe.quantity * 0.5;
+        else if (sugarLevel === "less") neededPerCup = recipe.quantity >= 40 ? 20 : recipe.quantity * 0.5;
       }
 
       // Jangan jadikan Kantong Teh / Premix Teh sebagai acuan disable pada kasir
@@ -1629,8 +1629,8 @@ export default function PosTerminalPage() {
               nonPromoCupUsed += r.quantity * item.quantity;
             }
             if (r.raw_material.name.toLowerCase().includes("gula")) {
-              const sugarMult = item.sugarLevel === "tawar" ? 0 : item.sugarLevel === "less" ? 0.5 : 1;
-              nonPromoGulaUsed += r.quantity * sugarMult * item.quantity;
+              const perCupSugar = item.sugarLevel === "tawar" ? 0 : item.sugarLevel === "less" ? (r.quantity >= 40 ? 20 : r.quantity * 0.5) : r.quantity;
+              nonPromoGulaUsed += perCupSugar * item.quantity;
             }
           }
         }
@@ -1638,8 +1638,8 @@ export default function PosTerminalPage() {
         const availableCupForBonus = (cupJumboMat?.current_stock || 0) - nonPromoCupUsed;
         const availableGulaForBonus = (gulaCairMat?.current_stock || 0) - nonPromoGulaUsed;
 
-        const requiredTeaForBonus = eligiblePromoQty * 250;
-        const requiredGulaForBonus = eligiblePromoQty * 40;
+        const requiredTeaForBonus = eligiblePromoQty * 200;
+        const requiredGulaForBonus = eligiblePromoQty * 50;
         const requiredCupForBonus = eligiblePromoQty;
 
         const canServePhysically =
@@ -2089,8 +2089,8 @@ export default function PosTerminalPage() {
   const gulaPasirMaterial = rawMaterials.find((m) => m.name.toLowerCase().includes("gula pasir"));
   const currentGulaInCart = gulaCairMaterial ? (cartMaterialUsage.get(gulaCairMaterial.id) || 0) : 0;
   const availableGulaStockMl = Math.max(0, (gulaCairMaterial?.current_stock || 0) - currentGulaInCart);
-  // 1 Minuman Jumbo Normal = 40 ml Gula Cair
-  const gulaJumboCupsLeft = Math.floor(availableGulaStockMl / 40);
+  // 1 Minuman Jumbo Normal = 50 ml Gula Cair
+  const gulaJumboCupsLeft = Math.floor(availableGulaStockMl / 50);
   const isGulaLow = Boolean(gulaCairMaterial && gulaJumboCupsLeft <= 6); // Alert jika sisa <= 6 minuman jumbo normal
   const isGulaCritical = Boolean(gulaCairMaterial && gulaJumboCupsLeft <= 2); // Kritis jika sisa 0 - 2 cup
 
@@ -2103,7 +2103,7 @@ export default function PosTerminalPage() {
   // Sisa Teh Dispenser (Batch 8L) reaktif terhadap isi keranjang aktif
   const currentTeaInCart = calculateCartTeaLiquid(cart);
   const availableTeaStockMl = Math.max(0, brewLiquidMl - currentTeaInCart);
-  const teaJumboCupsLeft = Math.floor(availableTeaStockMl / 250);
+  const teaJumboCupsLeft = Math.floor(availableTeaStockMl / 200);
   const teaRegulerCupsLeft = Math.floor(availableTeaStockMl / 180);
   const isTeaLow = availableTeaStockMl <= 3000 && availableTeaStockMl > 1500;
   const isTeaCritical = availableTeaStockMl <= 1500;
@@ -2844,7 +2844,7 @@ export default function PosTerminalPage() {
 
                     <p className="text-xs text-white/95 mt-1 leading-snug">
                       Sisa teh cukup untuk{" "}
-                      <strong>~{teaJumboCupsLeft} cup Jumbo</strong> (250 ml) atau{" "}
+                      <strong>~{teaJumboCupsLeft} cup Jumbo</strong> (200 ml) atau{" "}
                       <strong>~{teaRegulerCupsLeft} cup Reguler</strong> (180 ml).
                       Estimasi waktu merebus &amp; mendinginkan 8L teh adalah <strong>~50–60 menit</strong>. Masak air sekarang agar tidak kehabisan stok saat antrean!
                     </p>
@@ -2972,7 +2972,7 @@ export default function PosTerminalPage() {
 
                     <p className="text-xs text-white/95 mt-1 leading-snug">
                       Sisa cairan gula tinggal <strong>{Math.round(availableGulaStockMl)} ml</strong> (cukup untuk{" "}
-                      <strong>~{gulaJumboCupsLeft} cup Jumbo</strong> @40ml atau{" "}
+                      <strong>~{gulaJumboCupsLeft} cup Jumbo</strong> @50ml atau{" "}
                       <strong>~{Math.floor(availableGulaStockMl / 30)} cup Reguler</strong> @30ml).
                       Standar SOP Poci: Larutkan <strong>1 kg Gula Pasir + 1 Liter Air Panas</strong> (menghasilkan ~1.600 ml sirup kental).
                     </p>
@@ -3431,7 +3431,7 @@ export default function PosTerminalPage() {
                               {/* Normal */}
                               <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.normal > 0 ? "bg-white border-emerald-300 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
                                 <span className={`text-[10px] font-black leading-tight ${b.normal > 0 ? "text-emerald-800" : "text-slate-500"}`}>Normal</span>
-                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">100%</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">{item.product.name.toLowerCase().includes("reguler") ? "30ml" : "50ml"}</span>
                                 <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
                                   <button
                                     type="button"
@@ -3455,7 +3455,7 @@ export default function PosTerminalPage() {
                               {/* Less */}
                               <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.less > 0 ? "bg-white border-amber-300 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
                                 <span className={`text-[10px] font-black leading-tight ${b.less > 0 ? "text-amber-800" : "text-slate-500"}`}>Less</span>
-                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">50%</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">{item.product.name.toLowerCase().includes("reguler") ? "15ml" : "20ml"}</span>
                                 <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
                                   <button
                                     type="button"
@@ -3479,7 +3479,7 @@ export default function PosTerminalPage() {
                               {/* Tawar */}
                               <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.tawar > 0 ? "bg-white border-slate-400 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
                                 <span className={`text-[10px] font-black leading-tight ${b.tawar > 0 ? "text-slate-900" : "text-slate-500"}`}>Tawar</span>
-                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">0%</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">0ml</span>
                                 <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
                                   <button
                                     type="button"
@@ -3514,7 +3514,7 @@ export default function PosTerminalPage() {
                                 }`}
                               >
                                 <span>Normal</span>
-                                <span className="text-[8.5px] opacity-70 font-mono">100%</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">{item.product.name.toLowerCase().includes("reguler") ? "30ml" : "50ml"}</span>
                               </button>
                               <button
                                 type="button"
@@ -3526,7 +3526,7 @@ export default function PosTerminalPage() {
                                 }`}
                               >
                                 <span>Less</span>
-                                <span className="text-[8.5px] opacity-70 font-mono">50%</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">{item.product.name.toLowerCase().includes("reguler") ? "15ml" : "20ml"}</span>
                               </button>
                               <button
                                 type="button"
@@ -3538,7 +3538,7 @@ export default function PosTerminalPage() {
                                 }`}
                               >
                                 <span>Tawar</span>
-                                <span className="text-[8.5px] opacity-70 font-mono">0%</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">0ml</span>
                               </button>
                             </div>
                           )}
@@ -3954,7 +3954,7 @@ export default function PosTerminalPage() {
                               {/* Normal */}
                               <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.normal > 0 ? "bg-white border-emerald-300 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
                                 <span className={`text-[10px] font-black leading-tight ${b.normal > 0 ? "text-emerald-800" : "text-slate-500"}`}>Normal</span>
-                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">100%</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">{item.product.name.toLowerCase().includes("reguler") ? "30ml" : "50ml"}</span>
                                 <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
                                   <button
                                     type="button"
@@ -3978,7 +3978,7 @@ export default function PosTerminalPage() {
                               {/* Less */}
                               <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.less > 0 ? "bg-white border-amber-300 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
                                 <span className={`text-[10px] font-black leading-tight ${b.less > 0 ? "text-amber-800" : "text-slate-500"}`}>Less</span>
-                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">50%</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">{item.product.name.toLowerCase().includes("reguler") ? "15ml" : "20ml"}</span>
                                 <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
                                   <button
                                     type="button"
@@ -4002,7 +4002,7 @@ export default function PosTerminalPage() {
                               {/* Tawar */}
                               <div className={`flex flex-col items-center justify-between p-1 rounded-lg border transition ${b.tawar > 0 ? "bg-white border-slate-400 shadow-2xs" : "bg-white/60 border-slate-200 opacity-60"}`}>
                                 <span className={`text-[10px] font-black leading-tight ${b.tawar > 0 ? "text-slate-900" : "text-slate-500"}`}>Tawar</span>
-                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">0%</span>
+                                <span className="text-[8.5px] text-slate-400 font-mono mb-0.5">0ml</span>
                                 <div className="flex items-center gap-1 w-full justify-between pt-0.5 border-t border-slate-100">
                                   <button
                                     type="button"
@@ -4037,7 +4037,7 @@ export default function PosTerminalPage() {
                                 }`}
                               >
                                 <span>Normal</span>
-                                <span className="text-[8.5px] opacity-70 font-mono">100%</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">{item.product.name.toLowerCase().includes("reguler") ? "30ml" : "50ml"}</span>
                               </button>
                               <button
                                 type="button"
@@ -4049,7 +4049,7 @@ export default function PosTerminalPage() {
                                 }`}
                               >
                                 <span>Less</span>
-                                <span className="text-[8.5px] opacity-70 font-mono">50%</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">{item.product.name.toLowerCase().includes("reguler") ? "15ml" : "20ml"}</span>
                               </button>
                               <button
                                 type="button"
@@ -4061,7 +4061,7 @@ export default function PosTerminalPage() {
                                 }`}
                               >
                                 <span>Tawar</span>
-                                <span className="text-[8.5px] opacity-70 font-mono">0%</span>
+                                <span className="text-[8.5px] opacity-70 font-mono">0ml</span>
                               </button>
                             </div>
                           )}
@@ -5210,9 +5210,9 @@ export default function PosTerminalPage() {
               {/* Kalkulasi Per Cup */}
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <div className="p-2.5 bg-white rounded-xl border border-slate-200 text-center">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Cup Jumbo (250 ml)</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Cup Jumbo (200 ml)</span>
                   <span className="text-base font-black font-mono text-emerald-800">
-                    ~{Math.floor(brewLiquidMl / 250)} Cup
+                    ~{Math.floor(brewLiquidMl / 200)} Cup
                   </span>
                 </div>
                 <div className="p-2.5 bg-white rounded-xl border border-slate-200 text-center">
@@ -5373,7 +5373,7 @@ export default function PosTerminalPage() {
               {/* Kalkulasi Porsi Cup */}
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <div className="p-2.5 bg-white rounded-xl border border-slate-200 text-center">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Cup Jumbo Normal (40 ml)</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Cup Jumbo Normal (50 ml)</span>
                   <span className={`text-base font-black font-mono ${isGulaLow ? "text-amber-800" : "text-emerald-800"}`}>
                     ~{gulaJumboCupsLeft} Cup
                   </span>
@@ -5428,7 +5428,7 @@ export default function PosTerminalPage() {
                 <li><strong>1. Takaran</strong>: 1 kg Gula Pasir + 1 Liter (1.000 ml) Air Bersih.</li>
                 <li><strong>2. Didihkan Air</strong>: Rebus air sampai mendidih (100°C) di panci.</li>
                 <li><strong>3. Tuang &amp; Aduk</strong>: Kecilkan api, tuang gula pasir bertahap sambil diaduk hingga larut bening sempurna tanpa butiran.</li>
-                <li><strong>4. Hasil</strong>: Menghasilkan ~1.600 ml sirup kental (cukup untuk ~40 cup Jumbo normal).</li>
+                <li><strong>4. Hasil</strong>: Menghasilkan ~1.600 ml sirup kental (cukup untuk ~32 cup Jumbo normal @50ml).</li>
               </ul>
             </div>
 
