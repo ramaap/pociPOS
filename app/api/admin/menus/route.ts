@@ -550,6 +550,35 @@ export async function POST(req: Request) {
       });
     }
 
+    // 5. UPDATE HPP (HARGA POKOK PENJUALAN) & RINCIAN KOMPONEN
+    if (action === "update_hpp") {
+      const { productId, costPrice, hppBreakdown } = body;
+      if (!productId) {
+        return NextResponse.json({ error: "Product ID wajib diisi" }, { status: 400 });
+      }
+
+      const cleanCostPrice = Number(costPrice) || 0;
+      const cleanBreakdown = Array.isArray(hppBreakdown)
+        ? JSON.stringify(hppBreakdown)
+        : typeof hppBreakdown === "string"
+        ? hppBreakdown
+        : "[]";
+
+      const updated = await prisma.product.update({
+        where: { id: productId },
+        data: {
+          cost_price: cleanCostPrice,
+          hpp_breakdown: cleanBreakdown,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `HPP untuk ${updated.name} berhasil disimpan (Rp ${cleanCostPrice.toLocaleString("id-ID")}).`,
+        product: updated,
+      });
+    }
+
     return NextResponse.json({ error: "Action tidak dikenali" }, { status: 400 });
   } catch (error: any) {
     console.error("Menu management error:", error);

@@ -35,6 +35,8 @@ model Product {
   id               String            @id @default(cuid())
   name             String            @unique
   price            Float
+  cost_price       Float             @default(0) // Total HPP per porsi (Rp)
+  hpp_breakdown    String?           // JSON string rincian komponen HPP: [{ name, cost }]
   category         String            @default("fruity") // "original", "fruity", "milky", "topping"
   active_status    Boolean           @default(true)
   recipes          BOM_Recipe[]

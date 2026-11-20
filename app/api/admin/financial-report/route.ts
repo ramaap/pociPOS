@@ -271,9 +271,11 @@ export async function GET(req: Request) {
           }
         }
 
-        // Hitung HPP per cup dari resep BOM
+        // Hitung HPP per cup dari Cost Price Master Produk / Resep BOM
         let itemUnitHPP = 0;
-        if (item.product?.recipes) {
+        if (item.product?.cost_price && item.product.cost_price > 0) {
+          itemUnitHPP = item.product.cost_price;
+        } else if (item.product?.recipes && item.product.recipes.length > 0) {
           for (const r of item.product.recipes) {
             const matName = (r.raw_material?.name || "").toLowerCase().trim();
             const unitCost =

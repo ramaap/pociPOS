@@ -132,8 +132,22 @@ async function main() {
     // Varian rasa standar vendor hanya disajikan ukuran Jumbo (1 sachet rasa).
     // Hanya Jasmine Tea original yang memiliki opsi Reguler & Jumbo.
     if (!item.flavorMaterialId && item.priceReg) {
+      const regBreakdown = [
+        { name: "Cup Reguler", cost: 450 },
+        { name: "Gula Syrup (40ml)", cost: 500 },
+        { name: "Larutan Teh (180ml)", cost: 400 },
+        { name: "Sedotan", cost: 100 },
+        { name: "Es Batu", cost: 200 },
+      ];
       const prodReg = await prisma.product.create({
-        data: { name: `${item.name} (Reguler)`, price: item.priceReg, category: item.category, active_status: true },
+        data: {
+          name: `${item.name} (Reguler)`,
+          price: item.priceReg,
+          cost_price: 1650,
+          hpp_breakdown: JSON.stringify(regBreakdown),
+          category: item.category,
+          active_status: true,
+        },
       });
       const bomRegData = [
         { product_id: prodReg.id, raw_material_id: cupReg.id, quantity: 1 },
@@ -143,8 +157,35 @@ async function main() {
       createdProducts.push(prodReg);
     }
 
+    const isOriginal = !item.flavorMaterialId;
+    const isMilky = item.category === "milky";
+    let sachetCost = 1200;
+    if (["Aren Latte", "Coconut Latte", "Teh Tarik"].some((k) => item.name.includes(k))) {
+      sachetCost = 1800;
+    } else if (isMilky) {
+      sachetCost = 1500;
+    }
+    const jumBreakdown = [
+      { name: "Cup Jumbo", cost: 650 },
+      { name: "Gula Syrup (50ml)", cost: 650 },
+      { name: "Larutan Teh (200ml)", cost: 450 },
+      { name: "Sedotan", cost: 100 },
+      { name: "Es Batu", cost: 250 },
+    ];
+    if (!isOriginal) {
+      jumBreakdown.push({ name: "Sachet Poci Mix", cost: sachetCost });
+    }
+    const jumTotalHpp = jumBreakdown.reduce((a, b) => a + b.cost, 0);
+
     const prodJumbo = await prisma.product.create({
-      data: { name: `${item.name} (Jumbo)`, price: item.priceJumbo, category: item.category, active_status: true },
+      data: {
+        name: `${item.name} (Jumbo)`,
+        price: item.priceJumbo,
+        cost_price: jumTotalHpp,
+        hpp_breakdown: JSON.stringify(jumBreakdown),
+        category: item.category,
+        active_status: true,
+      },
     });
     const bomJumboData = [
       { product_id: prodJumbo.id, raw_material_id: cupJumbo.id, quantity: 1 },

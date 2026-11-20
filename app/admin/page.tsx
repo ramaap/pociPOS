@@ -46,6 +46,7 @@ import {
   Target,
   Banknote,
   Coins,
+  Calculator,
   Ticket,
   Copy,
 } from "lucide-react";
@@ -368,6 +369,183 @@ export default function AdminDashboardPage() {
   });
   const [editMenuLoading, setEditMenuLoading] = useState<boolean>(false);
   const [editMenuMessage, setEditMenuMessage] = useState<string | null>(null);
+
+  // ================= HPP (HARGA POKOK PENJUALAN) STATE & HANDLERS =================
+  interface HppComponentItem {
+    name: string;
+    cost: number;
+  }
+  const [isHppModalOpen, setIsHppModalOpen] = useState<boolean>(false);
+  const [selectedHppProduct, setSelectedHppProduct] = useState<any>(null);
+  const [hppComponents, setHppComponents] = useState<HppComponentItem[]>([]);
+  const [hppLoading, setHppLoading] = useState<boolean>(false);
+  const [hppMessage, setHppMessage] = useState<string | null>(null);
+
+  const getDefaultHppTemplate = (product: any): HppComponentItem[] => {
+    const isReg = product.name?.toLowerCase().includes("reguler");
+    const isOriginal = product.category === "original" || product.name?.toLowerCase().includes("jasmine");
+    const pNameLower = product.name?.toLowerCase() || "";
+    const isMilky = product.category === "milky" || ["thai", "milk", "cappuccino", "chocolate", "matcha", "aren", "coconut", "tarik"].some((k) => pNameLower.includes(k));
+
+    if (isReg) {
+      const items: HppComponentItem[] = [
+        { name: "Cup Reguler", cost: 450 },
+        { name: "Gula Syrup (40ml)", cost: 500 },
+        { name: "Larutan Teh (180ml)", cost: 400 },
+        { name: "Sedotan", cost: 100 },
+        { name: "Es Batu", cost: 200 },
+      ];
+      if (!isOriginal) {
+        items.push({ name: "Sachet Bubuk Perasa", cost: isMilky ? 1500 : 1200 });
+      }
+      return items;
+    } else {
+      const items: HppComponentItem[] = [
+        { name: "Cup Jumbo", cost: 650 },
+        { name: "Gula Syrup (50ml)", cost: 650 },
+        { name: "Larutan Teh (200ml)", cost: 450 },
+        { name: "Sedotan", cost: 100 },
+        { name: "Es Batu", cost: 250 },
+      ];
+      if (!isOriginal) {
+        let sachetCost = 1200;
+        if (["aren", "coconut", "tarik"].some((k) => pNameLower.includes(k))) {
+          sachetCost = 1800;
+        } else if (isMilky) {
+          sachetCost = 1500;
+        }
+        items.push({ name: "Sachet Poci Mix", cost: sachetCost });
+      }
+      return items;
+    }
+  };
+
+  const handleOpenHppModal = (product: any) => {
+    setSelectedHppProduct(product);
+    let items: HppComponentItem[] = [];
+    if (product.hpp_breakdown) {
+      try {
+        items = typeof product.hpp_breakdown === "string" ? JSON.parse(product.hpp_breakdown) : product.hpp_breakdown;
+      } catch {
+        items = [];
+      }
+    }
+    if (!items || items.length === 0) {
+      items = getDefaultHppTemplate(product);
+    }
+    setHppComponents(items);
+    setHppMessage(null);
+    setIsHppModalOpen(true);
+  };
+
+  const handleResetHppToTemplate = () => {
+    if (selectedHppProduct) {
+      setHppComponents(getDefaultHppTemplate(selectedHppProduct));
+    }
+  };
+
+  const handleAddHppComponent = () => {
+    setHppComponents([...hppComponents, { name: "", cost: 0 }]);
+  };
+
+  const handleRemoveHppComponent = (index: number) => {
+    setHppComponents(hppComponents.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateHppComponent = (index: number, field: "name" | "cost", val: any) => {
+    const updated = [...hppComponents];
+    updated[index] = { ...updated[index], [field]: val };
+    setHppComponents(updated);
+  };
+
+  const handleQuickSelectComponent = (index: number, type: string) => {
+    const isReg = selectedHppProduct?.name?.toLowerCase().includes("reguler");
+    let name = "";
+    let defaultCost = 0;
+
+    switch (type) {
+      case "cup":
+        name = isReg ? "Cup Reguler" : "Cup Jumbo";
+        defaultCost = isReg ? 450 : 650;
+        break;
+      case "gula":
+        name = isReg ? "Gula Syrup (40ml)" : "Gula Syrup (50ml)";
+        defaultCost = isReg ? 500 : 650;
+        break;
+      case "teh":
+        name = isReg ? "Larutan Teh (180ml)" : "Larutan Teh (200ml)";
+        defaultCost = isReg ? 400 : 450;
+        break;
+      case "sedotan":
+        name = "Sedotan";
+        defaultCost = 100;
+        break;
+      case "sachet":
+        name = isReg ? "Sachet Bubuk Perasa" : "Sachet Poci Mix";
+        defaultCost = 1200;
+        break;
+      case "es":
+        name = "Es Batu";
+        defaultCost = isReg ? 200 : 250;
+        break;
+      case "plastik":
+        name = "Kantong Plastik / Sealer";
+        defaultCost = 100;
+        break;
+      case "custom":
+        name = "Bahan Lainnya";
+        defaultCost = 500;
+        break;
+    }
+
+    if (name) {
+      const updated = [...hppComponents];
+      updated[index] = {
+        name,
+        cost: updated[index].cost > 0 ? updated[index].cost : defaultCost,
+      };
+      setHppComponents(updated);
+    }
+  };
+
+  const handleSaveHpp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedHppProduct) return;
+
+    setHppLoading(true);
+    setHppMessage(null);
+
+    const totalCost = hppComponents.reduce((sum, item) => sum + (Number(item.cost) || 0), 0);
+
+    try {
+      const res = await fetch("/api/admin/menus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_hpp",
+          productId: selectedHppProduct.id,
+          costPrice: totalCost,
+          hppBreakdown: hppComponents,
+        }),
+      });
+
+      const resJson = await res.json();
+      if (res.ok) {
+        setHppMessage("✅ " + resJson.message);
+        loadMenus();
+        setTimeout(() => {
+          setIsHppModalOpen(false);
+          setHppMessage(null);
+        }, 1200);
+      } else {
+        setHppMessage("❌ " + resJson.error);
+      }
+    } catch {
+      setHppMessage("❌ Gagal menyimpan HPP");
+    } finally {
+      setHppLoading(false);
+    }
+  };
 
   // ================= STOCK / RESTOCK / OPNAME MODALS =================
   const [isRestockOpen, setIsRestockOpen] = useState<boolean>(false);
@@ -4814,7 +4992,7 @@ export default function AdminDashboardPage() {
                       {/* Detail Ukuran & Resep BOM */}
                       <div className="mt-3 pt-3 border-t border-slate-100 space-y-2 text-xs">
                         {reguler && (
-                          <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                          <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="font-bold text-slate-800">🌿 Porsi Reguler</span>
                               <div className="flex items-center gap-1.5">
@@ -4831,8 +5009,32 @@ export default function AdminDashboardPage() {
                                 </button>
                               </div>
                             </div>
+
+                            {/* Rincian HPP Reguler */}
+                            <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/60 text-[11px] gap-2 flex-wrap">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">HPP:</span>
+                                <span className="font-mono font-black text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+                                  {formatRupiah(reguler.cost_price || 0)}
+                                </span>
+                                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                  Laba: {formatRupiah(Math.max(0, reguler.price - (reguler.cost_price || 0)))} (
+                                  {reguler.price > 0 ? (((reguler.price - (reguler.cost_price || 0)) / reguler.price) * 100).toFixed(0) : 0}%)
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenHppModal(reguler)}
+                                className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded-lg text-[10.5px] font-bold flex items-center gap-1 transition shadow-2xs cursor-pointer active:scale-95"
+                                title="Atur Rincian HPP (Cup, Gula Syrup, Larutan Teh, Sedotan, dll)"
+                              >
+                                <Calculator className="w-3 h-3 text-amber-700" />
+                                <span>Rincian HPP</span>
+                              </button>
+                            </div>
+
                             {reguler.recipes && reguler.recipes.length > 0 && (
-                              <p className="text-[10px] text-slate-500 mt-1 font-mono truncate">
+                              <p className="text-[10px] text-slate-500 font-mono truncate">
                                 BOM: {reguler.recipes.map((r: any) => `${r.quantity} ${r.raw_material?.name}`).join(", ")}
                               </p>
                             )}
@@ -4840,7 +5042,7 @@ export default function AdminDashboardPage() {
                         )}
 
                         {jumbo && (
-                          <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                          <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="font-bold text-slate-800">🥤 Porsi Jumbo</span>
                               <div className="flex items-center gap-1.5">
@@ -4857,8 +5059,32 @@ export default function AdminDashboardPage() {
                                 </button>
                               </div>
                             </div>
+
+                            {/* Rincian HPP Jumbo */}
+                            <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/60 text-[11px] gap-2 flex-wrap">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">HPP:</span>
+                                <span className="font-mono font-black text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+                                  {formatRupiah(jumbo.cost_price || 0)}
+                                </span>
+                                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                  Laba: {formatRupiah(Math.max(0, jumbo.price - (jumbo.cost_price || 0)))} (
+                                  {jumbo.price > 0 ? (((jumbo.price - (jumbo.cost_price || 0)) / jumbo.price) * 100).toFixed(0) : 0}%)
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenHppModal(jumbo)}
+                                className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded-lg text-[10.5px] font-bold flex items-center gap-1 transition shadow-2xs cursor-pointer active:scale-95"
+                                title="Atur Rincian HPP (Cup, Gula Syrup, Larutan Teh, Sedotan, dll)"
+                              >
+                                <Calculator className="w-3 h-3 text-amber-700" />
+                                <span>Rincian HPP</span>
+                              </button>
+                            </div>
+
                             {jumbo.recipes && jumbo.recipes.length > 0 && (
-                              <p className="text-[10px] text-slate-500 mt-1 font-mono truncate">
+                              <p className="text-[10px] text-slate-500 font-mono truncate">
                                 BOM: {jumbo.recipes.map((r: any) => `${r.quantity} ${r.raw_material?.name}`).join(", ")}
                               </p>
                             )}
@@ -4866,7 +5092,7 @@ export default function AdminDashboardPage() {
                         )}
 
                         {single && !reguler && !jumbo && (
-                          <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                          <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="font-bold text-slate-800">Standar / Topping</span>
                               <div className="flex items-center gap-1.5">
@@ -4883,8 +5109,32 @@ export default function AdminDashboardPage() {
                                 </button>
                               </div>
                             </div>
+
+                            {/* Rincian HPP Single */}
+                            <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/60 text-[11px] gap-2 flex-wrap">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">HPP:</span>
+                                <span className="font-mono font-black text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+                                  {formatRupiah(single.cost_price || 0)}
+                                </span>
+                                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                  Laba: {formatRupiah(Math.max(0, single.price - (single.cost_price || 0)))} (
+                                  {single.price > 0 ? (((single.price - (single.cost_price || 0)) / single.price) * 100).toFixed(0) : 0}%)
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenHppModal(single)}
+                                className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded-lg text-[10.5px] font-bold flex items-center gap-1 transition shadow-2xs cursor-pointer active:scale-95"
+                                title="Atur Rincian HPP Komponen"
+                              >
+                                <Calculator className="w-3 h-3 text-amber-700" />
+                                <span>Rincian HPP</span>
+                              </button>
+                            </div>
+
                             {single.recipes && single.recipes.length > 0 && (
-                              <p className="text-[10px] text-slate-500 mt-1 font-mono truncate">
+                              <p className="text-[10px] text-slate-500 font-mono truncate">
                                 BOM: {single.recipes.map((r: any) => `${r.quantity} ${r.raw_material?.name}`).join(", ")}
                               </p>
                             )}
@@ -6573,6 +6823,205 @@ export default function AdminDashboardPage() {
                           Dihapus / Tidak Aktif
                         </span>
                       )}
+
+      {/* ============================================================== */}
+      {/* MODAL: RINCIAN HPP & BIAYA KOMPONEN (CUP, GULA, TEH, SEDOTAN)  */}
+      {/* ============================================================== */}
+      {isHppModalOpen && selectedHppProduct && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-150 max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div>
+                <h3 className="font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                  <Calculator className="w-5 h-5 text-emerald-700" />
+                  Rincian HPP: {selectedHppProduct.name}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Harga Jual: <span className="font-bold text-emerald-800 font-mono">{formatRupiah(selectedHppProduct.price)}</span> • Kelola rincian biaya bahan baku per cup.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsHppModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveHpp} className="flex-1 overflow-y-auto py-3 space-y-4 pr-1">
+              {/* Petunjuk & Quick Template Helper */}
+              <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-950 space-y-1.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="font-bold flex items-center gap-1.5 text-amber-900">
+                    <span>💡</span>
+                    <span>Pilihan Komponen Standar Franchise</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleResetHppToTemplate}
+                    className="text-[10px] font-bold text-amber-800 hover:text-amber-950 bg-amber-200/70 hover:bg-amber-200 px-2 py-0.5 rounded-lg transition cursor-pointer"
+                  >
+                    🔄 Muat Template Standar Poci
+                  </button>
+                </div>
+                <p className="text-[11px] text-amber-900/90 leading-relaxed">
+                  Pilih dari menu dropdown cepat (<strong>Cup</strong>, <strong>Gula Syrup</strong>, <strong>Larutan Teh</strong>, <strong>Sedotan</strong>), masukkan biaya modalnya (Rp), dan klik <strong>+ Tambah Komponen (Add More)</strong> untuk menambah komponen lain.
+                </p>
+              </div>
+
+              {/* List Komponen HPP */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700">
+                    Daftar Rincian Komponen Biaya:
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {hppComponents.length} Komponen
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {hppComponents.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-2 shadow-2xs"
+                    >
+                      {/* Dropdown Komponen Cepat */}
+                      <div className="sm:w-44 shrink-0">
+                        <select
+                          className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          onChange={(e) => handleQuickSelectComponent(idx, e.target.value)}
+                          defaultValue=""
+                        >
+                          <option value="" disabled>-- Pilih Dropdown --</option>
+                          <option value="cup">🥤 Cup</option>
+                          <option value="gula">🍯 Gula Syrup</option>
+                          <option value="teh">🫖 Larutan Teh</option>
+                          <option value="sedotan">🥤 Sedotan</option>
+                          <option value="sachet">📦 Sachet / Perasa</option>
+                          <option value="es">🧊 Es Batu</option>
+                          <option value="plastik">🛍️ Plastik / Sealer</option>
+                          <option value="custom">✏️ Custom (Manual)</option>
+                        </select>
+                      </div>
+
+                      {/* Input Nama Komponen */}
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          required
+                          placeholder="Nama komponen biaya..."
+                          value={item.name}
+                          onChange={(e) => handleUpdateHppComponent(idx, "name", e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+
+                      {/* Input Biaya (Rp) & Hapus */}
+                      <div className="flex items-center gap-1.5 sm:w-36 shrink-0">
+                        <div className="relative flex-1">
+                          <span className="absolute left-2 top-1.5 text-[10px] text-slate-400 font-bold font-mono">Rp</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="50"
+                            required
+                            placeholder="0"
+                            value={item.cost || ""}
+                            onChange={(e) => handleUpdateHppComponent(idx, "cost", Number(e.target.value))}
+                            className="w-full pl-6 pr-2 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-right"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveHppComponent(idx)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                          title="Hapus komponen ini"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Tombol Add More */}
+                <button
+                  type="button"
+                  onClick={handleAddHppComponent}
+                  className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-dashed border-emerald-300 text-emerald-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-98"
+                >
+                  <Plus className="w-4 h-4 text-emerald-700" />
+                  <span>+ Tambah Komponen (Add More)</span>
+                </button>
+              </div>
+
+              {/* Ringkasan Finansial HPP & Margin */}
+              {(() => {
+                const totalHpp = hppComponents.reduce((sum, item) => sum + (Number(item.cost) || 0), 0);
+                const labaKotor = Math.max(0, selectedHppProduct.price - totalHpp);
+                const marginPercent = selectedHppProduct.price > 0 ? ((labaKotor / selectedHppProduct.price) * 100).toFixed(1) : "0";
+
+                return (
+                  <div className="p-4 bg-gradient-to-br from-emerald-50/80 to-teal-50/80 border border-emerald-200 rounded-2xl space-y-2.5 shadow-xs">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-extrabold text-slate-800">Total HPP per Cup:</span>
+                      <span className="font-mono font-black text-base text-rose-700 bg-white px-2 py-0.5 rounded-lg border border-rose-200">
+                        {formatRupiah(totalHpp)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-emerald-200/60">
+                      <span className="font-bold text-slate-600">Harga Jual Menu:</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        {formatRupiah(selectedHppProduct.price)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-extrabold text-emerald-950">Estimasi Laba Kotor per Cup:</span>
+                      <span className="font-mono font-black text-sm text-emerald-800">
+                        {formatRupiah(labaKotor)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-1">
+                      <span className="font-bold text-slate-600">Margin Keuntungan:</span>
+                      <span className="font-mono font-black text-xs px-2.5 py-0.5 rounded-full bg-emerald-600 text-white shadow-2xs">
+                        {marginPercent}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {hppMessage && (
+                <p className="text-xs font-bold text-center py-1">
+                  {hppMessage}
+                </p>
+              )}
+
+              <div className="flex gap-2 pt-2 border-t border-slate-100 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsHppModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={hppLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition disabled:opacity-50"
+                >
+                  {hppLoading ? "Menyimpan..." : "Simpan Rincian HPP"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
                     </div>
 
                     {editMenuForm.enableReguler ? (
