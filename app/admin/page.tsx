@@ -367,6 +367,7 @@ export default function AdminDashboardPage() {
     baseName: "",
     category: "fruity",
     flavorMaterialId: "",
+    secondaryFlavorMaterialId: "",
     enableReguler: false,
     regulerPrice: "7000",
     regulerTeaMl: "300",
@@ -385,6 +386,7 @@ export default function AdminDashboardPage() {
     baseName: "",
     category: "fruity",
     flavorMaterialId: "",
+    secondaryFlavorMaterialId: "",
     enableReguler: false,
     regulerPrice: "7000",
     enableJumbo: true,
@@ -442,9 +444,14 @@ export default function AdminDashboardPage() {
         { name: "Estimasi Es Batu Kristal", cost: 250 },
         { name: "Estimasi Kantong Plastik Cup", cost: 50 },
       ];
-      const mix = getProductMixInfo(pNameLower);
-      if (mix) {
-        items.push({ name: mix.name, cost: mix.cost });
+      if (pNameLower.includes("matcha")) {
+        items.push({ name: "Poci Mix Matcha 12g", cost: 3000 });
+        items.push({ name: "Poci Mix Milk Tea 15g", cost: 1500 });
+      } else {
+        const mix = getProductMixInfo(pNameLower);
+        if (mix) {
+          items.push({ name: mix.name, cost: mix.cost });
+        }
       }
       return items;
     } else {
@@ -458,9 +465,14 @@ export default function AdminDashboardPage() {
         { name: "Estimasi Es Batu Kristal (250 g)", cost: 300 },
         { name: "Estimasi Kantong Plastik Cup", cost: 50 },
       ];
-      const mix = getProductMixInfo(pNameLower);
-      if (mix) {
-        items.push({ name: mix.name, cost: mix.cost });
+      if (pNameLower.includes("matcha")) {
+        items.push({ name: "Poci Mix Matcha 12g", cost: 3000 });
+        items.push({ name: "Poci Mix Milk Tea 15g", cost: 1500 });
+      } else {
+        const mix = getProductMixInfo(pNameLower);
+        if (mix) {
+          items.push({ name: mix.name, cost: mix.cost });
+        }
       }
       return items;
     }
@@ -1740,6 +1752,7 @@ export default function AdminDashboardPage() {
           baseName: newMenuForm.baseName,
           category: newMenuForm.category,
           flavorMaterialId: newMenuForm.flavorMaterialId || undefined,
+          secondaryFlavorMaterialId: newMenuForm.secondaryFlavorMaterialId || undefined,
           enableReguler: newMenuForm.enableReguler,
           regulerPrice: newMenuForm.regulerPrice,
           regulerTeaMl: newMenuForm.regulerTeaMl,
@@ -1758,6 +1771,7 @@ export default function AdminDashboardPage() {
           baseName: "",
           category: "fruity",
           flavorMaterialId: "",
+          secondaryFlavorMaterialId: "",
           enableReguler: false,
           regulerPrice: "7000",
           regulerTeaMl: "300",
@@ -1789,16 +1803,26 @@ export default function AdminDashboardPage() {
       ...(item.reguler?.recipes || []),
       ...(item.single?.recipes || []),
     ];
-    const flavorRecipe = allRecipes.find((r: any) => {
+    // Ambil semua bahan sachet / perasa unik
+    const flavorMap = new Map<string, any>();
+    allRecipes.forEach((r: any) => {
       const n = (r.raw_material?.name || "").toLowerCase();
-      return !n.includes("cup") && !n.includes("kantong teh") && !n.includes("tea premix");
+      if (!n.includes("cup") && !n.includes("kantong teh") && !n.includes("tea premix") && !n.includes("gula")) {
+        if (!flavorMap.has(r.raw_material_id)) {
+          flavorMap.set(r.raw_material_id, r);
+        }
+      }
     });
+    const flavorRecipes = Array.from(flavorMap.values());
+    const flavorRecipe = flavorRecipes[0];
+    const secondaryFlavorRecipe = flavorRecipes[1];
 
     setEditMenuForm({
       oldBaseName: item.baseName,
       baseName: item.baseName,
       category: item.category || "fruity",
       flavorMaterialId: flavorRecipe ? flavorRecipe.raw_material_id : "",
+      secondaryFlavorMaterialId: secondaryFlavorRecipe ? secondaryFlavorRecipe.raw_material_id : "",
       enableReguler: Boolean(item.reguler && item.reguler.active_status !== false),
       regulerPrice: item.reguler ? String(item.reguler.price) : "7000",
       enableJumbo: Boolean(item.jumbo && item.jumbo.active_status !== false),
@@ -1834,6 +1858,7 @@ export default function AdminDashboardPage() {
           baseName: editMenuForm.baseName,
           category: editMenuForm.category,
           flavorMaterialId: editMenuForm.flavorMaterialId || undefined,
+          secondaryFlavorMaterialId: editMenuForm.secondaryFlavorMaterialId || undefined,
           enableReguler: editMenuForm.enableReguler,
           regulerPrice: editMenuForm.regulerPrice,
           enableJumbo: editMenuForm.enableJumbo,
@@ -6924,24 +6949,45 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Pilihan Sirup / Perasa Utama */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Bahan Sirup / Bubuk Perasa (BOM):
-                </label>
-                <select
-                  value={newMenuForm.flavorMaterialId}
-                  onChange={(e) => setNewMenuForm({ ...newMenuForm, flavorMaterialId: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none"
-                >
-                  <option value="">Tanpa Sirup/Bubuk (Hanya Teh Poci Murni)</option>
-                  {menuMaterials
-                    .filter((m) => !m.name.toLowerCase().includes("cup") && !m.name.toLowerCase().includes("tea premix") && !m.name.toLowerCase().includes("kantong teh"))
-                    .map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} ({m.unit})
-                      </option>
-                    ))}
-                </select>
+              <div className="space-y-2">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Bahan Sachet / Bubuk Perasa Utama (BOM):
+                  </label>
+                  <select
+                    value={newMenuForm.flavorMaterialId}
+                    onChange={(e) => setNewMenuForm({ ...newMenuForm, flavorMaterialId: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none"
+                  >
+                    <option value="">Tanpa Sirup/Bubuk (Hanya Teh Poci Murni)</option>
+                    {menuMaterials
+                      .filter((m) => !m.name.toLowerCase().includes("cup") && !m.name.toLowerCase().includes("tea premix") && !m.name.toLowerCase().includes("kantong teh") && !m.name.toLowerCase().includes("gula"))
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} ({m.unit})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Bahan Sachet Campuran / Tambahan (Opsional, misal Milk Tea untuk Matcha Latte):
+                  </label>
+                  <select
+                    value={newMenuForm.secondaryFlavorMaterialId}
+                    onChange={(e) => setNewMenuForm({ ...newMenuForm, secondaryFlavorMaterialId: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none"
+                  >
+                    <option value="">-- Tidak ada sachet campuran kedua --</option>
+                    {menuMaterials
+                      .filter((m) => !m.name.toLowerCase().includes("cup") && !m.name.toLowerCase().includes("tea premix") && !m.name.toLowerCase().includes("kantong teh") && !m.name.toLowerCase().includes("gula"))
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} ({m.unit})
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
 
               {/* DUAL UKURAN LANGSUNG: REGULER & JUMBO */}
@@ -7173,24 +7219,45 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Pilihan Sachet / Perasa Rasa */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Bahan Sachet / Bubuk Perasa (BOM):
-                </label>
-                <select
-                  value={editMenuForm.flavorMaterialId}
-                  onChange={(e) => setEditMenuForm({ ...editMenuForm, flavorMaterialId: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none"
-                >
-                  <option value="">Tanpa Sachet Perasa (Hanya Teh Poci Murni)</option>
-                  {menuMaterials
-                    .filter((m) => !m.name.toLowerCase().includes("cup") && !m.name.toLowerCase().includes("tea premix") && !m.name.toLowerCase().includes("kantong teh"))
-                    .map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} ({m.unit})
-                      </option>
-                    ))}
-                </select>
+              <div className="space-y-2">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Bahan Sachet / Bubuk Perasa Utama (BOM):
+                  </label>
+                  <select
+                    value={editMenuForm.flavorMaterialId}
+                    onChange={(e) => setEditMenuForm({ ...editMenuForm, flavorMaterialId: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none"
+                  >
+                    <option value="">Tanpa Sachet Perasa (Hanya Teh Poci Murni)</option>
+                    {menuMaterials
+                      .filter((m) => !m.name.toLowerCase().includes("cup") && !m.name.toLowerCase().includes("tea premix") && !m.name.toLowerCase().includes("kantong teh") && !m.name.toLowerCase().includes("gula"))
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} ({m.unit})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Bahan Sachet Campuran / Tambahan (Opsional, misal Milk Tea untuk Matcha Latte):
+                  </label>
+                  <select
+                    value={editMenuForm.secondaryFlavorMaterialId}
+                    onChange={(e) => setEditMenuForm({ ...editMenuForm, secondaryFlavorMaterialId: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none"
+                  >
+                    <option value="">-- Tidak ada sachet campuran kedua --</option>
+                    {menuMaterials
+                      .filter((m) => !m.name.toLowerCase().includes("cup") && !m.name.toLowerCase().includes("tea premix") && !m.name.toLowerCase().includes("kantong teh") && !m.name.toLowerCase().includes("gula"))
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} ({m.unit})
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
 
               {/* Ukuran Reguler & Jumbo atau Topping */}

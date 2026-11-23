@@ -31,6 +31,7 @@ const MATERIAL_COST_PER_UNIT: Record<string, number> = {
   "etp teh tarik gula aren": 2000,
   "poci mix thai tea 12g": 2500,
   "poci mix matcha 12g": 3000,
+  "poci mix matcha latte 12g": 3000,
   "poci mix aren latte 25g": 3000,
   "poci mix coconut latte 25g": 3000,
   "poci mix vanilla": 1200,

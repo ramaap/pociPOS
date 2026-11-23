@@ -143,6 +143,8 @@ const FLAVOR_METAS: Record<string, FlavorMeta> = {
   "Lemon Honey Iced Tea": { baseName: "Lemon Honey Iced Tea", category: "fruity", circleBg: "bg-yellow-500", badgeBg: "bg-yellow-100", badgeText: "text-yellow-900", icon: "🍋", imageUrl: "/images/products/lemon_honey.jpg" },
   // 5 Varian Baru Vendor Resmi Es Teh Poci
   "Matcha Iced Tea": { baseName: "Matcha Iced Tea", category: "milky", circleBg: "bg-emerald-700", badgeBg: "bg-emerald-100", badgeText: "text-emerald-900", icon: "🍵", imageUrl: "/images/products/matcha.jpg" },
+  "Matcha Latte": { baseName: "Matcha Latte", category: "milky", circleBg: "bg-emerald-700", badgeBg: "bg-emerald-100", badgeText: "text-emerald-900", icon: "🍵", imageUrl: "/images/products/matcha.jpg" },
+  "Matcha Latte Iced Tea": { baseName: "Matcha Latte Iced Tea", category: "milky", circleBg: "bg-emerald-700", badgeBg: "bg-emerald-100", badgeText: "text-emerald-900", icon: "🍵", imageUrl: "/images/products/matcha.jpg" },
   "Aren Latte Iced Tea": { baseName: "Aren Latte Iced Tea", category: "milky", circleBg: "bg-amber-800", badgeBg: "bg-amber-100", badgeText: "text-amber-900", icon: "☕", imageUrl: "/images/products/aren_latte.jpg" },
   "Coconut Latte Iced Tea": { baseName: "Coconut Latte Iced Tea", category: "milky", circleBg: "bg-teal-700", badgeBg: "bg-teal-100", badgeText: "text-teal-900", icon: "🥥", imageUrl: "/images/products/coconut_latte.jpg" },
   "Teh Tarik Gula Aren": { baseName: "Teh Tarik Gula Aren", category: "milky", circleBg: "bg-amber-900", badgeBg: "bg-amber-100", badgeText: "text-amber-950", icon: "🧋", imageUrl: "/images/products/teh_tarik_gula_aren.jpg" },

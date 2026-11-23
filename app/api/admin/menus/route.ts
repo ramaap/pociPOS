@@ -63,6 +63,7 @@ export async function POST(req: Request) {
         jumboTeaMl = 400,
         jumboFlavorQty = 40,
         flavorMaterialId,
+        secondaryFlavorMaterialId,
         // Legacy single creation support:
         price,
         recipes,
@@ -84,6 +85,12 @@ export async function POST(req: Request) {
       });
       const jumboCupMat = await prisma.rawMaterial.findFirst({
         where: { name: { contains: "Cup Jumbo" } },
+      });
+      const gulaCairMat = await prisma.rawMaterial.findFirst({
+        where: { name: { contains: "Gula Cair" } },
+      });
+      const milkTeaMat = await prisma.rawMaterial.findFirst({
+        where: { name: { contains: "Milk Tea" } },
       });
       const premixMat = await prisma.rawMaterial.findFirst({
         where: { name: { contains: "Tea Premix" } },
@@ -169,9 +176,23 @@ export async function POST(req: Request) {
             data: { product_id: regProd.id, raw_material_id: regCupMat.id, quantity: 1 },
           });
         }
+        if (gulaCairMat) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: regProd.id, raw_material_id: gulaCairMat.id, quantity: 40 },
+          });
+        }
         if (flavorMaterialId && Number(regulerFlavorQty) > 0) {
           await prisma.bOM_Recipe.create({
             data: { product_id: regProd.id, raw_material_id: flavorMaterialId, quantity: Number(regulerFlavorQty) },
+          });
+        }
+        if (secondaryFlavorMaterialId && secondaryFlavorMaterialId !== flavorMaterialId) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: regProd.id, raw_material_id: secondaryFlavorMaterialId, quantity: 1 },
+          });
+        } else if (cleanBaseName.toLowerCase().includes("matcha") && milkTeaMat && milkTeaMat.id !== flavorMaterialId) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: regProd.id, raw_material_id: milkTeaMat.id, quantity: 1 },
           });
         }
 
@@ -206,9 +227,23 @@ export async function POST(req: Request) {
             data: { product_id: jumboProd.id, raw_material_id: jumboCupMat.id, quantity: 1 },
           });
         }
+        if (gulaCairMat) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: jumboProd.id, raw_material_id: gulaCairMat.id, quantity: 50 },
+          });
+        }
         if (flavorMaterialId && Number(jumboFlavorQty) > 0) {
           await prisma.bOM_Recipe.create({
             data: { product_id: jumboProd.id, raw_material_id: flavorMaterialId, quantity: Number(jumboFlavorQty) },
+          });
+        }
+        if (secondaryFlavorMaterialId && secondaryFlavorMaterialId !== flavorMaterialId) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: jumboProd.id, raw_material_id: secondaryFlavorMaterialId, quantity: 1 },
+          });
+        } else if (cleanBaseName.toLowerCase().includes("matcha") && milkTeaMat && milkTeaMat.id !== flavorMaterialId) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: jumboProd.id, raw_material_id: milkTeaMat.id, quantity: 1 },
           });
         }
 
@@ -234,6 +269,7 @@ export async function POST(req: Request) {
         enableJumbo = true,
         jumboPrice,
         flavorMaterialId,
+        secondaryFlavorMaterialId,
         price,
       } = body;
 
@@ -244,12 +280,18 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Nama menu tidak boleh kosong" }, { status: 400 });
       }
 
-      // Ambil bahan baku cup standar
+      // Ambil bahan baku cup & gula standar
       const regCupMat = await prisma.rawMaterial.findFirst({
         where: { name: { contains: "Cup Reguler" } },
       });
       const jumboCupMat = await prisma.rawMaterial.findFirst({
         where: { name: { contains: "Cup Jumbo" } },
+      });
+      const gulaCairMat = await prisma.rawMaterial.findFirst({
+        where: { name: { contains: "Gula Cair" } },
+      });
+      const milkTeaMat = await prisma.rawMaterial.findFirst({
+        where: { name: { contains: "Milk Tea" } },
       });
 
       const allOutlets = await prisma.outlet.findMany({ where: { active_status: true } });
@@ -345,16 +387,30 @@ export async function POST(req: Request) {
           });
         }
 
-        // Update BOM Reguler (Cup Reguler + Flavor Sachet)
+        // Update BOM Reguler (Cup Reguler + Gula Cair + Flavor Sachet)
         await prisma.bOM_Recipe.deleteMany({ where: { product_id: regProd.id } });
         if (regCupMat) {
           await prisma.bOM_Recipe.create({
             data: { product_id: regProd.id, raw_material_id: regCupMat.id, quantity: 1 },
           });
         }
+        if (gulaCairMat) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: regProd.id, raw_material_id: gulaCairMat.id, quantity: 40 },
+          });
+        }
         if (flavorMaterialId) {
           await prisma.bOM_Recipe.create({
             data: { product_id: regProd.id, raw_material_id: flavorMaterialId, quantity: 1 },
+          });
+        }
+        if (secondaryFlavorMaterialId && secondaryFlavorMaterialId !== flavorMaterialId) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: regProd.id, raw_material_id: secondaryFlavorMaterialId, quantity: 1 },
+          });
+        } else if (cleanNewBase.toLowerCase().includes("matcha") && milkTeaMat && milkTeaMat.id !== flavorMaterialId) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: regProd.id, raw_material_id: milkTeaMat.id, quantity: 1 },
           });
         }
         await linkOutlets(regProd.id);
@@ -396,16 +452,30 @@ export async function POST(req: Request) {
           });
         }
 
-        // Update BOM Jumbo (Cup Jumbo + Flavor Sachet)
+        // Update BOM Jumbo (Cup Jumbo + Gula Cair + Flavor Sachet)
         await prisma.bOM_Recipe.deleteMany({ where: { product_id: jumboProd.id } });
         if (jumboCupMat) {
           await prisma.bOM_Recipe.create({
             data: { product_id: jumboProd.id, raw_material_id: jumboCupMat.id, quantity: 1 },
           });
         }
+        if (gulaCairMat) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: jumboProd.id, raw_material_id: gulaCairMat.id, quantity: 50 },
+          });
+        }
         if (flavorMaterialId) {
           await prisma.bOM_Recipe.create({
             data: { product_id: jumboProd.id, raw_material_id: flavorMaterialId, quantity: 1 },
+          });
+        }
+        if (secondaryFlavorMaterialId && secondaryFlavorMaterialId !== flavorMaterialId) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: jumboProd.id, raw_material_id: secondaryFlavorMaterialId, quantity: 1 },
+          });
+        } else if (cleanNewBase.toLowerCase().includes("matcha") && milkTeaMat && milkTeaMat.id !== flavorMaterialId) {
+          await prisma.bOM_Recipe.create({
+            data: { product_id: jumboProd.id, raw_material_id: milkTeaMat.id, quantity: 1 },
           });
         }
         await linkOutlets(jumboProd.id);

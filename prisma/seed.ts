@@ -120,7 +120,7 @@ async function main() {
     { name: "Blackcurrant Iced Tea", category: "fruity", priceJumbo: 10000, flavorMaterialId: rawBlackcurrant.id },
     { name: "Mango Iced Tea", category: "fruity", priceJumbo: 9000, flavorMaterialId: rawMango.id },
     { name: "Milk Iced Tea", category: "milky", priceJumbo: 10000, flavorMaterialId: rawMilkTea.id },
-    { name: "Matcha Iced Tea", category: "milky", priceJumbo: 10000, flavorMaterialId: rawMatcha.id },
+    { name: "Matcha Latte", category: "milky", priceJumbo: 10000, flavorMaterialId: rawMatcha.id, secondaryFlavorMaterialId: rawMilkTea.id },
     { name: "Aren Latte Iced Tea", category: "milky", priceJumbo: 10000, flavorMaterialId: rawArenLatte.id },
     { name: "Coconut Latte Iced Tea", category: "milky", priceJumbo: 10000, flavorMaterialId: rawCoconutLatte.id },
     { name: "Teh Tarik Gula Aren", category: "milky", priceJumbo: 10000, flavorMaterialId: rawTehTarik.id },
@@ -200,17 +200,21 @@ async function main() {
       } else if (n.includes("thai")) {
         mixName = "Poci Mix Thai Tea 12g";
         mixCost = 2500;
+        jumBreakdown.push({ name: mixName, cost: mixCost });
       } else if (n.includes("matcha")) {
-        mixName = "Poci Mix Matcha 12g";
-        mixCost = 3000;
+        jumBreakdown.push({ name: "Poci Mix Matcha 12g", cost: 3000 });
+        jumBreakdown.push({ name: "Poci Mix Milk Tea 15g", cost: 1500 });
       } else if (n.includes("aren latte")) {
         mixName = "Poci Mix Aren Latte 25g";
         mixCost = 3000;
+        jumBreakdown.push({ name: mixName, cost: mixCost });
       } else if (n.includes("coconut latte")) {
         mixName = "Poci Mix Coconut Latte 25g";
         mixCost = 3000;
+        jumBreakdown.push({ name: mixName, cost: mixCost });
+      } else {
+        jumBreakdown.push({ name: mixName, cost: mixCost });
       }
-      jumBreakdown.push({ name: mixName, cost: mixCost });
     }
     const jumTotalHpp = jumBreakdown.reduce((a, b) => a + b.cost, 0);
 
@@ -230,6 +234,9 @@ async function main() {
     ];
     if (item.flavorMaterialId) {
       bomJumboData.push({ product_id: prodJumbo.id, raw_material_id: item.flavorMaterialId, quantity: 1 });
+    }
+    if ((item as any).secondaryFlavorMaterialId) {
+      bomJumboData.push({ product_id: prodJumbo.id, raw_material_id: (item as any).secondaryFlavorMaterialId, quantity: 1 });
     }
     await prisma.bOM_Recipe.createMany({ data: bomJumboData });
     createdProducts.push(prodJumbo);
