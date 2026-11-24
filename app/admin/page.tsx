@@ -51,6 +51,10 @@ import {
   Copy,
   Building2,
   Landmark,
+  Camera,
+  UploadCloud,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 
 interface Outlet {
@@ -314,6 +318,32 @@ export default function AdminDashboardPage() {
   });
   const [rndLoading, setRndLoading] = useState<boolean>(false);
   const [rndMessage, setRndMessage] = useState<string | null>(null);
+
+  // ================= SCAN ASSET RECEIPT (AI OCR) STATE =================
+  const [isScanAssetOpen, setIsScanAssetOpen] = useState<boolean>(false);
+  const [scanImageBase64, setScanImageBase64] = useState<string | null>(null);
+  const [scanMimeType, setScanMimeType] = useState<string>("image/jpeg");
+  const [scanPreviewUrl, setScanPreviewUrl] = useState<string | null>(null);
+  const [scanLoading, setScanLoading] = useState<boolean>(false);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [scannedItems, setScannedItems] = useState<
+    Array<{
+      id: string;
+      name: string;
+      category: string;
+      cost: number | string;
+      outletId?: string;
+      purchase_date: string;
+      notes: string;
+      selected: boolean;
+    }>
+  >([]);
+  const [scanDefaultOutletId, setScanDefaultOutletId] = useState<string>("all");
+  const [hasGeminiApiKey, setHasGeminiApiKey] = useState<boolean>(false);
+  const [scanApiKeyInput, setScanApiKeyInput] = useState<string>("");
+  const [showApiKeySettings, setShowApiKeySettings] = useState<boolean>(false);
+  const [savingApiKey, setSavingApiKey] = useState<boolean>(false);
+  const [isSavingBatch, setIsSavingBatch] = useState<boolean>(false);
 
   // ================= DYNAMIC FIXED OVERHEAD STATE =================
   const [isAddFixedCostOpen, setIsAddFixedCostOpen] = useState<boolean>(false);
@@ -1094,6 +1124,170 @@ export default function AdminDashboardPage() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  // ================= HANDLERS SCAN ASSET RECEIPT (AI OCR) =================
+  const checkAiApiKey = async () => {
+    try {
+      const res = await fetch("/api/admin/scan-asset-receipt");
+      const json = await res.json();
+      setHasGeminiApiKey(Boolean(json.hasApiKey));
+      if (!json.hasApiKey) {
+        setShowApiKeySettings(true);
+      }
+    } catch (err) {
+      console.error("Gagal memeriksa API key:", err);
+    }
+  };
+
+  const handleScanImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setScanMimeType(file.type || "image/jpeg");
+    const reader = new FileReader();
+    reader.onload = () => {
+      const resultStr = reader.result as string;
+      setScanImageBase64(resultStr);
+      setScanPreviewUrl(resultStr);
+      setScanMessage(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleExecuteScan = async () => {
+    if (!scanImageBase64) {
+      setScanMessage("Pilih atau unggah file foto/screenshot struk nota terlebih dahulu.");
+      return;
+    }
+    setScanLoading(true);
+    setScanMessage(null);
+    try {
+      const res = await fetch("/api/admin/scan-asset-receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "scan",
+          imageBase64: scanImageBase64,
+          mimeType: scanMimeType,
+          apiKey: scanApiKeyInput.trim() || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.items) {
+        setScannedItems(
+          json.items.map((it: any) => ({
+            ...it,
+            outletId: scanDefaultOutletId,
+            selected: true,
+          }))
+        );
+        if (json.items.length === 0) {
+          setScanMessage("Tidak ada item aset yang terbaca dari gambar ini. Pastikan foto jelas dan cukup terang.");
+        } else {
+          setScanMessage(`Berhasil mendeteksi ${json.items.length} item aset! Silakan sesuaikan data di tabel jika diperlukan.`);
+        }
+      } else {
+        setScanMessage(json.error || "Gagal memindai gambar.");
+        if (json.needApiKey) setShowApiKeySettings(true);
+      }
+    } catch (err: any) {
+      setScanMessage(err.message || "Gagal menghubungi server");
+    } finally {
+      setScanLoading(false);
+    }
+  };
+
+  const handleSaveApiKey = async () => {
+    if (!scanApiKeyInput.trim()) return;
+    setSavingApiKey(true);
+    try {
+      const res = await fetch("/api/admin/scan-asset-receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_api_key",
+          apiKey: scanApiKeyInput.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setHasGeminiApiKey(true);
+        setShowApiKeySettings(false);
+        setScanMessage("Gemini API Key tersimpan! Sekarang Anda dapat langsung memindai foto nota.");
+      } else {
+        setScanMessage(json.error || "Gagal menyimpan API key");
+      }
+    } catch (err: any) {
+      setScanMessage(err.message || "Gagal menghubungi server");
+    } finally {
+      setSavingApiKey(false);
+    }
+  };
+
+  const handleSaveBatchAssets = async () => {
+    const selected = scannedItems.filter((it) => it.selected && it.name && Number(it.cost) > 0);
+    if (selected.length === 0) {
+      setScanMessage("Pilih minimal satu item aset dengan harga lebih dari Rp 0.");
+      return;
+    }
+    setIsSavingBatch(true);
+    setScanMessage(null);
+    try {
+      const res = await fetch("/api/admin/scan-asset-receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_batch",
+          items: selected,
+          defaultOutletId: scanDefaultOutletId,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setIsScanAssetOpen(false);
+        setScannedItems([]);
+        setScanImageBase64(null);
+        setScanPreviewUrl(null);
+        loadFinancialReport(financeOutlet, financePeriod);
+        alert(`Sukses! ${json.message}`);
+      } else {
+        setScanMessage(json.error || "Gagal menyimpan aset");
+      }
+    } catch (err: any) {
+      setScanMessage(err.message || "Gagal menyimpan aset");
+    } finally {
+      setIsSavingBatch(false);
+    }
+  };
+
+  const handleAddManualScannedRow = () => {
+    setScannedItems((prev) => [
+      ...prev,
+      {
+        id: `manual-${Date.now()}`,
+        name: "",
+        category: "peralatan",
+        cost: "",
+        outletId: scanDefaultOutletId,
+        purchase_date: new Date().toISOString().split("T")[0],
+        notes: "",
+        selected: true,
+      },
+    ]);
+  };
+
+  const handleRemoveScannedRow = (id: string) => {
+    setScannedItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleUpdateScannedRow = (id: string, field: string, value: any) => {
+    setScannedItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
+    );
+  };
+
+  const handleToggleSelectAllScanned = (selected: boolean) => {
+    setScannedItems((prev) => prev.map((item) => ({ ...item, selected })));
   };
 
   const loadOutlets = async () => {
@@ -4811,25 +5005,45 @@ export default function AdminDashboardPage() {
                             </p>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAssetMessage(null);
-                              setAssetForm({
-                                name: "",
-                                category: "booth",
-                                cost: "",
-                                outletId: financeOutlet === "all" ? "all" : financeOutlet,
-                                purchase_date: new Date().toISOString().split("T")[0],
-                                notes: "",
-                              });
-                              setIsAddAssetOpen(true);
-                            }}
-                            className="px-3.5 py-2 rounded-xl bg-sky-700 hover:bg-sky-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>+ Beli / Tambah Aset</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setScanMessage(null);
+                                setScanImageBase64(null);
+                                setScanPreviewUrl(null);
+                                setScannedItems([]);
+                                setScanDefaultOutletId(financeOutlet === "all" ? "all" : financeOutlet);
+                                checkAiApiKey();
+                                setIsScanAssetOpen(true);
+                              }}
+                              className="px-3.5 py-2 rounded-xl bg-linear-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
+                              title="Pindai foto nota fisik atau screenshot e-commerce untuk memasukkan aset otomatis dengan AI"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                              <span>⚡ Scan Foto Struk / Nota (AI)</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAssetMessage(null);
+                                setAssetForm({
+                                  name: "",
+                                  category: "booth",
+                                  cost: "",
+                                  outletId: financeOutlet === "all" ? "all" : financeOutlet,
+                                  purchase_date: new Date().toISOString().split("T")[0],
+                                  notes: "",
+                                });
+                                setIsAddAssetOpen(true);
+                              }}
+                              className="px-3.5 py-2 rounded-xl bg-sky-700 hover:bg-sky-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>+ Input Manual Aset</span>
+                            </button>
+                          </div>
                         </div>
 
                         <div className="overflow-x-auto">
@@ -9751,6 +9965,378 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: SCAN & EKSTRAK ASET DARI FOTO / NOTA (AI VISION)        */}
+      {/* ============================================================== */}
+      {isScanAssetOpen && (
+        <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 my-auto animate-in fade-in zoom-in duration-150 max-h-[92vh] flex flex-col">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-linear-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white shadow-xs">
+                  <Sparkles className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base text-slate-900">
+                    Scan &amp; Ekstrak Aset dari Foto / Nota (AI Vision)
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-sans">
+                    Unggah screenshot marketplace atau foto nota fisik untuk memasukkan aset otomatis tanpa ketik manual satu per satu
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsScanAssetOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Content Area (Scrollable) */}
+            <div className="overflow-y-auto py-4 space-y-4 pr-1">
+              {/* API Key Status / Config Bar */}
+              <div className="p-3 bg-violet-50/70 border border-violet-100 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2.5 h-2.5 rounded-full ${hasGeminiApiKey ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`}></div>
+                  <span className="font-bold text-slate-800">
+                    {hasGeminiApiKey
+                      ? "AI Vision Aktif (Google Gemini ready)"
+                      : "API Key Belum Diset (Perlu Gemini API Key gratis)"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowApiKeySettings(!showApiKeySettings)}
+                  className="text-violet-700 hover:text-violet-900 font-bold underline text-[11px]"
+                >
+                  {showApiKeySettings ? "Tutup Pengaturan Key" : hasGeminiApiKey ? "⚙️ Ubah Key" : "⚙️ Masukkan Key"}
+                </button>
+              </div>
+
+              {/* Form Input API Key (Jika dibuka) */}
+              {showApiKeySettings && (
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs">
+                  <p className="text-slate-700 leading-relaxed font-sans">
+                    Dapatkan API Key secara <strong>gratis</strong> di{" "}
+                    <a
+                      href="https://aistudio.google.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-600 font-bold underline"
+                    >
+                      Google AI Studio (aistudio.google.com)
+                    </a>
+                    . Key ini akan disimpan langsung di sistem toko Anda.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      placeholder="Tempel / Paste Gemini API Key Anda di sini (AIzaSy...)"
+                      value={scanApiKeyInput}
+                      onChange={(e) => setScanApiKeyInput(e.target.value)}
+                      className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSaveApiKey}
+                      disabled={savingApiKey || !scanApiKeyInput.trim()}
+                      className="px-4 py-2 bg-violet-700 hover:bg-violet-800 disabled:opacity-50 text-white font-bold rounded-xl transition shrink-0"
+                    >
+                      {savingApiKey ? "Menyimpan..." : "Simpan Key"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Upload Dropzone & Outlet Selector */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-2">
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Upload Foto Nota / Struk / Screenshot Toko:
+                  </label>
+                  <label className="border-2 border-dashed border-violet-200 hover:border-violet-400 bg-violet-50/30 hover:bg-violet-50/60 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer transition text-center min-h-[110px]">
+                    <UploadCloud className="w-7 h-7 text-violet-600 mb-1.5" />
+                    <span className="text-xs font-bold text-slate-800">
+                      Klik untuk Pilih File Foto / Screenshot
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-sans mt-0.5">
+                      Mendukung format JPG, PNG, WEBP dari kamera ponsel atau screenshot marketplace
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleScanImageSelect}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Alokasi Kedai Default:
+                  </label>
+                  <select
+                    value={scanDefaultOutletId}
+                    onChange={(e) => setScanDefaultOutletId(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                  >
+                    <option value="all">Semua Kedai (Pusat)</option>
+                    {data?.outlets?.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-400 mt-1 font-sans">
+                    Aset yang terdeteksi otomatis dialokasikan ke kedai ini (bisa diubah per baris).
+                  </p>
+                </div>
+              </div>
+
+              {/* Image Preview & Scan Action */}
+              {scanPreviewUrl && (
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={scanPreviewUrl}
+                      alt="Pratinjau Nota"
+                      className="w-16 h-16 object-cover rounded-xl border border-slate-300 shadow-2xs"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Foto Nota Siap Dianalisis</p>
+                      <p className="text-[10px] text-slate-500 font-sans">
+                        Klik tombol di sebelah kanan untuk memulai ekstraksi otomatis dengan AI.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleExecuteScan}
+                    disabled={scanLoading}
+                    className="px-4 py-2.5 rounded-xl bg-linear-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-2 shadow-sm transition"
+                  >
+                    {scanLoading ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin text-amber-300" />
+                        <span>AI Sedang Membaca Nota...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 text-amber-300" />
+                        <span>⚡ Pindai &amp; Ekstrak Item Aset Sekarang</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Status Message */}
+              {scanMessage && (
+                <div className={`p-3 rounded-xl text-xs font-bold ${
+                  scanMessage.includes("Berhasil") || scanMessage.includes("tersimpan")
+                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                    : "bg-rose-50 text-rose-700 border border-rose-200"
+                }`}>
+                  {scanMessage}
+                </div>
+              )}
+
+              {/* TABEL HASIL EKSTRAKSI ITEM */}
+              {scannedItems.length > 0 && (
+                <div className="space-y-3 pt-2 border-t border-slate-100">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h4 className="font-black text-xs text-slate-900 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        Hasil Deteksi Aset ({scannedItems.filter((i) => i.selected).length} dari {scannedItems.length} item dipilih)
+                      </h4>
+                      <p className="text-[11px] text-slate-500 font-sans">
+                        Periksa dan sesuaikan nama barang, nominal, kategori, atau kedai sebelum disimpan ke database
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAddManualScannedRow}
+                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold flex items-center gap-1 transition"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Tambah Baris</span>
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                          <th className="py-2 px-2 text-center w-8">
+                            <input
+                              type="checkbox"
+                              checked={scannedItems.length > 0 && scannedItems.every((it) => it.selected)}
+                              onChange={(e) => handleToggleSelectAllScanned(e.target.checked)}
+                              className="w-3.5 h-3.5 rounded text-violet-600 cursor-pointer"
+                              title="Pilih / Batal Pilih Semua"
+                            />
+                          </th>
+                          <th className="py-2 px-2 min-w-[160px]">Nama Aset / Peralatan *</th>
+                          <th className="py-2 px-2 min-w-[110px]">Kategori</th>
+                          <th className="py-2 px-2 min-w-[120px] text-right">Harga (Rp) *</th>
+                          <th className="py-2 px-2 min-w-[110px]">Tgl Beli</th>
+                          <th className="py-2 px-2 min-w-[130px]">Kedai</th>
+                          <th className="py-2 px-2 min-w-[130px]">Catatan / Toko</th>
+                          <th className="py-2 px-1 text-center w-8">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {scannedItems.map((item) => (
+                          <tr key={item.id} className={item.selected ? "hover:bg-slate-50/70" : "opacity-40 bg-slate-50/50"}>
+                            <td className="py-2 px-2 text-center">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(item.selected)}
+                                onChange={(e) => handleUpdateScannedRow(item.id, "selected", e.target.checked)}
+                                className="w-3.5 h-3.5 rounded text-violet-600 cursor-pointer"
+                              />
+                            </td>
+                            <td className="py-2 px-2">
+                              <input
+                                type="text"
+                                required
+                                value={item.name}
+                                onChange={(e) => handleUpdateScannedRow(item.id, "name", e.target.value)}
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                              />
+                            </td>
+                            <td className="py-2 px-2">
+                              <select
+                                value={item.category}
+                                onChange={(e) => handleUpdateScannedRow(item.id, "category", e.target.value)}
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-800 focus:outline-none"
+                              >
+                                <option value="booth">Booth / Meja</option>
+                                <option value="mesin">Mesin Sealer</option>
+                                <option value="peralatan">Dispenser / Alat</option>
+                                <option value="pos">Tablet POS</option>
+                                <option value="elektronik">Kipas / Listrik</option>
+                                <option value="lainnya">Lainnya</option>
+                              </select>
+                            </td>
+                            <td className="py-2 px-2 text-right">
+                              <input
+                                type="number"
+                                required
+                                min="1"
+                                value={item.cost}
+                                onChange={(e) => handleUpdateScannedRow(item.id, "cost", e.target.value)}
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-violet-500"
+                              />
+                            </td>
+                            <td className="py-2 px-2">
+                              <input
+                                type="date"
+                                value={item.purchase_date}
+                                onChange={(e) => handleUpdateScannedRow(item.id, "purchase_date", e.target.value)}
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-800 focus:outline-none"
+                              />
+                            </td>
+                            <td className="py-2 px-2">
+                              <select
+                                value={item.outletId || scanDefaultOutletId}
+                                onChange={(e) => handleUpdateScannedRow(item.id, "outletId", e.target.value)}
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-medium text-slate-800 focus:outline-none"
+                              >
+                                <option value="all">Semua (Pusat)</option>
+                                {data?.outlets?.map((o) => (
+                                  <option key={o.id} value={o.id}>
+                                    {o.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="py-2 px-2">
+                              <input
+                                type="text"
+                                placeholder="Toko / Ket..."
+                                value={item.notes || ""}
+                                onChange={(e) => handleUpdateScannedRow(item.id, "notes", e.target.value)}
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-700 focus:outline-none"
+                              />
+                            </td>
+                            <td className="py-2 px-1 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveScannedRow(item.id)}
+                                className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                title="Hapus Baris"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Summary Total Bar */}
+                  <div className="flex items-center justify-between p-3 bg-violet-50/50 border border-violet-100 rounded-xl text-xs">
+                    <span className="font-bold text-slate-700 font-sans">
+                      Total Nilai Aset Terpilih:
+                    </span>
+                    <span className="font-black font-mono text-base text-violet-950">
+                      {formatRupiah(
+                        scannedItems.reduce(
+                          (acc, it) => acc + (it.selected ? Number(it.cost) || 0 : 0),
+                          0
+                        )
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsScanAssetOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs"
+              >
+                Tutup
+              </button>
+
+              {scannedItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleSaveBatchAssets}
+                  disabled={isSavingBatch || scannedItems.filter((i) => i.selected).length === 0}
+                  className="px-5 py-2.5 rounded-xl bg-linear-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-2 shadow-md transition"
+                >
+                  {isSavingBatch ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin text-amber-300" />
+                      <span>Menyimpan ke Database...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                      <span>
+                        Simpan ({scannedItems.filter((i) => i.selected).length}) Aset Terpilih ke Database
+                      </span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
