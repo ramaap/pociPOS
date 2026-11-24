@@ -7,8 +7,8 @@ echo.
 
 cd /d "%~dp0"
 
-echo [1/2] Menjalankan Server POS (Port 3000)...
-start "POCI Next.js Server" cmd /k "npm run start"
+echo [1/2] Menjalankan Server POS (Port 3000, Localhost Only)...
+start "POCI Next.js Server" cmd /k "npx next start -H 127.0.0.1"
 
 timeout /t 3 /nobreak >nul
 

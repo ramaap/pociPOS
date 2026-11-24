@@ -176,22 +176,30 @@ Agar domain `https://kasir.ya-kasir-tehpoci.my.id` dapat berjalan lancar saat pr
 
 ## 🔐 Kredensial & Navigasi
 
+- **Gerbang Keamanan Master (`/gate`):** Seluruh rute dilindungi middleware gerbang keamanan perimeter.
+  - **Default Master Key:** `tehpoci2024` *(Dikonfigurasi via `GATE_SECRET` di `.env`)*.
 - **Terminal Kasir:** Akses di `http://localhost:3000` (atau via URL Cloudflare Tunnel).
 - **Owner Portal / Admin:** Akses di `http://localhost:3000/backofficeya`.
 - **Default PIN Admin:** `1234` *(Dapat diubah kapan saja di Backoffice $\rightarrow$ Ganti PIN)*.
 - **Formulir Tutup Shift Kasir:** Akses di `http://localhost:3000/closing`.
+- **Isolasi Jaringan (Localhost Binding):** Server Next.js dibind khusus ke `127.0.0.1` (`next start -H 127.0.0.1`). Akses langsung dari perangkat lain di Wi-Fi lokal otomatis terblokir; akses dari luar wajib melalui Cloudflare Tunnel yang telah dilindungi Cloudflare WAF Managed Challenge.
 
 ---
 
 ## 📂 Struktur Direktori Proyek
 
 ```text
+├── middleware.ts                 # Next.js Edge Middleware (HMAC-SHA256 Master Security Gate)
 ├── app/
+│   ├── gate/page.tsx             # Halaman Login Gerbang Keamanan Kedai
 │   ├── page.tsx                  # Terminal POS Kasir, Pelacakan Dispenser 8L, Cart, & Pantun AI
 │   ├── backofficeya/page.tsx     # Owner Portal / Backoffice, Finansial, Stok, Menu, & Rekonsiliasi Kas
 │   ├── closing/page.tsx          # Formulir Tutup Shift Kasir (Blind Count Stok & Uang Fisik Laci)
 │   ├── layout.tsx                # Root Layout & Metadata
 │   └── api/
+│       ├── gate/
+│       │   ├── verify/route.ts   # Verifikasi Kunci Akses, Rate Limiting (5x/5m), & Issue HMAC Cookie
+│       │   └── logout/route.ts   # Hapus Sesi Cookie Gerbang Keamanan
 │       ├── checkout/route.ts     # Endpoint Transaksi POS (Pengurangan BOM & Validasi Promo)
 │       ├── opening/route.ts      # Endpoint Buka Shift Kasir & Pencatatan Modal Awal
 │       ├── closing/route.ts      # Endpoint Tutup Shift & Rekonsiliasi Selisih Stok/Kas
