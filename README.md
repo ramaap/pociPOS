@@ -177,8 +177,8 @@ Agar domain `https://kasir.ya-kasir-tehpoci.my.id` dapat berjalan lancar saat pr
 ## 🔐 Kredensial & Navigasi
 
 - **Terminal Kasir:** Akses di `http://localhost:3000` (atau via URL Cloudflare Tunnel).
-- **Owner Portal / Admin:** Klik menu **Admin** di navigasi atas atau akses `http://localhost:3000/admin`.
-- **Default PIN Admin:** `1234` *(Dapat diubah kapan saja di Admin $\rightarrow$ Ganti PIN)*.
+- **Owner Portal / Admin:** Akses di `http://localhost:3000/backofficeya`.
+- **Default PIN Admin:** `1234` *(Dapat diubah kapan saja di Backoffice $\rightarrow$ Ganti PIN)*.
 - **Formulir Tutup Shift Kasir:** Akses di `http://localhost:3000/closing`.
 
 ---
@@ -188,7 +188,7 @@ Agar domain `https://kasir.ya-kasir-tehpoci.my.id` dapat berjalan lancar saat pr
 ```text
 ├── app/
 │   ├── page.tsx                  # Terminal POS Kasir, Pelacakan Dispenser 8L, Cart, & Pantun AI
-│   ├── admin/page.tsx            # Owner Portal, Finansial, Stok, Menu, & Rekonsiliasi Kas
+│   ├── backofficeya/page.tsx     # Owner Portal / Backoffice, Finansial, Stok, Menu, & Rekonsiliasi Kas
 │   ├── closing/page.tsx          # Formulir Tutup Shift Kasir (Blind Count Stok & Uang Fisik Laci)
 │   ├── layout.tsx                # Root Layout & Metadata
 │   └── api/
