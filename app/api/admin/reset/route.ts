@@ -51,6 +51,9 @@ export async function POST(req: Request) {
       });
     } else if (action === "reset_database") {
       // 2. Reset Database Lengkap (Hanya untuk Testing): Membersihkan dan men-seed ulang semua data awal
+      await prisma.rndExpense.deleteMany();
+      await prisma.capitalAsset.deleteMany();
+      await prisma.initialCapital.deleteMany();
       await prisma.fixedCost.deleteMany();
       await prisma.expense.deleteMany();
       await prisma.outletProduct.deleteMany();
@@ -308,6 +311,89 @@ export async function POST(req: Request) {
       for (const fc of defaultFixedCosts) {
         await prisma.fixedCost.create({ data: fc });
       }
+
+      // Seed Modal Awal (Equity Injection), Pembelian Aset Tetap (CAPEX), dan Pengeluaran RnD
+      await prisma.initialCapital.create({
+        data: {
+          source: "Modal Pribadi Pemilik (Tabungan Awal Usaha)",
+          amount: 20000000,
+          date: new Date(),
+          notes: "Rekening BCA Bisnis Es Teh Poci Multi-Kedai",
+        },
+      });
+
+      await prisma.capitalAsset.createMany({
+        data: [
+          {
+            name: "Booth Kayu Display & Meja Bar Sudirman",
+            category: "booth",
+            cost: 5000000,
+            outlet_id: outlet1.id,
+            purchase_date: new Date(),
+            notes: "Booth resmi standar kemitraan Teh Poci",
+          },
+          {
+            name: "Mesin Cup Sealer Eton D8 Sudirman",
+            category: "mesin",
+            cost: 850000,
+            outlet_id: outlet1.id,
+            purchase_date: new Date(),
+            notes: "Mesin sealer otomatis cup reguler & jumbo",
+          },
+          {
+            name: "Dispenser Stainless Steel 12L & Cooler Box",
+            category: "peralatan",
+            cost: 600000,
+            outlet_id: outlet1.id,
+            purchase_date: new Date(),
+            notes: "Termos stainless larutan teh dan wadah es batu",
+          },
+          {
+            name: "Booth Kayu Display & Meja Bar Diponegoro",
+            category: "booth",
+            cost: 5000000,
+            outlet_id: outlet2.id,
+            purchase_date: new Date(),
+            notes: "Booth resmi standar kemitraan Teh Poci",
+          },
+          {
+            name: "Mesin Cup Sealer Eton D8 Diponegoro",
+            category: "mesin",
+            cost: 850000,
+            outlet_id: outlet2.id,
+            purchase_date: new Date(),
+            notes: "Mesin sealer otomatis cup reguler & jumbo",
+          },
+          {
+            name: "Tablet POS Android & Thermal Bluetooth Printer",
+            category: "pos",
+            cost: 1500000,
+            purchase_date: new Date(),
+            notes: "Perangkat kasir POS pusat dan nota transaksi",
+          },
+        ],
+      });
+
+      await prisma.rndExpense.createMany({
+        data: [
+          {
+            title: "Trial Resep Dual Sachet Matcha Latte (Matcha + Milk Tea)",
+            category: "resep",
+            amount: 250000,
+            outcome: "Berhasil (Masuk Menu)",
+            date: new Date(),
+            notes: "Eksperimen proporsi susu dan matcha hingga rasa optimal",
+          },
+          {
+            title: "Uji Coba Kemasan Cup Ramah Lingkungan & Ketahanan Seal",
+            category: "packaging",
+            amount: 150000,
+            outcome: "Dalam Evaluasi",
+            date: new Date(),
+            notes: "Trial 50 cup tester bahan biodegradable anti bocor",
+          },
+        ],
+      });
 
       return NextResponse.json({
         success: true,

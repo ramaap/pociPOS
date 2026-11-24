@@ -24,6 +24,7 @@ model Outlet {
   outletProducts OutletProduct[]
   expenses       Expense[]
   fixedCosts     FixedCost[]
+  capitalAssets  CapitalAsset[]
   sugarRefillLogs SugarRefillLog[]
   promoVouchers   PromoVoucher[]
   createdAt      DateTime        @default(now())
@@ -266,4 +267,46 @@ model CentralCashLog {
 
   @@map("central_cash_logs")
 }
+
+model InitialCapital {
+  id          String   @id @default(cuid())
+  source      String   // e.g. "Modal Pribadi Pemilik", "Investor A", "Kredit Modal Usaha"
+  amount      Float    // Nominal modal disetor
+  date        DateTime @default(now())
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("initial_capitals")
+}
+
+model CapitalAsset {
+  id            String   @id @default(cuid())
+  outlet_id     String?  // null = Aset Bersama / Kantor / Gudang Pusat, atau ID kedai spesifik
+  name          String   // e.g. "Gerobak Booth Es Teh Poci", "Mesin Cup Sealer Press Manual", "Dispenser Barrel Stainless 8L"
+  category      String   @default("peralatan") // "booth", "peralatan", "mesin", "elektronik", "franchise_fee", "lainnya"
+  cost          Float    // Nilai / Harga beli aset (Rp)
+  purchase_date DateTime @default(now())
+  notes         String?
+  outlet        Outlet?  @relation(fields: [outlet_id], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("capital_assets")
+}
+
+model RndExpense {
+  id        String   @id @default(cuid())
+  title     String   // e.g. "Trial Resep Matcha Latte Dual Sachet", "Riset Kemasan Cup & Sedotan Ramah Lingkungan", "Tester Bubuk Rasa Baru"
+  category  String   @default("resep") // "resep", "kemasan", "peralatan_uji", "survei_pasar", "lainnya"
+  amount    Float    // Biaya yang dikeluarkan untuk riset/RnD (Rp)
+  date      DateTime @default(now())
+  outcome   String?  // "Berhasil (Masuk Menu)", "Sedang Berjalan / Uji Coba", "Gagal / Dibatalkan"
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("rnd_expenses")
+}
+
 

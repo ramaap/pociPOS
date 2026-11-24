@@ -50,6 +50,7 @@ import {
   Ticket,
   Copy,
   Building2,
+  Landmark,
 } from "lucide-react";
 
 interface Outlet {
@@ -275,6 +276,44 @@ export default function AdminDashboardPage() {
   });
   const [expenseLoading, setExpenseLoading] = useState<boolean>(false);
   const [expenseMessage, setExpenseMessage] = useState<string | null>(null);
+
+  // Sub-tab Catatan Biaya & Beban (Beban Tetap, Variabel, Modal & Aset)
+  const [expenseSubTab, setExpenseSubTab] = useState<"fixed" | "variable" | "capital">("fixed");
+
+  // ================= MODAL AWAL, ASET TETAP & RnD STATE =================
+  const [isAddCapitalOpen, setIsAddCapitalOpen] = useState<boolean>(false);
+  const [capitalForm, setCapitalForm] = useState({
+    source: "Modal Pribadi Pemilik",
+    amount: "",
+    date: new Date().toISOString().split("T")[0],
+    notes: "",
+  });
+  const [capitalLoading, setCapitalLoading] = useState<boolean>(false);
+  const [capitalMessage, setCapitalMessage] = useState<string | null>(null);
+
+  const [isAddAssetOpen, setIsAddAssetOpen] = useState<boolean>(false);
+  const [assetForm, setAssetForm] = useState({
+    name: "",
+    category: "booth",
+    cost: "",
+    outletId: "all",
+    purchase_date: new Date().toISOString().split("T")[0],
+    notes: "",
+  });
+  const [assetLoading, setAssetLoading] = useState<boolean>(false);
+  const [assetMessage, setAssetMessage] = useState<string | null>(null);
+
+  const [isAddRndOpen, setIsAddRndOpen] = useState<boolean>(false);
+  const [rndForm, setRndForm] = useState({
+    title: "",
+    category: "resep",
+    amount: "",
+    outcome: "Berhasil (Masuk Menu)",
+    date: new Date().toISOString().split("T")[0],
+    notes: "",
+  });
+  const [rndLoading, setRndLoading] = useState<boolean>(false);
+  const [rndMessage, setRndMessage] = useState<string | null>(null);
 
   // ================= DYNAMIC FIXED OVERHEAD STATE =================
   const [isAddFixedCostOpen, setIsAddFixedCostOpen] = useState<boolean>(false);
@@ -902,6 +941,158 @@ export default function AdminDashboardPage() {
       }
     } catch (err) {
       console.error("Gagal mengubah status beban tetap", err);
+    }
+  };
+
+  // ================= HANDLERS MODAL AWAL, ASET & RnD =================
+  const handleAddCapital = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!capitalForm.source.trim() || !capitalForm.amount || Number(capitalForm.amount) <= 0) {
+      setCapitalMessage("Sumber modal dan nominal setoran wajib diisi dengan benar.");
+      return;
+    }
+    setCapitalLoading(true);
+    setCapitalMessage(null);
+    try {
+      const res = await fetch("/api/admin/financial-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add_initial_capital",
+          source: capitalForm.source.trim(),
+          amount: Number(capitalForm.amount),
+          date: capitalForm.date,
+          notes: capitalForm.notes,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setIsAddCapitalOpen(false);
+        setCapitalForm({ source: "Modal Pribadi Pemilik", amount: "", date: new Date().toISOString().split("T")[0], notes: "" });
+        loadFinancialReport(financeOutlet, financePeriod);
+      } else {
+        setCapitalMessage(json.error || "Gagal mencatat modal awal");
+      }
+    } catch (err: any) {
+      setCapitalMessage(err.message || "Gagal terhubung ke server");
+    } finally {
+      setCapitalLoading(false);
+    }
+  };
+
+  const handleDeleteCapital = async (id: string, source: string) => {
+    if (!confirm(`Hapus catatan setoran modal dari "${source}"?`)) return;
+    try {
+      const res = await fetch("/api/admin/financial-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_initial_capital", id }),
+      });
+      if (res.ok) loadFinancialReport(financeOutlet, financePeriod);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddAsset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assetForm.name.trim() || !assetForm.cost || Number(assetForm.cost) <= 0) {
+      setAssetMessage("Nama aset dan harga pembelian aset wajib diisi dengan benar.");
+      return;
+    }
+    setAssetLoading(true);
+    setAssetMessage(null);
+    try {
+      const res = await fetch("/api/admin/financial-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add_capital_asset",
+          name: assetForm.name.trim(),
+          category: assetForm.category,
+          cost: Number(assetForm.cost),
+          outletId: assetForm.outletId,
+          purchase_date: assetForm.purchase_date,
+          notes: assetForm.notes,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setIsAddAssetOpen(false);
+        setAssetForm({ name: "", category: "booth", cost: "", outletId: "all", purchase_date: new Date().toISOString().split("T")[0], notes: "" });
+        loadFinancialReport(financeOutlet, financePeriod);
+      } else {
+        setAssetMessage(json.error || "Gagal mencatat pembelian aset");
+      }
+    } catch (err: any) {
+      setAssetMessage(err.message || "Gagal terhubung ke server");
+    } finally {
+      setAssetLoading(false);
+    }
+  };
+
+  const handleDeleteAsset = async (id: string, name: string) => {
+    if (!confirm(`Hapus pencatatan aset "${name}"?`)) return;
+    try {
+      const res = await fetch("/api/admin/financial-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_capital_asset", id }),
+      });
+      if (res.ok) loadFinancialReport(financeOutlet, financePeriod);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddRnd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rndForm.title.trim() || !rndForm.amount || Number(rndForm.amount) <= 0) {
+      setRndMessage("Judul kegiatan RnD dan biaya RnD wajib diisi dengan benar.");
+      return;
+    }
+    setRndLoading(true);
+    setRndMessage(null);
+    try {
+      const res = await fetch("/api/admin/financial-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add_rnd_expense",
+          title: rndForm.title.trim(),
+          category: rndForm.category,
+          amount: Number(rndForm.amount),
+          outcome: rndForm.outcome,
+          date: rndForm.date,
+          notes: rndForm.notes,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setIsAddRndOpen(false);
+        setRndForm({ title: "", category: "resep", amount: "", outcome: "Berhasil (Masuk Menu)", date: new Date().toISOString().split("T")[0], notes: "" });
+        loadFinancialReport(financeOutlet, financePeriod);
+      } else {
+        setRndMessage(json.error || "Gagal mencatat pengeluaran RnD");
+      }
+    } catch (err: any) {
+      setRndMessage(err.message || "Gagal terhubung ke server");
+    } finally {
+      setRndLoading(false);
+    }
+  };
+
+  const handleDeleteRnd = async (id: string, title: string) => {
+    if (!confirm(`Hapus catatan pengeluaran RnD "${title}"?`)) return;
+    try {
+      const res = await fetch("/api/admin/financial-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_rnd_expense", id }),
+      });
+      if (res.ok) loadFinancialReport(financeOutlet, financePeriod);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -3964,42 +4155,75 @@ export default function AdminDashboardPage() {
                         <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
                           <span>🏛️</span> AKTIVA (ASET USAHA)
                         </h4>
-                        <span className="text-xs font-mono font-bold text-emerald-700">Aset Lancar</span>
+                        <span className="text-xs font-mono font-bold text-emerald-700">Aset Lancar &amp; Tetap</span>
                       </div>
 
                       <div className="space-y-3 text-xs font-mono">
-                        <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between">
-                          <div>
-                            <p className="font-bold font-sans text-slate-800">Kas Fisik Tunai (Cash on Hand)</p>
-                            <p className="text-[10px] text-slate-400 font-sans">Penerimaan transaksi tunai di kasir</p>
-                          </div>
-                          <span className="font-bold text-slate-900">
-                            {formatRupiah(financeData?.neraca?.aktiva?.kasTunai || 0)}
+                        <div className="p-2.5 bg-emerald-50/40 rounded-xl border border-emerald-100/60">
+                          <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block mb-1.5 font-sans">
+                            1. Aset Lancar (Current Assets)
                           </span>
+                          <div className="space-y-2">
+                            <div className="p-2 bg-white rounded-lg flex items-center justify-between border border-slate-100">
+                              <div>
+                                <p className="font-bold font-sans text-slate-800">Kas Fisik Tunai (Cash on Hand)</p>
+                                <p className="text-[10px] text-slate-400 font-sans">Penerimaan kasir tunai berjalan</p>
+                              </div>
+                              <span className="font-bold text-slate-900">
+                                {formatRupiah(financeData?.neraca?.aktivaLancar?.kasTunai ?? financeData?.neraca?.aktiva?.kasTunai ?? 0)}
+                              </span>
+                            </div>
+
+                            <div className="p-2 bg-white rounded-lg flex items-center justify-between border border-slate-100">
+                              <div>
+                                <p className="font-bold font-sans text-slate-800">Kas Bank QRIS Settlement</p>
+                                <p className="text-[10px] text-slate-400 font-sans">Saldo penerimaan QRIS non-tunai</p>
+                              </div>
+                              <span className="font-bold text-slate-900">
+                                {formatRupiah(financeData?.neraca?.aktivaLancar?.kasBankQRIS ?? financeData?.neraca?.aktiva?.kasBankQRIS ?? 0)}
+                              </span>
+                            </div>
+
+                            <div className="p-2 bg-white rounded-lg flex items-center justify-between border border-slate-100">
+                              <div>
+                                <p className="font-bold font-sans text-slate-800">Persediaan Bahan Baku Fisik</p>
+                                <p className="text-[10px] text-slate-400 font-sans">Valuasi stok cup, sirup &amp; premix</p>
+                              </div>
+                              <span className="font-bold text-slate-900">
+                                {formatRupiah(financeData?.neraca?.aktivaLancar?.persediaanBahanBaku ?? financeData?.neraca?.aktiva?.persediaanBahanBaku ?? 0)}
+                              </span>
+                            </div>
+
+                            <div className="p-2 bg-emerald-50 rounded-lg flex items-center justify-between border border-emerald-200/80">
+                              <div>
+                                <p className="font-bold font-sans text-emerald-900">Sisa Kas Modal Usaha</p>
+                                <p className="text-[10px] text-emerald-700 font-sans">Modal awal belum terpakai aset/RnD</p>
+                              </div>
+                              <span className="font-bold text-emerald-900">
+                                {formatRupiah(financeData?.neraca?.aktivaLancar?.sisaKasModal ?? 0)}
+                              </span>
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between">
-                          <div>
-                            <p className="font-bold font-sans text-slate-800">Kas Bank QRIS Settlement</p>
-                            <p className="text-[10px] text-slate-400 font-sans">Saldo rekening penerimaan QRIS</p>
-                          </div>
-                          <span className="font-bold text-slate-900">
-                            {formatRupiah(financeData?.neraca?.aktiva?.kasBankQRIS || 0)}
+                        {/* Aset Tetap */}
+                        <div className="p-2.5 bg-blue-50/40 rounded-xl border border-blue-100/60">
+                          <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider block mb-1.5 font-sans">
+                            2. Aktiva Tetap (Fixed Assets / CAPEX)
                           </span>
-                        </div>
-
-                        <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between">
-                          <div>
-                            <p className="font-bold font-sans text-slate-800">Persediaan Bahan Baku Fisik</p>
-                            <p className="text-[10px] text-slate-400 font-sans">Valuasi stok cup, sirup &amp; premix di kedai</p>
+                          <div className="p-2 bg-white rounded-lg flex items-center justify-between border border-slate-100">
+                            <div>
+                              <p className="font-bold font-sans text-slate-800">Peralatan, Booth &amp; Mesin Usaha</p>
+                              <p className="text-[10px] text-slate-400 font-sans">Inventaris fisik booth, sealer &amp; dispenser</p>
+                            </div>
+                            <span className="font-bold text-blue-900">
+                              {formatRupiah(financeData?.neraca?.aktivaTetap?.peralatanDanBooth ?? 0)}
+                            </span>
                           </div>
-                          <span className="font-bold text-slate-900">
-                            {formatRupiah(financeData?.neraca?.aktiva?.persediaanBahanBaku || 0)}
-                          </span>
                         </div>
 
                         {/* Total Aktiva */}
-                        <div className="p-4 bg-emerald-600 text-white rounded-xl flex items-center justify-between text-sm mt-4">
+                        <div className="p-4 bg-emerald-600 text-white rounded-xl flex items-center justify-between text-sm mt-3">
                           <span className="font-bold font-sans">TOTAL AKTIVA (ASET)</span>
                           <span className="font-black text-base">
                             {formatRupiah(financeData?.neraca?.totalAktiva || 0)}
@@ -4019,49 +4243,75 @@ export default function AdminDashboardPage() {
 
                       <div className="space-y-3 text-xs font-mono">
                         {/* Kewajiban */}
-                        <div className="p-3 bg-rose-50/60 rounded-xl flex items-center justify-between text-rose-900">
-                          <div>
-                            <p className="font-bold font-sans">Hutang Selisih Cup Karyawan</p>
-                            <p className="text-[10px] text-rose-600 font-sans">Piutang/kewajiban potongan gaji shift</p>
-                          </div>
-                          <span className="font-bold">
-                            {formatRupiah(financeData?.neraca?.pasiva?.kewajibanLancar?.hutangSelisihCup || 0)}
+                        <div className="p-2.5 bg-rose-50/40 rounded-xl border border-rose-100/60">
+                          <span className="text-[10px] font-bold text-rose-800 uppercase tracking-wider block mb-1.5 font-sans">
+                            1. Kewajiban Lancar (Liabilities)
                           </span>
-                        </div>
+                          <div className="space-y-2">
+                            <div className="p-2 bg-white rounded-lg flex items-center justify-between text-rose-900 border border-slate-100">
+                              <div>
+                                <p className="font-bold font-sans">Hutang Selisih Cup Karyawan</p>
+                                <p className="text-[10px] text-rose-600 font-sans">Piutang/potongan shift closing</p>
+                              </div>
+                              <span className="font-bold">
+                                {formatRupiah(financeData?.neraca?.pasiva?.kewajibanLancar?.hutangSelisihCup || 0)}
+                              </span>
+                            </div>
 
-                        <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between">
-                          <div>
-                            <p className="font-bold font-sans text-slate-800">Beban Operasional Terutang</p>
-                            <p className="text-[10px] text-slate-400 font-sans">Biaya operasional berjalan</p>
+                            <div className="p-2 bg-white rounded-lg flex items-center justify-between border border-slate-100">
+                              <div>
+                                <p className="font-bold font-sans text-slate-800">Beban Operasional Terutang</p>
+                                <p className="text-[10px] text-slate-400 font-sans">Biaya operasional berjalan</p>
+                              </div>
+                              <span className="font-bold text-slate-900">
+                                {formatRupiah(financeData?.neraca?.pasiva?.kewajibanLancar?.bebanOperasionalTerutang || 0)}
+                              </span>
+                            </div>
                           </div>
-                          <span className="font-bold text-slate-900">
-                            {formatRupiah(financeData?.neraca?.pasiva?.kewajibanLancar?.bebanOperasionalTerutang || 0)}
-                          </span>
                         </div>
 
                         {/* Ekuitas */}
-                        <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between">
-                          <div>
-                            <p className="font-bold font-sans text-slate-800">Modal Disetor Awal Booth</p>
-                            <p className="text-[10px] text-slate-400 font-sans">Estimasi modal perlengkapan awal booth</p>
-                          </div>
-                          <span className="font-bold text-slate-900">
-                            {formatRupiah(financeData?.neraca?.pasiva?.ekuitas?.modalDisetor || 0)}
+                        <div className="p-2.5 bg-indigo-50/40 rounded-xl border border-indigo-100/60">
+                          <span className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider block mb-1.5 font-sans">
+                            2. Ekuitas Modal (Equity)
                           </span>
-                        </div>
+                          <div className="space-y-2">
+                            <div className="p-2 bg-white rounded-lg flex items-center justify-between border border-slate-100">
+                              <div>
+                                <p className="font-bold font-sans text-slate-800">Modal Disetor Awal Usaha</p>
+                                <p className="text-[10px] text-slate-400 font-sans">Akumulasi modal disetor pemilik/investor</p>
+                              </div>
+                              <span className="font-bold text-slate-900">
+                                {formatRupiah(financeData?.neraca?.pasiva?.ekuitas?.modalDisetor || 0)}
+                              </span>
+                            </div>
 
-                        <div className="p-3 bg-emerald-50 rounded-xl flex items-center justify-between text-emerald-900">
-                          <div>
-                            <p className="font-bold font-sans">Laba Ditahan (Retained Earnings)</p>
-                            <p className="text-[10px] text-emerald-700 font-sans">Akumulasi keuntungan bersih berjalan</p>
+                            {Number(financeData?.neraca?.pasiva?.ekuitas?.bebanRnd || 0) > 0 && (
+                              <div className="p-2 bg-amber-50 rounded-lg flex items-center justify-between text-amber-900 border border-amber-200">
+                                <div>
+                                  <p className="font-bold font-sans">Alokasi Beban Riset &amp; RnD</p>
+                                  <p className="text-[10px] text-amber-700 font-sans">Pengurang ekuitas untuk riset resep/menu</p>
+                                </div>
+                                <span className="font-bold">
+                                  - {formatRupiah(financeData?.neraca?.pasiva?.ekuitas?.bebanRnd || 0)}
+                                </span>
+                              </div>
+                            )}
+
+                            <div className="p-2 bg-emerald-50 rounded-lg flex items-center justify-between text-emerald-900 border border-emerald-200">
+                              <div>
+                                <p className="font-bold font-sans">Laba Ditahan (Retained Earnings)</p>
+                                <p className="text-[10px] text-emerald-700 font-sans">Akumulasi keuntungan bersih usaha</p>
+                              </div>
+                              <span className="font-bold">
+                                {formatRupiah(financeData?.neraca?.pasiva?.ekuitas?.labaDitahan || 0)}
+                              </span>
+                            </div>
                           </div>
-                          <span className="font-bold">
-                            {formatRupiah(financeData?.neraca?.pasiva?.ekuitas?.labaDitahan || 0)}
-                          </span>
                         </div>
 
                         {/* Total Pasiva */}
-                        <div className="p-4 bg-indigo-700 text-white rounded-xl flex items-center justify-between text-sm mt-4">
+                        <div className="p-4 bg-indigo-700 text-white rounded-xl flex items-center justify-between text-sm mt-3">
                           <span className="font-bold font-sans">TOTAL PASIVA (KEWAJIBAN + EKUITAS)</span>
                           <span className="font-black text-base">
                             {formatRupiah(financeData?.neraca?.totalPasiva || 0)}
@@ -4073,267 +4323,688 @@ export default function AdminDashboardPage() {
                 </div>
               )}
 
-              {/* MODULE: CATATAN BIAYA & BEBAN (EXPENSES & FIXED OVERHEAD) */}
+              {/* MODULE: CATATAN BIAYA & BEBAN (EXPENSES & FIXED OVERHEAD & CAPITAL) */}
               {financeModule === "expenses" && (
                 <div className="space-y-6">
+                  {/* SUB-TAB NAVIGATOR */}
+                  <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setExpenseSubTab("fixed")}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                        expenseSubTab === "fixed"
+                          ? "bg-white text-indigo-900 shadow-xs border border-indigo-100"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>Beban Tetap Bulanan (Fixed OPEX)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExpenseSubTab("variable")}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                        expenseSubTab === "variable"
+                          ? "bg-white text-rose-900 shadow-xs border border-rose-100"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <CreditCard className="w-3.5 h-3.5" />
+                      <span>Pengeluaran Harian (Variable OPEX)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExpenseSubTab("capital")}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                        expenseSubTab === "capital"
+                          ? "bg-white text-emerald-900 shadow-xs border border-emerald-100"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <Landmark className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Modal Awal, Aset (CAPEX) &amp; RnD</span>
+                    </button>
+                  </div>
+
                   {/* SEKSI 1: BEBAN & BIAYA TETAP BULANAN (DYNAMIC FIXED COSTS) */}
-                  <div className="bg-white rounded-2xl border border-indigo-150 p-5 shadow-xs space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
-                      <div>
-                        <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-indigo-600" />
-                          Beban &amp; Biaya Tetap Bulanan (Dynamic Fixed Costs)
-                        </h4>
-                        <p className="text-xs text-slate-500">
-                          Beban rutin (sewa booth, gaji kasir, listrik, air, wifi, dll.) yang dapat diedit bebas dan otomatis dihitung ke rugi laba bulanan
-                        </p>
+                  {expenseSubTab === "fixed" && (
+                    <div className="bg-white rounded-2xl border border-indigo-150 p-5 shadow-xs space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                        <div>
+                          <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                            <Building2 className="w-4 h-4 text-indigo-600" />
+                            Beban &amp; Biaya Tetap Bulanan (Dynamic Fixed Costs)
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            Beban rutin (sewa booth, gaji kasir, listrik, air, wifi, dll.) yang dapat diedit bebas dan otomatis dihitung ke rugi laba bulanan
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setFixedCostMessage(null);
+                              setFixedCostForm({
+                                name: "",
+                                amount: "",
+                                category: "sewa",
+                                outletId: financeOutlet === "all" ? "all" : financeOutlet,
+                                notes: "",
+                                is_active: true,
+                              });
+                              setIsAddFixedCostOpen(true);
+                            }}
+                            className="px-3.5 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>+ Tambah Beban Tetap</span>
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            setFixedCostMessage(null);
-                            setFixedCostForm({
-                              name: "",
-                              amount: "",
-                              category: "sewa",
-                              outletId: financeOutlet === "all" ? "all" : financeOutlet,
-                              notes: "",
-                              is_active: true,
-                            });
-                            setIsAddFixedCostOpen(true);
-                          }}
-                          className="px-3.5 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>+ Tambah Beban Tetap</span>
-                        </button>
+                      {/* Ringkasan Biaya Tetap */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-indigo-50/60 border border-indigo-100 text-xs">
+                        <div>
+                          <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
+                            Total Beban Tetap per Bulan
+                          </span>
+                          <span className="text-lg font-black font-mono text-indigo-950 mt-0.5 block">
+                            {formatRupiah(financeData?.summary?.totalMonthlyFixedCost || 0)}
+                            <span className="text-xs font-normal text-indigo-700"> /bln</span>
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
+                            Estimasi Beban Tetap Harian
+                          </span>
+                          <span className="text-lg font-black font-mono text-indigo-950 mt-0.5 block">
+                            {formatRupiah(financeData?.summary?.dailyFixedCost || 0)}
+                            <span className="text-xs font-normal text-indigo-700"> /hari</span>
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
+                            Terhitung di Periode ({financeData?.summary?.periodDays || 30} Hari)
+                          </span>
+                          <span className="text-lg font-black font-mono text-indigo-950 mt-0.5 block">
+                            {formatRupiah(financeData?.summary?.totalFixedExpenses || 0)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Ringkasan Biaya Tetap */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-indigo-50/60 border border-indigo-100 text-xs">
-                      <div>
-                        <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
-                          Total Beban Tetap per Bulan
-                        </span>
-                        <span className="text-lg font-black font-mono text-indigo-950 mt-0.5 block">
-                          {formatRupiah(financeData?.summary?.totalMonthlyFixedCost || 0)}
-                          <span className="text-xs font-normal text-indigo-700"> /bln</span>
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
-                          Estimasi Beban Tetap Harian
-                        </span>
-                        <span className="text-lg font-black font-mono text-indigo-950 mt-0.5 block">
-                          {formatRupiah(financeData?.summary?.dailyFixedCost || 0)}
-                          <span className="text-xs font-normal text-indigo-700"> /hari</span>
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
-                          Terhitung di Periode ({financeData?.summary?.periodDays || 30} Hari)
-                        </span>
-                        <span className="text-lg font-black font-mono text-indigo-950 mt-0.5 block">
-                          {formatRupiah(financeData?.summary?.totalFixedExpenses || 0)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Tabel Beban Tetap */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                            <th className="py-2.5 px-3">Nama Beban Tetap</th>
-                            <th className="py-2.5 px-3">Kategori</th>
-                            <th className="py-2.5 px-3">Kedai / Alokasi</th>
-                            <th className="py-2.5 px-3 text-right">Biaya / Bulan</th>
-                            <th className="py-2.5 px-3 text-right">Biaya / Hari</th>
-                            <th className="py-2.5 px-3">Catatan</th>
-                            <th className="py-2.5 px-3 text-center">Status</th>
-                            <th className="py-2.5 px-3 text-center">Aksi</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {!financeData?.fixedCosts || financeData.fixedCosts.length === 0 ? (
-                            <tr>
-                              <td colSpan={8} className="py-8 text-center text-slate-400">
-                                Belum ada komponen beban tetap yang diatur. Klik &quot;+ Tambah Beban Tetap&quot; untuk menambahkan.
-                              </td>
+                      {/* Tabel Beban Tetap */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                              <th className="py-2.5 px-3">Nama Beban Tetap</th>
+                              <th className="py-2.5 px-3">Kategori</th>
+                              <th className="py-2.5 px-3">Kedai / Alokasi</th>
+                              <th className="py-2.5 px-3 text-right">Biaya / Bulan</th>
+                              <th className="py-2.5 px-3 text-right">Biaya / Hari</th>
+                              <th className="py-2.5 px-3">Catatan</th>
+                              <th className="py-2.5 px-3 text-center">Status</th>
+                              <th className="py-2.5 px-3 text-center">Aksi</th>
                             </tr>
-                          ) : (
-                            financeData.fixedCosts.map((fc: any) => (
-                              <tr key={fc.id} className="hover:bg-slate-50/70 transition">
-                                <td className="py-2.5 px-3 font-bold text-slate-900">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
-                                    <span>{fc.name}</span>
-                                  </div>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {!financeData?.fixedCosts || financeData.fixedCosts.length === 0 ? (
+                              <tr>
+                                <td colSpan={8} className="py-8 text-center text-slate-400">
+                                  Belum ada komponen beban tetap yang diatur. Klik &quot;+ Tambah Beban Tetap&quot; untuk menambahkan.
                                 </td>
-                                <td className="py-2.5 px-3 capitalize">
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-100">
-                                    {fc.category || "operasional"}
-                                  </span>
-                                </td>
-                                <td className="py-2.5 px-3 text-slate-700 font-medium">
-                                  {fc.outlet?.name || "Semua Kedai (Konsolidasi)"}
-                                </td>
-                                <td className="py-2.5 px-3 text-right font-mono font-bold text-indigo-900 text-xs">
-                                  {formatRupiah(fc.amount)}
-                                </td>
-                                <td className="py-2.5 px-3 text-right font-mono text-slate-600 text-[11px]">
-                                  {formatRupiah(fc.dailyAmount || Math.round(fc.amount / 30))}
-                                </td>
-                                <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[180px] truncate" title={fc.notes || ""}>
-                                  {fc.notes || "-"}
-                                </td>
-                                <td className="py-2.5 px-3 text-center">
-                                  <button
-                                    onClick={() => handleToggleFixedCost(fc.id, fc.is_active)}
-                                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition ${
-                                      fc.is_active
-                                        ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
-                                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                    }`}
-                                    title="Klik untuk mengubah status aktif"
-                                  >
-                                    {fc.is_active ? "Aktif" : "Nonaktif"}
-                                  </button>
-                                </td>
-                                <td className="py-2.5 px-3 text-center">
-                                  <div className="flex items-center justify-center gap-1">
+                              </tr>
+                            ) : (
+                              financeData.fixedCosts.map((fc: any) => (
+                                <tr key={fc.id} className="hover:bg-slate-50/70 transition">
+                                  <td className="py-2.5 px-3 font-bold text-slate-900">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
+                                      <span>{fc.name}</span>
+                                    </div>
+                                  </td>
+                                  <td className="py-2.5 px-3 capitalize">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-100">
+                                      {fc.category || "operasional"}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-slate-700 font-medium">
+                                    {fc.outlet?.name || "Semua Kedai (Konsolidasi)"}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-mono font-bold text-indigo-900 text-xs">
+                                    {formatRupiah(fc.amount)}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-mono text-slate-600 text-[11px]">
+                                    {formatRupiah(fc.dailyAmount || Math.round(fc.amount / 30))}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[180px] truncate" title={fc.notes || ""}>
+                                    {fc.notes || "-"}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center">
                                     <button
-                                      onClick={() => {
-                                        setFixedCostMessage(null);
-                                        setFixedCostForm({
-                                          id: fc.id,
-                                          name: fc.name,
-                                          amount: fc.amount,
-                                          category: fc.category || "operasional",
-                                          outletId: fc.outlet_id || "all",
-                                          notes: fc.notes || "",
-                                          is_active: fc.is_active,
-                                        });
-                                        setIsEditFixedCostOpen(true);
-                                      }}
-                                      className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
-                                      title="Edit Beban Tetap"
+                                      onClick={() => handleToggleFixedCost(fc.id, fc.is_active)}
+                                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition ${
+                                        fc.is_active
+                                          ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                                          : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                      }`}
+                                      title="Klik untuk mengubah status aktif"
                                     >
-                                      <Edit3 className="w-3.5 h-3.5" />
+                                      {fc.is_active ? "Aktif" : "Nonaktif"}
                                     </button>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      <button
+                                        onClick={() => {
+                                          setFixedCostMessage(null);
+                                          setFixedCostForm({
+                                            id: fc.id,
+                                            name: fc.name,
+                                            amount: fc.amount,
+                                            category: fc.category || "operasional",
+                                            outletId: fc.outlet_id || "all",
+                                            notes: fc.notes || "",
+                                            is_active: fc.is_active,
+                                          });
+                                          setIsEditFixedCostOpen(true);
+                                        }}
+                                        className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+                                        title="Edit Beban Tetap"
+                                      >
+                                        <Edit3 className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteFixedCost(fc.id, fc.name)}
+                                        className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                        title="Hapus Beban Tetap"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SEKSI 2: LOG PENGELUARAN HARIAN & BEBAN VARIABEL */}
+                  {expenseSubTab === "variable" && (
+                    <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                        <div>
+                          <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                            <CreditCard className="w-4 h-4 text-rose-600" />
+                            Log Pengeluaran Operasional Harian (Variable Costs)
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            Total beban harian terdata: {formatRupiah(financeData?.summary?.totalVariableExpenses || financeData?.summary?.totalExpenses || 0)}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {financeData?.expenses && financeData.expenses.length > 0 && (
+                            <button
+                              onClick={handleClearAllExpenses}
+                              className="px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition"
+                              title="Hapus seluruh catatan pengeluaran"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Hapus Semua Biaya</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setExpenseMessage(null);
+                              setIsAddExpenseOpen(true);
+                            }}
+                            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>+ Catat Pengeluaran Baru</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                              <th className="py-2.5 px-3">Tanggal</th>
+                              <th className="py-2.5 px-3">Kedai</th>
+                              <th className="py-2.5 px-3">Kategori</th>
+                              <th className="py-2.5 px-3">Deskripsi Biaya</th>
+                              <th className="py-2.5 px-3 text-right">Nominal</th>
+                              <th className="py-2.5 px-3 text-center">Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {!financeData?.expenses || financeData.expenses.length === 0 ? (
+                              <tr>
+                                <td colSpan={6} className="py-8 text-center text-slate-400">
+                                  Belum ada pengeluaran yang dicatat di periode ini
+                                </td>
+                              </tr>
+                            ) : (
+                              financeData.expenses.map((e: any) => (
+                                <tr key={e.id} className="hover:bg-slate-50/70 transition">
+                                  <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
+                                    {new Date(e.date).toLocaleDateString("id-ID", {
+                                      day: "2-digit",
+                                      month: "short",
+                                      year: "numeric",
+                                    })}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-bold text-slate-800">
+                                    {e.outlet?.name || "Semua Kedai"}
+                                  </td>
+                                  <td className="py-2.5 px-3 capitalize">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                                      {e.category}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-slate-800">{e.description}</td>
+                                  <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-600">
+                                    {formatRupiah(e.amount)}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center">
                                     <button
-                                      onClick={() => handleDeleteFixedCost(fc.id, fc.name)}
+                                      onClick={() => handleDeleteExpense(e.id)}
                                       className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                      title="Hapus Beban Tetap"
+                                      title="Hapus Biaya"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* SEKSI 2: LOG PENGELUARAN HARIAN & BEBAN VARIABEL */}
-                  <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
-                      <div>
-                        <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
-                          <CreditCard className="w-4 h-4 text-rose-600" />
-                          Log Pengeluaran Operasional Harian (Variable Costs)
-                        </h4>
-                        <p className="text-xs text-slate-500">
-                          Total beban harian terdata: {formatRupiah(financeData?.summary?.totalVariableExpenses || financeData?.summary?.totalExpenses || 0)}
-                        </p>
+                  {/* SEKSI 3: MODAL AWAL, PEMBELIAN ASET TETAP (CAPEX) & RnD */}
+                  {expenseSubTab === "capital" && (
+                    <div className="space-y-6">
+                      {/* Metric Summary Cards */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-white rounded-2xl border border-emerald-100 p-4 shadow-xs">
+                          <div className="flex items-center justify-between text-emerald-800 mb-2">
+                            <span className="text-[11px] font-bold uppercase tracking-wider">Total Modal Disetor</span>
+                            <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                              <Landmark className="w-4 h-4 text-emerald-600" />
+                            </div>
+                          </div>
+                          <p className="text-xl font-black font-mono text-slate-900">
+                            {formatRupiah(financeData?.capitalSummary?.totalInitialCapital || 0)}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-1 font-sans">
+                            Injeksi modal awal pemilik &amp; investor
+                          </p>
+                        </div>
+
+                        <div className="bg-white rounded-2xl border border-sky-100 p-4 shadow-xs">
+                          <div className="flex items-center justify-between text-sky-800 mb-2">
+                            <span className="text-[11px] font-bold uppercase tracking-wider">Pembelian Aset Tetap</span>
+                            <div className="w-7 h-7 rounded-lg bg-sky-50 flex items-center justify-center">
+                              <Building2 className="w-4 h-4 text-sky-600" />
+                            </div>
+                          </div>
+                          <p className="text-xl font-black font-mono text-sky-950">
+                            {formatRupiah(financeData?.capitalSummary?.totalCapitalAssets || 0)}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-1 font-sans">
+                            CAPEX (Booth, Cup Sealer, Alat)
+                          </p>
+                        </div>
+
+                        <div className="bg-white rounded-2xl border border-amber-100 p-4 shadow-xs">
+                          <div className="flex items-center justify-between text-amber-800 mb-2">
+                            <span className="text-[11px] font-bold uppercase tracking-wider">Pengeluaran Riset (RnD)</span>
+                            <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center">
+                              <Sparkles className="w-4 h-4 text-amber-600" />
+                            </div>
+                          </div>
+                          <p className="text-xl font-black font-mono text-amber-950">
+                            {formatRupiah(financeData?.capitalSummary?.totalRndExpenses || 0)}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-1 font-sans">
+                            Trial formula resep &amp; tester menu
+                          </p>
+                        </div>
+
+                        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs bg-linear-to-br from-white to-emerald-50/30">
+                          <div className="flex items-center justify-between text-slate-800 mb-2">
+                            <span className="text-[11px] font-bold uppercase tracking-wider">Sisa Kas Modal Awal</span>
+                            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
+                              <Wallet className="w-4 h-4 text-indigo-600" />
+                            </div>
+                          </div>
+                          <p className={`text-xl font-black font-mono ${
+                            (financeData?.capitalSummary?.remainingCapitalCash || 0) >= 0 ? "text-emerald-700" : "text-rose-600"
+                          }`}>
+                            {formatRupiah(financeData?.capitalSummary?.remainingCapitalCash || 0)}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-1 font-sans">
+                            Kas modal tersisa untuk operasional
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        {financeData?.expenses && financeData.expenses.length > 0 && (
+                      {/* Info Banner Alur Akuntansi */}
+                      <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-950 flex items-start gap-3">
+                        <Scale className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="font-bold">Prinsip Akuntansi Modal &amp; Pengurangan Aset / RnD:</p>
+                          <p className="text-slate-600 leading-relaxed font-sans">
+                            Dana modal awal dialokasikan untuk <strong>Pembelian Aset Tetap (CAPEX)</strong> yang masuk ke neraca sebagai Aktiva Tetap (bukan beban langsung), dan <strong>Biaya RnD</strong> untuk formulasi rasa baru yang mengurangi ekuitas modal. Sisa kas modal otomatis tercatat sebagai <strong>Aktiva Lancar (Sisa Kas Modal Usaha)</strong> pada Neraca Keuangan.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* TABEL 1: PENCATATAN MODAL AWAL */}
+                      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                          <div>
+                            <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                              <Landmark className="w-4 h-4 text-emerald-600" />
+                              Pencatatan Modal Awal Disetor (Equity Capital)
+                            </h4>
+                            <p className="text-xs text-slate-500">
+                              Daftar setoran modal usaha dari pemilik kedai atau investor awal
+                            </p>
+                          </div>
+
                           <button
-                            onClick={handleClearAllExpenses}
-                            className="px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition"
-                            title="Hapus seluruh catatan pengeluaran"
+                            type="button"
+                            onClick={() => {
+                              setCapitalMessage(null);
+                              setCapitalForm({
+                                source: "Modal Pribadi Pemilik",
+                                amount: "",
+                                date: new Date().toISOString().split("T")[0],
+                                notes: "",
+                              });
+                              setIsAddCapitalOpen(true);
+                            }}
+                            className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Hapus Semua Biaya</span>
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>+ Setor Modal Awal</span>
                           </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            setExpenseMessage(null);
-                            setIsAddExpenseOpen(true);
-                          }}
-                          className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>+ Catat Pengeluaran Baru</span>
-                        </button>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                                <th className="py-2.5 px-3">Tanggal Setor</th>
+                                <th className="py-2.5 px-3">Sumber Modal / Penyetor</th>
+                                <th className="py-2.5 px-3 text-right">Nominal Setoran</th>
+                                <th className="py-2.5 px-3">Catatan / Keterangan</th>
+                                <th className="py-2.5 px-3 text-center">Aksi</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {!financeData?.capitals || financeData.capitals.length === 0 ? (
+                                <tr>
+                                  <td colSpan={5} className="py-8 text-center text-slate-400">
+                                    Belum ada catatan setoran modal awal. Klik &quot;+ Setor Modal Awal&quot; untuk mencatat.
+                                  </td>
+                                </tr>
+                              ) : (
+                                financeData.capitals.map((c: any) => (
+                                  <tr key={c.id} className="hover:bg-slate-50/70 transition">
+                                    <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
+                                      {new Date(c.date).toLocaleDateString("id-ID", {
+                                        day: "2-digit",
+                                        month: "short",
+                                        year: "numeric",
+                                      })}
+                                    </td>
+                                    <td className="py-2.5 px-3 font-bold text-slate-900">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                                        <span>{c.source}</span>
+                                      </div>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-800 text-xs">
+                                      {formatRupiah(c.amount)}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[200px] truncate" title={c.notes || ""}>
+                                      {c.notes || "-"}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteCapital(c.id, c.source)}
+                                        className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                        title="Hapus Setoran Modal"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* TABEL 2: PEMBELIAN ASET TETAP (CAPEX) */}
+                      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                          <div>
+                            <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                              <Building2 className="w-4 h-4 text-sky-600" />
+                              Pengeluaran Pembelian Aset Tetap (CAPEX)
+                            </h4>
+                            <p className="text-xs text-slate-500">
+                              Aset fisik berwujud (Booth/Gerobak, Mesin Sealer, Cooler, Dispenser) yang dibeli dari modal awal
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAssetMessage(null);
+                              setAssetForm({
+                                name: "",
+                                category: "booth",
+                                cost: "",
+                                outletId: financeOutlet === "all" ? "all" : financeOutlet,
+                                purchase_date: new Date().toISOString().split("T")[0],
+                                notes: "",
+                              });
+                              setIsAddAssetOpen(true);
+                            }}
+                            className="px-3.5 py-2 rounded-xl bg-sky-700 hover:bg-sky-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>+ Beli / Tambah Aset</span>
+                          </button>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                                <th className="py-2.5 px-3">Tgl Beli</th>
+                                <th className="py-2.5 px-3">Nama Aset / Peralatan</th>
+                                <th className="py-2.5 px-3">Kategori</th>
+                                <th className="py-2.5 px-3">Kedai / Alokasi</th>
+                                <th className="py-2.5 px-3 text-right">Harga Beli</th>
+                                <th className="py-2.5 px-3">Keterangan</th>
+                                <th className="py-2.5 px-3 text-center">Aksi</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {!financeData?.capitalAssets || financeData.capitalAssets.length === 0 ? (
+                                <tr>
+                                  <td colSpan={7} className="py-8 text-center text-slate-400">
+                                    Belum ada aset tetap yang tercatat. Klik &quot;+ Beli / Tambah Aset&quot; untuk mencatat.
+                                  </td>
+                                </tr>
+                              ) : (
+                                financeData.capitalAssets.map((a: any) => (
+                                  <tr key={a.id} className="hover:bg-slate-50/70 transition">
+                                    <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
+                                      {new Date(a.purchase_date).toLocaleDateString("id-ID", {
+                                        day: "2-digit",
+                                        month: "short",
+                                        year: "numeric",
+                                      })}
+                                    </td>
+                                    <td className="py-2.5 px-3 font-bold text-slate-900">
+                                      {a.name}
+                                    </td>
+                                    <td className="py-2.5 px-3 capitalize">
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-100">
+                                        {a.category}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-slate-700 font-medium">
+                                      {a.outlet?.name || "Semua Kedai (Pusat)"}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right font-mono font-bold text-sky-900 text-xs">
+                                      {formatRupiah(a.cost)}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[180px] truncate" title={a.notes || ""}>
+                                      {a.notes || "-"}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteAsset(a.id, a.name)}
+                                        className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                        title="Hapus Aset"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* TABEL 3: PENGELUARAN RnD (RISET & PENGEMBANGAN) */}
+                      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                          <div>
+                            <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                              <Sparkles className="w-4 h-4 text-amber-600" />
+                              Pengeluaran Riset &amp; Pengembangan (RnD)
+                            </h4>
+                            <p className="text-xs text-slate-500">
+                              Biaya eksperimen rasa baru (matcha, susu, sirup), tester kemasan/cup, dan riset pasar yang mengurangi modal
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRndMessage(null);
+                              setRndForm({
+                                title: "",
+                                category: "resep",
+                                amount: "",
+                                outcome: "Berhasil (Masuk Menu)",
+                                date: new Date().toISOString().split("T")[0],
+                                notes: "",
+                              });
+                              setIsAddRndOpen(true);
+                            }}
+                            className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>+ Catat Biaya RnD</span>
+                          </button>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                                <th className="py-2.5 px-3">Tanggal</th>
+                                <th className="py-2.5 px-3">Kegiatan RnD</th>
+                                <th className="py-2.5 px-3">Kategori</th>
+                                <th className="py-2.5 px-3 text-right">Biaya Riset</th>
+                                <th className="py-2.5 px-3 text-center">Status / Hasil</th>
+                                <th className="py-2.5 px-3">Keterangan</th>
+                                <th className="py-2.5 px-3 text-center">Aksi</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {!financeData?.rndExpenses || financeData.rndExpenses.length === 0 ? (
+                                <tr>
+                                  <td colSpan={7} className="py-8 text-center text-slate-400">
+                                    Belum ada pengeluaran RnD yang dicatat. Klik &quot;+ Catat Biaya RnD&quot; untuk mencatat.
+                                  </td>
+                                </tr>
+                              ) : (
+                                financeData.rndExpenses.map((r: any) => (
+                                  <tr key={r.id} className="hover:bg-slate-50/70 transition">
+                                    <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
+                                      {new Date(r.date).toLocaleDateString("id-ID", {
+                                        day: "2-digit",
+                                        month: "short",
+                                        year: "numeric",
+                                      })}
+                                    </td>
+                                    <td className="py-2.5 px-3 font-bold text-slate-900">
+                                      {r.title}
+                                    </td>
+                                    <td className="py-2.5 px-3 capitalize">
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                        {r.category}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-900 text-xs">
+                                      {formatRupiah(r.amount)}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center">
+                                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                        r.outcome?.includes("Berhasil")
+                                          ? "bg-emerald-100 text-emerald-800"
+                                          : r.outcome?.includes("Evaluasi")
+                                          ? "bg-amber-100 text-amber-800"
+                                          : "bg-slate-100 text-slate-700"
+                                      }`}>
+                                        {r.outcome || "Selesai"}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[180px] truncate" title={r.notes || ""}>
+                                      {r.notes || "-"}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteRnd(r.id, r.title)}
+                                        className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                        title="Hapus RnD"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                            <th className="py-2.5 px-3">Tanggal</th>
-                            <th className="py-2.5 px-3">Kedai</th>
-                            <th className="py-2.5 px-3">Kategori</th>
-                            <th className="py-2.5 px-3">Deskripsi Biaya</th>
-                            <th className="py-2.5 px-3 text-right">Nominal</th>
-                            <th className="py-2.5 px-3 text-center">Aksi</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {!financeData?.expenses || financeData.expenses.length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="py-8 text-center text-slate-400">
-                                Belum ada pengeluaran yang dicatat di periode ini
-                              </td>
-                            </tr>
-                          ) : (
-                            financeData.expenses.map((e: any) => (
-                              <tr key={e.id} className="hover:bg-slate-50/70 transition">
-                                <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
-                                  {new Date(e.date).toLocaleDateString("id-ID", {
-                                    day: "2-digit",
-                                    month: "short",
-                                    year: "numeric",
-                                  })}
-                                </td>
-                                <td className="py-2.5 px-3 font-bold text-slate-800">
-                                  {e.outlet?.name || "Semua Kedai"}
-                                </td>
-                                <td className="py-2.5 px-3 capitalize">
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                                    {e.category}
-                                  </span>
-                                </td>
-                                <td className="py-2.5 px-3 text-slate-800">{e.description}</td>
-                                <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-600">
-                                  {formatRupiah(e.amount)}
-                                </td>
-                                <td className="py-2.5 px-3 text-center">
-                                  <button
-                                    onClick={() => handleDeleteExpense(e.id)}
-                                    className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                    title="Hapus Biaya"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -8702,6 +9373,381 @@ export default function AdminDashboardPage() {
                   className="flex-1 py-2.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs shadow-md transition"
                 >
                   {fixedCostLoading ? "Menyimpan..." : "Update Beban Tetap"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: SETOR MODAL AWAL USAHA                                   */}
+      {/* ============================================================== */}
+      {isAddCapitalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
+                <Landmark className="w-5 h-5 text-emerald-700" />
+                Setor Modal Awal Usaha (Equity)
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddCapitalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddCapital} className="space-y-4 my-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Sumber Modal / Nama Penyetor *:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Modal Pribadi Pemilik, Investor Angel, dsb."
+                  value={capitalForm.source}
+                  onChange={(e) => setCapitalForm({ ...capitalForm, source: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Nominal Setoran Modal (Rp) *:
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  placeholder="Contoh: 20000000"
+                  value={capitalForm.amount}
+                  onChange={(e) => setCapitalForm({ ...capitalForm, amount: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Tanggal Setoran *:
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={capitalForm.date}
+                  onChange={(e) => setCapitalForm({ ...capitalForm, date: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Catatan / Keterangan (Opsional):
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Rekening BCA Bisnis Es Teh Poci"
+                  value={capitalForm.notes}
+                  onChange={(e) => setCapitalForm({ ...capitalForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none"
+                />
+              </div>
+
+              {capitalMessage && (
+                <p className="text-xs font-bold text-rose-600 text-center">{capitalMessage}</p>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddCapitalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={capitalLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md transition"
+                >
+                  {capitalLoading ? "Menyimpan..." : "Simpan Setoran Modal"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: CATAT PEMBELIAN ASET TETAP (CAPEX)                       */}
+      {/* ============================================================== */}
+      {isAddAssetOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
+                <Building2 className="w-5 h-5 text-sky-700" />
+                Catat Pembelian Aset Tetap (CAPEX)
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddAssetOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddAsset} className="space-y-4 my-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Nama Aset / Peralatan *:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Gerobak Booth Kayu Poci, Mesin Cup Sealer Eton D8"
+                  value={assetForm.name}
+                  onChange={(e) => setAssetForm({ ...assetForm, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Kategori Aset:
+                  </label>
+                  <select
+                    value={assetForm.category}
+                    onChange={(e) => setAssetForm({ ...assetForm, category: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                  >
+                    <option value="booth">Gerobak / Booth Usaha</option>
+                    <option value="mesin">Mesin Sealer Cup</option>
+                    <option value="peralatan">Dispenser / Cooler Box</option>
+                    <option value="pos">Tablet POS &amp; Printer</option>
+                    <option value="elektronik">Kipas &amp; Listrik</option>
+                    <option value="lainnya">Aset Tetap Lainnya</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Kedai / Alokasi:
+                  </label>
+                  <select
+                    value={assetForm.outletId}
+                    onChange={(e) => setAssetForm({ ...assetForm, outletId: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                  >
+                    <option value="all">Semua Kedai (Pusat)</option>
+                    {data?.outlets?.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Harga Pembelian Aset (Rp) *:
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  placeholder="Contoh: 5000000"
+                  value={assetForm.cost}
+                  onChange={(e) => setAssetForm({ ...assetForm, cost: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Tanggal Pembelian *:
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={assetForm.purchase_date}
+                  onChange={(e) => setAssetForm({ ...assetForm, purchase_date: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Catatan / Keterangan (Opsional):
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Beli baru di marketplace / kondisi prima"
+                  value={assetForm.notes}
+                  onChange={(e) => setAssetForm({ ...assetForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none"
+                />
+              </div>
+
+              {assetMessage && (
+                <p className="text-xs font-bold text-rose-600 text-center">{assetMessage}</p>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddAssetOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={assetLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs shadow-md transition"
+                >
+                  {assetLoading ? "Menyimpan..." : "Simpan Pembelian Aset"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: CATAT PENGELUARAN RISET & PENGEMBANGAN (RnD)             */}
+      {/* ============================================================== */}
+      {isAddRndOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
+                <Sparkles className="w-5 h-5 text-amber-600" />
+                Catat Pengeluaran Riset &amp; RnD Menu
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddRndOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddRnd} className="space-y-4 my-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Nama Kegiatan Riset / Formulasi *:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Trial Resep Dual Sachet Matcha Latte, Uji Cup Biodegradable"
+                  value={rndForm.title}
+                  onChange={(e) => setRndForm({ ...rndForm, title: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Kategori Riset:
+                  </label>
+                  <select
+                    value={rndForm.category}
+                    onChange={(e) => setRndForm({ ...rndForm, category: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                  >
+                    <option value="resep">Riset Resep Varian Rasa</option>
+                    <option value="packaging">Kemasan, Cup &amp; Sedotan</option>
+                    <option value="teknis">Metode Seduh &amp; Racik</option>
+                    <option value="pasar">Tester &amp; Survey Pasar</option>
+                    <option value="lainnya">Riset Lainnya</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Status / Hasil Riset:
+                  </label>
+                  <select
+                    value={rndForm.outcome}
+                    onChange={(e) => setRndForm({ ...rndForm, outcome: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                  >
+                    <option value="Berhasil (Masuk Menu)">Berhasil (Masuk Menu)</option>
+                    <option value="Dalam Evaluasi">Dalam Evaluasi (Tahap Tester)</option>
+                    <option value="Gagal / Ditunda">Gagal / Ditunda (Arsip)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Biaya Riset &amp; Bahan (Rp) *:
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  placeholder="Contoh: 250000"
+                  value={rndForm.amount}
+                  onChange={(e) => setRndForm({ ...rndForm, amount: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Tanggal Pengeluaran *:
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={rndForm.date}
+                  onChange={(e) => setRndForm({ ...rndForm, date: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Catatan / Keterangan (Opsional):
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Pembelian bahan sample susu evaporasi & tester 10 cup"
+                  value={rndForm.notes}
+                  onChange={(e) => setRndForm({ ...rndForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none"
+                />
+              </div>
+
+              {rndMessage && (
+                <p className="text-xs font-bold text-rose-600 text-center">{rndMessage}</p>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddRndOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={rndLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md transition"
+                >
+                  {rndLoading ? "Menyimpan..." : "Simpan Pengeluaran RnD"}
                 </button>
               </div>
             </form>

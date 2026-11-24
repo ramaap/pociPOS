@@ -442,11 +442,35 @@ export async function GET(req: Request) {
     });
     const totalEmployeeDebt = shiftClosings.reduce((acc, curr) => acc + (curr.employee_debt || 0), 0);
 
+    // 6b. Query Modal Awal, Aset Tetap (CAPEX), dan Pengeluaran Riset & RnD
+    const allCapitals = await prisma.initialCapital.findMany({
+      orderBy: { date: "desc" },
+    });
+    const assetWhere: any = {};
+    if (outletId && outletId !== "all") {
+      assetWhere.OR = [{ outlet_id: outletId }, { outlet_id: null }];
+    }
+    const allAssets = await prisma.capitalAsset.findMany({
+      where: assetWhere,
+      include: { outlet: true },
+      orderBy: { purchase_date: "desc" },
+    });
+    const allRndExpenses = await prisma.rndExpense.findMany({
+      orderBy: { date: "desc" },
+    });
+
+    const totalInitialCapital = allCapitals.reduce((acc, curr) => acc + curr.amount, 0);
+    const totalCapitalAssets = allAssets.reduce((acc, curr) => acc + curr.cost, 0);
+    const totalRndExpenses = allRndExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+    const remainingCapitalCash = totalInitialCapital - totalCapitalAssets - totalRndExpenses;
+
     // 7. Konstruksi Data Neraca Keuangan (Balance Sheet)
-    // - Aset: Kas Tunai + Kas Bank (QRIS) + Nilai Persediaan Bahan Baku
+    // - Aset Lancar: Kas Tunai + Kas Bank (QRIS) + Nilai Persediaan Bahan Baku + Sisa Kas Modal Usaha
+    // - Aset Tetap: Pembelian Aset Tetap (Booth, Mesin Sealer, Peralatan)
     // - Liabilitas: Hutang/Piutang Selisih Closing + Beban Terutang
-    // - Ekuitas: Modal Booth Awal (Asumsi Rp 5jt/booth) + Laba Ditahan (Retained Net Profit)
-    const modalAwalFranchise = activeOutletsCount * 5000000; // Rp 5.000.000 per booth
+    // - Ekuitas: Modal Disetor (Riil dari Initial Capital) - Biaya RnD + Laba Ditahan (Retained Net Profit)
+    const modalAwalFranchise = totalInitialCapital > 0 ? totalInitialCapital : activeOutletsCount * 5000000;
+    const sisaKasModal = Math.max(0, remainingCapitalCash);
 
     const grossProfit = totalRevenue - totalHPP;
     const netProfit = grossProfit - totalAllExpenses;
@@ -455,10 +479,16 @@ export async function GET(req: Request) {
       kasTunai: cashRevenue,
       kasBankQRIS: qrisRevenue,
       persediaanBahanBaku: Math.round(totalInventoryValue),
-      totalAktivaLancar: cashRevenue + qrisRevenue + Math.round(totalInventoryValue),
+      sisaKasModal: Math.round(sisaKasModal),
+      totalAktivaLancar: cashRevenue + qrisRevenue + Math.round(totalInventoryValue) + Math.round(sisaKasModal),
     };
 
-    const totalAktiva = aktivaLancar.totalAktivaLancar;
+    const aktivaTetap = {
+      peralatanDanBooth: Math.round(totalCapitalAssets),
+      totalAktivaTetap: Math.round(totalCapitalAssets),
+    };
+
+    const totalAktiva = aktivaLancar.totalAktivaLancar + aktivaTetap.totalAktivaTetap;
 
     const pasiva = {
       kewajibanLancar: {
@@ -468,10 +498,11 @@ export async function GET(req: Request) {
       },
       ekuitas: {
         modalDisetor: modalAwalFranchise,
+        bebanRnd: totalRndExpenses,
         labaDitahan: netProfit,
-        totalEkuitas: modalAwalFranchise + netProfit,
+        totalEkuitas: modalAwalFranchise - totalRndExpenses + netProfit,
       },
-      totalPasiva: totalEmployeeDebt + totalAllExpenses + modalAwalFranchise + netProfit,
+      totalPasiva: totalEmployeeDebt + totalAllExpenses + (modalAwalFranchise - totalRndExpenses) + netProfit,
     };
 
     // 8. Daily Timeline Generator untuk Chart Proyeksi & Arus Kas (Grafik seperti di gambar HashMicro)
@@ -646,8 +677,22 @@ export async function GET(req: Request) {
       },
       aiInsight: aiInsightText,
       timeline: timelineData,
+      capitalSummary: {
+        totalInitialCapital,
+        totalCapitalAssets,
+        totalRndExpenses,
+        remainingCapitalCash,
+      },
+      capitals: allCapitals,
+      capitalAssets: allAssets,
+      rndExpenses: allRndExpenses,
       neraca: {
-        aktiva: aktivaLancar,
+        aktiva: {
+          ...aktivaLancar,
+          aktivaTetap,
+        },
+        aktivaLancar,
+        aktivaTetap,
         totalAktiva,
         pasiva,
         totalPasiva: pasiva.totalPasiva,
@@ -810,6 +855,107 @@ export async function POST(req: Request) {
         message: `Status beban tetap "${updated.name}" berhasil diubah menjadi ${updated.is_active ? "Aktif" : "Nonaktif"}.`,
         fixedCost: updated,
       });
+    }
+
+    // 7. TAMBAH MODAL AWAL DISETOR (INITIAL CAPITAL INJECTION)
+    if (action === "add_initial_capital") {
+      const { source, amount, date, notes } = body;
+      const numAmount = Number(amount);
+      if (!source || !source.trim() || isNaN(numAmount) || numAmount <= 0) {
+        return NextResponse.json({ error: "Sumber modal dan nominal modal wajib diisi dengan benar" }, { status: 400 });
+      }
+
+      const capital = await prisma.initialCapital.create({
+        data: {
+          source: source.trim(),
+          amount: numAmount,
+          date: date ? new Date(date) : new Date(),
+          notes: notes ? notes.trim() : null,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Setoran modal awal "${capital.source}" (Rp ${capital.amount.toLocaleString("id-ID")}) berhasil dicatat.`,
+        capital,
+      });
+    }
+
+    // 8. HAPUS SETORAN MODAL AWAL
+    if (action === "delete_initial_capital") {
+      const { id } = body;
+      if (!id) return NextResponse.json({ error: "ID modal wajib disertakan" }, { status: 400 });
+      await prisma.initialCapital.delete({ where: { id } });
+      return NextResponse.json({ success: true, message: "Catatan setoran modal awal berhasil dihapus." });
+    }
+
+    // 9. TAMBAH PEMBELIAN ASET TETAP (CAPEX)
+    if (action === "add_capital_asset") {
+      const { name, category = "peralatan", cost, outletId, purchase_date, notes } = body;
+      const numCost = Number(cost);
+      if (!name || !name.trim() || isNaN(numCost) || numCost <= 0) {
+        return NextResponse.json({ error: "Nama aset dan harga pembelian aset wajib diisi dengan benar" }, { status: 400 });
+      }
+
+      const asset = await prisma.capitalAsset.create({
+        data: {
+          name: name.trim(),
+          category: category || "peralatan",
+          cost: numCost,
+          outlet_id: outletId && outletId !== "all" ? outletId : null,
+          purchase_date: purchase_date ? new Date(purchase_date) : new Date(),
+          notes: notes ? notes.trim() : null,
+        },
+        include: { outlet: true },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Aset "${asset.name}" (Rp ${asset.cost.toLocaleString("id-ID")}) berhasil dicatat.`,
+        asset,
+      });
+    }
+
+    // 10. HAPUS PEMBELIAN ASET TETAP
+    if (action === "delete_capital_asset") {
+      const { id } = body;
+      if (!id) return NextResponse.json({ error: "ID aset wajib disertakan" }, { status: 400 });
+      await prisma.capitalAsset.delete({ where: { id } });
+      return NextResponse.json({ success: true, message: "Aset berhasil dihapus." });
+    }
+
+    // 11. TAMBAH PENGELUARAN RISET & PENGEMBANGAN (RnD)
+    if (action === "add_rnd_expense") {
+      const { title, category = "resep", amount, date, outcome, notes } = body;
+      const numAmount = Number(amount);
+      if (!title || !title.trim() || isNaN(numAmount) || numAmount <= 0) {
+        return NextResponse.json({ error: "Judul kegiatan RnD dan biaya RnD wajib diisi dengan benar" }, { status: 400 });
+      }
+
+      const rnd = await prisma.rndExpense.create({
+        data: {
+          title: title.trim(),
+          category: category || "resep",
+          amount: numAmount,
+          date: date ? new Date(date) : new Date(),
+          outcome: outcome ? outcome.trim() : null,
+          notes: notes ? notes.trim() : null,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Biaya RnD "${rnd.title}" (Rp ${rnd.amount.toLocaleString("id-ID")}) berhasil dicatat.`,
+        rnd,
+      });
+    }
+
+    // 12. HAPUS PENGELUARAN RISET & PENGEMBANGAN (RnD)
+    if (action === "delete_rnd_expense") {
+      const { id } = body;
+      if (!id) return NextResponse.json({ error: "ID RnD wajib disertakan" }, { status: 400 });
+      await prisma.rndExpense.delete({ where: { id } });
+      return NextResponse.json({ success: true, message: "Catatan pengeluaran RnD berhasil dihapus." });
     }
 
     return NextResponse.json({ error: "Action tidak dikenali" }, { status: 400 });
