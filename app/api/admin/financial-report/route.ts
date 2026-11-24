@@ -461,12 +461,18 @@ export async function GET(req: Request) {
 
     const totalInitialCapital = allCapitals.reduce((acc, curr) => acc + curr.amount, 0);
     const totalCapitalAssets = allAssets.reduce((acc, curr) => acc + curr.cost, 0);
+    const totalAsetTidakBergerak = allAssets
+      .filter((a) => a.asset_type === "tidak_bergerak")
+      .reduce((acc, curr) => acc + curr.cost, 0);
+    const totalAsetBergerak = allAssets
+      .filter((a) => a.asset_type !== "tidak_bergerak")
+      .reduce((acc, curr) => acc + curr.cost, 0);
     const totalRndExpenses = allRndExpenses.reduce((acc, curr) => acc + curr.amount, 0);
     const remainingCapitalCash = totalInitialCapital - totalCapitalAssets - totalRndExpenses;
 
     // 7. Konstruksi Data Neraca Keuangan (Balance Sheet)
     // - Aset Lancar: Kas Tunai + Kas Bank (QRIS) + Nilai Persediaan Bahan Baku + Sisa Kas Modal Usaha
-    // - Aset Tetap: Pembelian Aset Tetap (Booth, Mesin Sealer, Peralatan)
+    // - Aset Tetap: Pembelian Aset Tetap (Dipisah: Aset Tidak Bergerak vs Aset Bergerak)
     // - Liabilitas: Hutang/Piutang Selisih Closing + Beban Terutang
     // - Ekuitas: Modal Disetor (Riil dari Initial Capital) - Biaya RnD + Laba Ditahan (Retained Net Profit)
     const modalAwalFranchise = totalInitialCapital > 0 ? totalInitialCapital : activeOutletsCount * 5000000;
@@ -484,6 +490,8 @@ export async function GET(req: Request) {
     };
 
     const aktivaTetap = {
+      asetTidakBergerak: Math.round(totalAsetTidakBergerak),
+      asetBergerak: Math.round(totalAsetBergerak),
       peralatanDanBooth: Math.round(totalCapitalAssets),
       totalAktivaTetap: Math.round(totalCapitalAssets),
     };
@@ -680,6 +688,8 @@ export async function GET(req: Request) {
       capitalSummary: {
         totalInitialCapital,
         totalCapitalAssets,
+        totalAsetTidakBergerak,
+        totalAsetBergerak,
         totalRndExpenses,
         remainingCapitalCash,
       },
@@ -891,16 +901,19 @@ export async function POST(req: Request) {
 
     // 9. TAMBAH PEMBELIAN ASET TETAP (CAPEX)
     if (action === "add_capital_asset") {
-      const { name, category = "peralatan", cost, outletId, purchase_date, notes } = body;
+      const { name, category = "peralatan", asset_type, cost, outletId, purchase_date, notes } = body;
       const numCost = Number(cost);
       if (!name || !name.trim() || isNaN(numCost) || numCost <= 0) {
         return NextResponse.json({ error: "Nama aset dan harga pembelian aset wajib diisi dengan benar" }, { status: 400 });
       }
 
+      const finalAssetType = asset_type === "tidak_bergerak" || category === "booth" ? "tidak_bergerak" : "bergerak";
+
       const asset = await prisma.capitalAsset.create({
         data: {
           name: name.trim(),
           category: category || "peralatan",
+          asset_type: finalAssetType,
           cost: numCost,
           outlet_id: outletId && outletId !== "all" ? outletId : null,
           purchase_date: purchase_date ? new Date(purchase_date) : new Date(),

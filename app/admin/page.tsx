@@ -296,9 +296,18 @@ export default function AdminDashboardPage() {
   const [capitalMessage, setCapitalMessage] = useState<string | null>(null);
 
   const [isAddAssetOpen, setIsAddAssetOpen] = useState<boolean>(false);
-  const [assetForm, setAssetForm] = useState({
+  const [assetForm, setAssetForm] = useState<{
+    name: string;
+    category: string;
+    asset_type: "bergerak" | "tidak_bergerak";
+    cost: string;
+    outletId: string;
+    purchase_date: string;
+    notes: string;
+  }>({
     name: "",
     category: "booth",
+    asset_type: "tidak_bergerak",
     cost: "",
     outletId: "all",
     purchase_date: new Date().toISOString().split("T")[0],
@@ -306,6 +315,7 @@ export default function AdminDashboardPage() {
   });
   const [assetLoading, setAssetLoading] = useState<boolean>(false);
   const [assetMessage, setAssetMessage] = useState<string | null>(null);
+  const [assetTypeFilter, setAssetTypeFilter] = useState<"all" | "tidak_bergerak" | "bergerak">("all");
 
   const [isAddRndOpen, setIsAddRndOpen] = useState<boolean>(false);
   const [rndForm, setRndForm] = useState({
@@ -331,6 +341,7 @@ export default function AdminDashboardPage() {
       id: string;
       name: string;
       category: string;
+      asset_type: "bergerak" | "tidak_bergerak";
       cost: number | string;
       outletId?: string;
       purchase_date: string;
@@ -1040,6 +1051,7 @@ export default function AdminDashboardPage() {
           action: "add_capital_asset",
           name: assetForm.name.trim(),
           category: assetForm.category,
+          asset_type: assetForm.asset_type || (assetForm.category === "booth" ? "tidak_bergerak" : "bergerak"),
           cost: Number(assetForm.cost),
           outletId: assetForm.outletId,
           purchase_date: assetForm.purchase_date,
@@ -1049,7 +1061,7 @@ export default function AdminDashboardPage() {
       const json = await res.json();
       if (res.ok) {
         setIsAddAssetOpen(false);
-        setAssetForm({ name: "", category: "booth", cost: "", outletId: "all", purchase_date: new Date().toISOString().split("T")[0], notes: "" });
+        setAssetForm({ name: "", category: "booth", asset_type: "tidak_bergerak", cost: "", outletId: "all", purchase_date: new Date().toISOString().split("T")[0], notes: "" });
         loadFinancialReport(financeOutlet, financePeriod);
       } else {
         setAssetMessage(json.error || "Gagal mencatat pembelian aset");
@@ -1267,6 +1279,7 @@ export default function AdminDashboardPage() {
         id: `manual-${Date.now()}`,
         name: "",
         category: "peralatan",
+        asset_type: "bergerak",
         cost: "",
         outletId: scanDefaultOutletId,
         purchase_date: new Date().toISOString().split("T")[0],
@@ -4401,17 +4414,41 @@ export default function AdminDashboardPage() {
                         </div>
 
                         {/* Aset Tetap */}
-                        <div className="p-2.5 bg-blue-50/40 rounded-xl border border-blue-100/60">
-                          <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider block mb-1.5 font-sans">
+                        <div className="p-2.5 bg-blue-50/40 rounded-xl border border-blue-100/60 space-y-2">
+                          <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider block mb-1 font-sans">
                             2. Aktiva Tetap (Fixed Assets / CAPEX)
                           </span>
+                          
                           <div className="p-2 bg-white rounded-lg flex items-center justify-between border border-slate-100">
                             <div>
-                              <p className="font-bold font-sans text-slate-800">Peralatan, Booth &amp; Mesin Usaha</p>
-                              <p className="text-[10px] text-slate-400 font-sans">Inventaris fisik booth, sealer &amp; dispenser</p>
+                              <p className="font-bold font-sans text-slate-800 flex items-center gap-1.5">
+                                <span>🏛️ Aset Tidak Bergerak</span>
+                                <span className="text-[9px] font-normal px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">Nilai Stabil / Jangka Panjang</span>
+                              </p>
+                              <p className="text-[10px] text-slate-400 font-sans">Konstruksi booth display, gerobak &amp; meja bar utama</p>
                             </div>
-                            <span className="font-bold text-blue-900">
-                              {formatRupiah(financeData?.neraca?.aktivaTetap?.peralatanDanBooth ?? 0)}
+                            <span className="font-bold text-slate-900">
+                              {formatRupiah(financeData?.neraca?.aktivaTetap?.asetTidakBergerak ?? financeData?.capitalSummary?.totalAsetTidakBergerak ?? 0)}
+                            </span>
+                          </div>
+
+                          <div className="p-2 bg-white rounded-lg flex items-center justify-between border border-slate-100">
+                            <div>
+                              <p className="font-bold font-sans text-slate-800 flex items-center gap-1.5">
+                                <span>🚚 Aset Bergerak</span>
+                                <span className="text-[9px] font-normal px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-100">Masa Pakai Terbatas / Menyusut</span>
+                              </p>
+                              <p className="text-[10px] text-slate-400 font-sans">Mesin cup sealer, dispenser termos, cooler box &amp; tablet POS</p>
+                            </div>
+                            <span className="font-bold text-slate-900">
+                              {formatRupiah(financeData?.neraca?.aktivaTetap?.asetBergerak ?? financeData?.capitalSummary?.totalAsetBergerak ?? 0)}
+                            </span>
+                          </div>
+
+                          <div className="p-2 bg-blue-100/40 rounded-lg flex items-center justify-between border border-blue-200/50">
+                            <span className="text-[11px] font-bold font-sans text-blue-900">Subtotal Aktiva Tetap</span>
+                            <span className="font-black text-blue-950">
+                              {formatRupiah(financeData?.neraca?.aktivaTetap?.totalAktivaTetap ?? 0)}
                             </span>
                           </div>
                         </div>
@@ -4845,7 +4882,7 @@ export default function AdminDashboardPage() {
 
                         <div className="bg-white rounded-2xl border border-sky-100 p-4 shadow-xs">
                           <div className="flex items-center justify-between text-sky-800 mb-2">
-                            <span className="text-[11px] font-bold uppercase tracking-wider">Pembelian Aset Tetap</span>
+                            <span className="text-[11px] font-bold uppercase tracking-wider">Pembelian Aset (CAPEX)</span>
                             <div className="w-7 h-7 rounded-lg bg-sky-50 flex items-center justify-center">
                               <Building2 className="w-4 h-4 text-sky-600" />
                             </div>
@@ -4853,9 +4890,11 @@ export default function AdminDashboardPage() {
                           <p className="text-xl font-black font-mono text-sky-950">
                             {formatRupiah(financeData?.capitalSummary?.totalCapitalAssets || 0)}
                           </p>
-                          <p className="text-[11px] text-slate-500 mt-1 font-sans">
-                            CAPEX (Booth, Cup Sealer, Alat)
-                          </p>
+                          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-sky-50 text-[10px] text-slate-500 font-sans">
+                            <span className="text-emerald-700 font-bold">🏛️ {formatRupiah(financeData?.capitalSummary?.totalAsetTidakBergerak || 0)} (Stabil)</span>
+                            <span>•</span>
+                            <span className="text-amber-700 font-bold">🚚 {formatRupiah(financeData?.capitalSummary?.totalAsetBergerak || 0)} (Menyusut)</span>
+                          </div>
                         </div>
 
                         <div className="bg-white rounded-2xl border border-amber-100 p-4 shadow-xs">
@@ -4891,14 +4930,25 @@ export default function AdminDashboardPage() {
                         </div>
                       </div>
 
-                      {/* Info Banner Alur Akuntansi */}
+                      {/* Info Banner Alur Akuntansi & Karakteristik Aset */}
                       <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-950 flex items-start gap-3">
                         <Scale className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
-                        <div className="space-y-1">
-                          <p className="font-bold">Prinsip Akuntansi Modal &amp; Pengurangan Aset / RnD:</p>
-                          <p className="text-slate-600 leading-relaxed font-sans">
-                            Dana modal awal dialokasikan untuk <strong>Pembelian Aset Tetap (CAPEX)</strong> yang masuk ke neraca sebagai Aktiva Tetap (bukan beban langsung), dan <strong>Biaya RnD</strong> untuk formulasi rasa baru yang mengurangi ekuitas modal. Sisa kas modal otomatis tercatat sebagai <strong>Aktiva Lancar (Sisa Kas Modal Usaha)</strong> pada Neraca Keuangan.
-                          </p>
+                        <div className="space-y-1.5 w-full">
+                          <p className="font-bold">Klasifikasi Karakteristik Aset &amp; Alur Akuntansi:</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-slate-600 font-sans">
+                            <div className="p-2.5 bg-white/80 rounded-xl border border-indigo-100/60">
+                              <p className="font-bold text-emerald-800 flex items-center gap-1">🏛️ Aset Tidak Bergerak (Nilai Stabil)</p>
+                              <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                                Masa pakainya umumnya panjang dan cenderung memiliki stabilitas nilai jangka panjang (contoh: Booth display, gerobak utama, meja bar kasir terpasang).
+                              </p>
+                            </div>
+                            <div className="p-2.5 bg-white/80 rounded-xl border border-indigo-100/60">
+                              <p className="font-bold text-amber-800 flex items-center gap-1">🚚 Aset Bergerak (Nilai Menyusut)</p>
+                              <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                                Masa pakainya lebih terbatas dan nilainya berfluktuasi atau menyusut karena pemakaian rutin (contoh: Mesin cup sealer, dispenser termos stainless, cooler box, tablet POS).
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
@@ -5031,6 +5081,7 @@ export default function AdminDashboardPage() {
                                 setAssetForm({
                                   name: "",
                                   category: "booth",
+                                  asset_type: "tidak_bergerak",
                                   cost: "",
                                   outletId: financeOutlet === "all" ? "all" : financeOutlet,
                                   purchase_date: new Date().toISOString().split("T")[0],
@@ -5046,6 +5097,49 @@ export default function AdminDashboardPage() {
                           </div>
                         </div>
 
+                        {/* Filter Tabs Tipe Karakteristik Aset */}
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setAssetTypeFilter("all")}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                              assetTypeFilter === "all"
+                                ? "bg-slate-900 text-white shadow-xs"
+                                : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                            }`}
+                          >
+                            Semua Aset ({financeData?.capitalAssets?.length || 0})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAssetTypeFilter("tidak_bergerak")}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                              assetTypeFilter === "tidak_bergerak"
+                                ? "bg-emerald-700 text-white shadow-xs"
+                                : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200"
+                            }`}
+                          >
+                            <span>🏛️ Tidak Bergerak</span>
+                            <span className="text-[10px] opacity-80">
+                              ({financeData?.capitalAssets?.filter((a: any) => a.asset_type === "tidak_bergerak").length || 0})
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAssetTypeFilter("bergerak")}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                              assetTypeFilter === "bergerak"
+                                ? "bg-amber-700 text-white shadow-xs"
+                                : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200"
+                            }`}
+                          >
+                            <span>🚚 Bergerak</span>
+                            <span className="text-[10px] opacity-80">
+                              ({financeData?.capitalAssets?.filter((a: any) => a.asset_type !== "tidak_bergerak").length || 0})
+                            </span>
+                          </button>
+                        </div>
+
                         <div className="overflow-x-auto">
                           <table className="w-full text-left border-collapse text-xs">
                             <thead>
@@ -5053,6 +5147,7 @@ export default function AdminDashboardPage() {
                                 <th className="py-2.5 px-3">Tgl Beli</th>
                                 <th className="py-2.5 px-3">Nama Aset / Peralatan</th>
                                 <th className="py-2.5 px-3">Kategori</th>
+                                <th className="py-2.5 px-3">Karakteristik Tipe</th>
                                 <th className="py-2.5 px-3">Kedai / Alokasi</th>
                                 <th className="py-2.5 px-3 text-right">Harga Beli</th>
                                 <th className="py-2.5 px-3">Keterangan</th>
@@ -5062,49 +5157,68 @@ export default function AdminDashboardPage() {
                             <tbody className="divide-y divide-slate-100">
                               {!financeData?.capitalAssets || financeData.capitalAssets.length === 0 ? (
                                 <tr>
-                                  <td colSpan={7} className="py-8 text-center text-slate-400">
+                                  <td colSpan={8} className="py-8 text-center text-slate-400">
                                     Belum ada aset tetap yang tercatat. Klik &quot;+ Beli / Tambah Aset&quot; untuk mencatat.
                                   </td>
                                 </tr>
                               ) : (
-                                financeData.capitalAssets.map((a: any) => (
-                                  <tr key={a.id} className="hover:bg-slate-50/70 transition">
-                                    <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
-                                      {new Date(a.purchase_date).toLocaleDateString("id-ID", {
-                                        day: "2-digit",
-                                        month: "short",
-                                        year: "numeric",
-                                      })}
-                                    </td>
-                                    <td className="py-2.5 px-3 font-bold text-slate-900">
-                                      {a.name}
-                                    </td>
-                                    <td className="py-2.5 px-3 capitalize">
-                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-100">
-                                        {a.category}
-                                      </span>
-                                    </td>
-                                    <td className="py-2.5 px-3 text-slate-700 font-medium">
-                                      {a.outlet?.name || "Semua Kedai (Pusat)"}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-right font-mono font-bold text-sky-900 text-xs">
-                                      {formatRupiah(a.cost)}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[180px] truncate" title={a.notes || ""}>
-                                      {a.notes || "-"}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-center">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteAsset(a.id, a.name)}
-                                        className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                        title="Hapus Aset"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))
+                                financeData.capitalAssets
+                                  .filter((a: any) =>
+                                    assetTypeFilter === "all"
+                                      ? true
+                                      : assetTypeFilter === "tidak_bergerak"
+                                      ? a.asset_type === "tidak_bergerak"
+                                      : a.asset_type !== "tidak_bergerak"
+                                  )
+                                  .map((a: any) => (
+                                    <tr key={a.id} className="hover:bg-slate-50/70 transition">
+                                      <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
+                                        {new Date(a.purchase_date).toLocaleDateString("id-ID", {
+                                          day: "2-digit",
+                                          month: "short",
+                                          year: "numeric",
+                                        })}
+                                      </td>
+                                      <td className="py-2.5 px-3 font-bold text-slate-900">
+                                        {a.name}
+                                      </td>
+                                      <td className="py-2.5 px-3 capitalize">
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-100">
+                                          {a.category}
+                                        </span>
+                                      </td>
+                                      <td className="py-2.5 px-3">
+                                        {a.asset_type === "tidak_bergerak" ? (
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1 w-fit" title="Masa pakai panjang, nilai stabil">
+                                            <span>🏛️ Tidak Bergerak (Stabil)</span>
+                                          </span>
+                                        ) : (
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1 w-fit" title="Masa pakai terbatas, nilai menyusut">
+                                            <span>🚚 Bergerak (Menyusut)</span>
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-slate-700 font-medium">
+                                        {a.outlet?.name || "Semua Kedai (Pusat)"}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right font-mono font-bold text-sky-900 text-xs">
+                                        {formatRupiah(a.cost)}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[180px] truncate" title={a.notes || ""}>
+                                        {a.notes || "-"}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-center">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteAsset(a.id, a.name)}
+                                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                          title="Hapus Aset"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))
                               )}
                             </tbody>
                           </table>
@@ -9737,7 +9851,14 @@ export default function AdminDashboardPage() {
                   </label>
                   <select
                     value={assetForm.category}
-                    onChange={(e) => setAssetForm({ ...assetForm, category: e.target.value })}
+                    onChange={(e) => {
+                      const newCat = e.target.value;
+                      setAssetForm({
+                        ...assetForm,
+                        category: newCat,
+                        asset_type: newCat === "booth" ? "tidak_bergerak" : "bergerak",
+                      });
+                    }}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
                   >
                     <option value="booth">Gerobak / Booth Usaha</option>
@@ -9765,6 +9886,47 @@ export default function AdminDashboardPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Karakteristik Tipe Aset *:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAssetForm({ ...assetForm, asset_type: "tidak_bergerak" })}
+                    className={`p-2.5 rounded-xl border text-left transition ${
+                      assetForm.asset_type === "tidak_bergerak"
+                        ? "bg-emerald-50 border-emerald-300 ring-2 ring-emerald-500/20"
+                        : "bg-slate-50 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    <p className="font-bold text-xs text-emerald-950 flex items-center gap-1">
+                      🏛️ Tidak Bergerak
+                    </p>
+                    <p className="text-[10px] text-emerald-700 font-sans mt-0.5">
+                      Masa pakai panjang, nilai stabil (Booth/Gerobak, Meja Bar)
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAssetForm({ ...assetForm, asset_type: "bergerak" })}
+                    className={`p-2.5 rounded-xl border text-left transition ${
+                      assetForm.asset_type === "bergerak"
+                        ? "bg-amber-50 border-amber-300 ring-2 ring-amber-500/20"
+                        : "bg-slate-50 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    <p className="font-bold text-xs text-amber-950 flex items-center gap-1">
+                      🚚 Aset Bergerak
+                    </p>
+                    <p className="text-[10px] text-amber-700 font-sans mt-0.5">
+                      Masa pakai terbatas, nilai menyusut (Mesin, Dispenser, POS)
+                    </p>
+                  </button>
                 </div>
               </div>
 
@@ -10188,6 +10350,7 @@ export default function AdminDashboardPage() {
                           </th>
                           <th className="py-2 px-2 min-w-[160px]">Nama Aset / Peralatan *</th>
                           <th className="py-2 px-2 min-w-[110px]">Kategori</th>
+                          <th className="py-2 px-2 min-w-[130px]">Tipe Karakteristik</th>
                           <th className="py-2 px-2 min-w-[120px] text-right">Harga (Rp) *</th>
                           <th className="py-2 px-2 min-w-[110px]">Tgl Beli</th>
                           <th className="py-2 px-2 min-w-[130px]">Kedai</th>
@@ -10218,7 +10381,11 @@ export default function AdminDashboardPage() {
                             <td className="py-2 px-2">
                               <select
                                 value={item.category}
-                                onChange={(e) => handleUpdateScannedRow(item.id, "category", e.target.value)}
+                                onChange={(e) => {
+                                  const newCat = e.target.value;
+                                  handleUpdateScannedRow(item.id, "category", newCat);
+                                  handleUpdateScannedRow(item.id, "asset_type", newCat === "booth" ? "tidak_bergerak" : "bergerak");
+                                }}
                                 className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-800 focus:outline-none"
                               >
                                 <option value="booth">Booth / Meja</option>
@@ -10227,6 +10394,16 @@ export default function AdminDashboardPage() {
                                 <option value="pos">Tablet POS</option>
                                 <option value="elektronik">Kipas / Listrik</option>
                                 <option value="lainnya">Lainnya</option>
+                              </select>
+                            </td>
+                            <td className="py-2 px-2">
+                              <select
+                                value={item.asset_type || (item.category === "booth" ? "tidak_bergerak" : "bergerak")}
+                                onChange={(e) => handleUpdateScannedRow(item.id, "asset_type", e.target.value)}
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-800 focus:outline-none"
+                              >
+                                <option value="tidak_bergerak">🏛️ Tidak Bergerak (Stabil)</option>
+                                <option value="bergerak">🚚 Bergerak (Menyusut)</option>
                               </select>
                             </td>
                             <td className="py-2 px-2 text-right">

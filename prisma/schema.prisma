@@ -284,7 +284,8 @@ model CapitalAsset {
   id            String   @id @default(cuid())
   outlet_id     String?  // null = Aset Bersama / Kantor / Gudang Pusat, atau ID kedai spesifik
   name          String   // e.g. "Gerobak Booth Es Teh Poci", "Mesin Cup Sealer Press Manual", "Dispenser Barrel Stainless 8L"
-  category      String   @default("peralatan") // "booth", "peralatan", "mesin", "elektronik", "franchise_fee", "lainnya"
+  category      String   @default("peralatan") // "booth", "peralatan", "mesin", "elektronik", "pos", "lainnya"
+  asset_type    String   @default("bergerak") // "bergerak" (Masa pakai terbatas, nilai menyusut) | "tidak_bergerak" (Masa pakai panjang, nilai stabil)
   cost          Float    // Nilai / Harga beli aset (Rp)
   purchase_date DateTime @default(now())
   notes         String?

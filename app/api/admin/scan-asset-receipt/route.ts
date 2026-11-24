@@ -50,9 +50,15 @@ export async function POST(req: Request) {
               ? defaultOutletId
               : null;
 
+          const finalAssetType =
+            it.asset_type === "tidak_bergerak" || it.category === "booth"
+              ? "tidak_bergerak"
+              : "bergerak";
+
           return {
             name: String(it.name).trim(),
             category: String(it.category || "peralatan").toLowerCase(),
+            asset_type: finalAssetType,
             cost: Math.round(Number(it.cost)),
             outlet_id: finalOutletId,
             purchase_date: it.purchase_date ? new Date(it.purchase_date) : new Date(),
@@ -116,6 +122,9 @@ Instruksi Analisis:
      * "pos" (Tablet android kasir, printer thermal bluetooth, laci uang cash drawer)
      * "elektronik" (Kipas angin, lampu sorot, colokan roll listrik)
      * "lainnya" (Perlengkapan aset fisik lainnya)
+   - "asset_type": klasifikasikan ke dalam salah satu dari dua tipe:
+     * "tidak_bergerak": jika masa pakainya panjang dan memiliki stabilitas nilai jangka panjang (contoh: booth gerobak display, meja bar kasir, tenda kanopi permanen).
+     * "bergerak": jika masa pakainya terbatas dan nilainya menyusut/berfluktuasi (contoh: mesin sealer, dispenser termos stainless, cooler box, tablet POS, printer bluetooth, kabel, timbangan, shaker).
    - "purchase_date": tanggal transaksi dalam format "YYYY-MM-DD" jika terbaca di struk/nota. Jika tidak ada tanggal tertera, isi dengan "${todayStr}".
    - "notes": keterangan pendukung (contoh: nama toko/penjual, nomor pesanan, atau spesifikasi ringkas).
 
@@ -124,6 +133,7 @@ KEMBALIKAN HANYA FORMAT JSON VALID BERUPA ARRAY OF OBJECTS:
   {
     "name": "Nama Barang",
     "category": "booth|mesin|peralatan|pos|elektronik|lainnya",
+    "asset_type": "bergerak|tidak_bergerak",
     "cost": 1500000,
     "purchase_date": "YYYY-MM-DD",
     "notes": "Nama Toko / Keterangan"
@@ -227,6 +237,7 @@ JANGAN gunakan pembungkus markdown (tanpa \`\`\`json atau \`\`\`), dan JANGAN se
           category: ["booth", "mesin", "peralatan", "pos", "elektronik"].includes(item.category?.toLowerCase())
             ? item.category.toLowerCase()
             : "peralatan",
+          asset_type: item.asset_type === "tidak_bergerak" || item.category === "booth" ? "tidak_bergerak" : "bergerak",
           cost: Number(item.cost) || 0,
           purchase_date: item.purchase_date || todayStr,
           notes: item.notes || "",
