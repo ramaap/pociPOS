@@ -280,15 +280,19 @@ class BluetoothThermalManager {
     }
 
     try {
-      // Standard Bluetooth POS Service UUIDs
+      // Standard Bluetooth POS & EPPOS/RPP02N Service UUIDs
       const nav = navigator as any;
       this.device = await nav.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: [
           "000018f0-0000-1000-8000-00805f9b34fb",
+          "0000ffe0-0000-1000-8000-00805f9b34fb",
+          "0000ff00-0000-1000-8000-00805f9b34fb",
           "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
           "49535343-fe7d-4ae5-8fa9-9fafd205e455",
-          "0000ff00-0000-1000-8000-00805f9b34fb",
+          "0000fee7-0000-1000-8000-00805f9b34fb",
+          "0000af30-0000-1000-8000-00805f9b34fb",
+          "0000ae30-0000-1000-8000-00805f9b34fb",
         ],
       });
 
@@ -349,6 +353,10 @@ class BluetoothThermalManager {
     return !!(this.device && this.device.gatt?.connected && this.characteristic);
   }
 
+  getDeviceName(): string | null {
+    return this.isConnected() ? this.device?.name || "Printer BT" : null;
+  }
+
   disconnect() {
     if (this.device && this.device.gatt.connected) {
       this.device.gatt.disconnect();
@@ -359,6 +367,35 @@ class BluetoothThermalManager {
 }
 
 export const bluetoothPrinter = new BluetoothThermalManager();
+
+// Deteksi apakah berjalan di perangkat Android (APK WebView atau Browser Android)
+export const isAndroidDevice = (): boolean => {
+  if (typeof navigator === "undefined") return false;
+  return /android/i.test(navigator.userAgent);
+};
+
+// Cetak langsung via RawBT Print Service (untuk Android APK / Huawei / Tablet)
+export const printReceiptViaRawBT = (data: ReceiptData): boolean => {
+  if (typeof window === "undefined") return false;
+  try {
+    const buffer = generateEscPosBuffer(data);
+    let binary = "";
+    for (let i = 0; i < buffer.length; i++) {
+      binary += String.fromCharCode(buffer[i]);
+    }
+    const base64 = window.btoa(binary);
+    const link = document.createElement("a");
+    link.href = `rawbt:base64,${base64}`;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    return true;
+  } catch (err) {
+    console.warn("RawBT print error:", err);
+    return false;
+  }
+};
 
 // Fallback: Browser Print Window (58mm Thermal Roll)
 export const printReceiptViaBrowser = () => {

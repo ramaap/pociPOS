@@ -54,6 +54,8 @@ import {
 import {
   ReceiptData,
   bluetoothPrinter,
+  isAndroidDevice,
+  printReceiptViaRawBT,
   printReceiptViaBrowser,
 } from "@/lib/escpos-printer";
 
@@ -2013,17 +2015,35 @@ export default function PosTerminalPage() {
     });
   };
 
-  // Print handler cerdas: Bluetooth jika terkoneksi/diminta, fallback otomatis ke browser default printer
+  // Print handler cerdas: Web Bluetooth (Laptop/Chrome), RawBT Intent (Android APK/Huawei), atau Browser Print fallback
   const handlePrintReceipt = async (forceBluetoothPrompt = false) => {
     if (!completedReceipt) return;
 
+    // Hentikan timer auto-close saat proses cetak / pairing berjalan agar modal tidak keburu tertutup
+    if (forceBluetoothPrompt || !bluetoothPrinter.isConnected()) {
+      setIsTimerPaused(true);
+    }
+
     if (bluetoothPrinter.isConnected() || forceBluetoothPrompt) {
+      // Jika berjalan di Android APK WebView yang tidak support Web Bluetooth dan user tidak memaksa browser print
+      if (!bluetoothPrinter.isSupported() && isAndroidDevice()) {
+        const sent = printReceiptViaRawBT(completedReceipt);
+        setPrintStatusMessage({
+          text: sent
+            ? "Mengirim struk ke RawBT Printer (Android)..."
+            : "Gagal membuka RawBT. Pastikan aplikasi RawBT terpasang.",
+          type: sent ? "success" : "warning",
+        });
+        setTimeout(() => setPrintStatusMessage(null), 4000);
+        return;
+      }
+
       setIsPrintingBt(true);
       setPrintStatusMessage(null);
       try {
         await bluetoothPrinter.print(completedReceipt);
         setPrintStatusMessage({
-          text: "Struk berhasil dicetak ke Printer Bluetooth!",
+          text: `Struk berhasil dicetak ke ${bluetoothPrinter.getDeviceName() || "Printer Bluetooth"}!`,
           type: "success",
         });
         setTimeout(() => setPrintStatusMessage(null), 4000);
@@ -2043,20 +2063,36 @@ export default function PosTerminalPage() {
           });
           setTimeout(() => setPrintStatusMessage(null), 3000);
           return;
+        } else if (isAndroidDevice()) {
+          printReceiptViaRawBT(completedReceipt);
+          setPrintStatusMessage({
+            text: "Mengalihkan cetak ke aplikasi RawBT Android...",
+            type: "warning",
+          });
         } else {
           setPrintStatusMessage({
-            text: "Bluetooth tidak terhubung. Mengalihkan ke printer default...",
+            text: `Bluetooth gagal (${err?.message || "tidak terhubung"}). Membuka dialog cetak browser...`,
             type: "warning",
           });
           setTimeout(() => {
             printReceiptViaBrowser();
-          }, 500);
+          }, 300);
         }
       } finally {
         setIsPrintingBt(false);
       }
+    } else if (isAndroidDevice()) {
+      // Perangkat Android (Huawei APK / Tablet): langsung kirim ESC/POS ke RawBT Print Service
+      const sent = printReceiptViaRawBT(completedReceipt);
+      setPrintStatusMessage({
+        text: sent
+          ? "Struk dikirim ke RawBT Printer!"
+          : "Pastikan aplikasi RawBT Print Service terpasang di Android.",
+        type: sent ? "success" : "warning",
+      });
+      setTimeout(() => setPrintStatusMessage(null), 4000);
     } else {
-      // Standar: langsung cetak ke printer default thermal sistem / RawBT
+      // Laptop/Desktop tanpa koneksi Bluetooth: gunakan dialog print browser
       printReceiptViaBrowser();
     }
   };
