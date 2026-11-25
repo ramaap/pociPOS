@@ -211,7 +211,7 @@ SETTINGS_JSON = {
         ["host", "contains", "appassets"]
     ],
     "skip": [],
-    "remote_debug": True,
+    "remote_debug": False,
     "console_log": False,
     "js_interface": False,
     "context_menu": False,
@@ -224,7 +224,7 @@ SETTINGS_JSON = {
         "DatabaseEnabled": True
     },
     "source": "assets",
-    "timestamp": "2026-11-19T13:00:00Z"
+    "timestamp": "2026-11-25T10:07:00Z"
 }
 
 def patch_min_sdk(axml_data, new_min_sdk=21):
