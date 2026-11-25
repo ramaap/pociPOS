@@ -367,6 +367,73 @@ class BluetoothThermalManager {
 
 export const bluetoothPrinter = new BluetoothThermalManager();
 
+// Web Serial Printing Manager (untuk Printer Bluetooth Classic SPP via COM Port Windows, misal COM7)
+class SerialThermalManager {
+  private port: any = null;
+  private isOpen = false;
+
+  isSupported(): boolean {
+    return typeof window !== "undefined" && "serial" in navigator;
+  }
+
+  async connect(baudRate = 9600): Promise<boolean> {
+    if (!this.isSupported()) {
+      throw new Error("Web Serial tidak didukung di browser ini. Gunakan Google Chrome atau Edge di Windows.");
+    }
+
+    try {
+      const nav = navigator as any;
+      this.port = await nav.serial.requestPort();
+      if (!this.port.readable && !this.port.writable) {
+        await this.port.open({ baudRate });
+      }
+      this.isOpen = true;
+      return true;
+    } catch (err: any) {
+      const msgLower = (err?.message || "").toLowerCase();
+      if (err?.name === "NotFoundError" || msgLower.includes("no port selected")) {
+        throw new BluetoothUserCancelledError("Pemilihan port COM dibatalkan oleh kasir.");
+      }
+      throw err;
+    }
+  }
+
+  async print(data: ReceiptData): Promise<void> {
+    if (!this.port || !this.isOpen || !this.port.writable) {
+      const connected = await this.connect();
+      if (!connected) throw new Error("Gagal membuka port COM printer.");
+    }
+
+    const buffer = generateEscPosBuffer(data);
+    const writer = this.port.writable.getWriter();
+    try {
+      const CHUNK_SIZE = 256;
+      for (let i = 0; i < buffer.length; i += CHUNK_SIZE) {
+        await writer.write(buffer.slice(i, i + CHUNK_SIZE));
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    } finally {
+      writer.releaseLock();
+    }
+  }
+
+  isConnected(): boolean {
+    return !!(this.port && this.isOpen && this.port.writable);
+  }
+
+  async disconnect() {
+    try {
+      if (this.port) {
+        await this.port.close();
+      }
+    } catch {}
+    this.port = null;
+    this.isOpen = false;
+  }
+}
+
+export const serialPrinter = new SerialThermalManager();
+
 // Deteksi apakah berjalan di perangkat Android (APK WebView atau Browser Android)
 export const isAndroidDevice = (): boolean => {
   if (typeof navigator === "undefined") return false;

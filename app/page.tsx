@@ -54,6 +54,7 @@ import {
 import {
   ReceiptData,
   bluetoothPrinter,
+  serialPrinter,
   isAndroidDevice,
   printReceiptViaRawBT,
   printReceiptViaBrowser,
@@ -2015,13 +2016,53 @@ export default function PosTerminalPage() {
     });
   };
 
-  // Print handler cerdas: Web Bluetooth (Laptop/Chrome), RawBT Intent (Android APK/Huawei), atau Browser Print fallback
-  const handlePrintReceipt = async (forceBluetoothPrompt = false) => {
+  // Print handler cerdas: Web Serial (COM Port SPP), Web Bluetooth (BLE), RawBT (Android APK), atau Browser Print fallback
+  const handlePrintReceipt = async (forceBluetoothPrompt = false, forceSerialPrompt = false) => {
     if (!completedReceipt) return;
 
     // Hentikan timer auto-close saat proses cetak / pairing berjalan agar modal tidak keburu tertutup
-    if (forceBluetoothPrompt || !bluetoothPrinter.isConnected()) {
+    if (forceBluetoothPrompt || forceSerialPrompt || (!bluetoothPrinter.isConnected() && !serialPrinter.isConnected())) {
       setIsTimerPaused(true);
+    }
+
+    // 1. Prioritas Web Serial (COM Port Bluetooth Classic / USB Windows)
+    if (serialPrinter.isConnected() || forceSerialPrompt) {
+      if (!serialPrinter.isSupported()) {
+        setPrintStatusMessage({
+          text: "Port COM (Web Serial) hanya didukung di Google Chrome / Microsoft Edge pada Windows/Mac.",
+          type: "error",
+        });
+        return;
+      }
+
+      setIsPrintingBt(true);
+      setPrintStatusMessage(null);
+      try {
+        await serialPrinter.print(completedReceipt);
+        setPrintStatusMessage({
+          text: "Struk berhasil dicetak ke Printer COM Port!",
+          type: "success",
+        });
+        setTimeout(() => setPrintStatusMessage(null), 4000);
+        return;
+      } catch (err: any) {
+        const msgLower = (err?.message || "").toLowerCase();
+        if (err?.name === "BluetoothUserCancelledError" || msgLower.includes("batal")) {
+          setPrintStatusMessage({
+            text: "Pemilihan port COM dibatalkan.",
+            type: "warning",
+          });
+          setTimeout(() => setPrintStatusMessage(null), 3000);
+          return;
+        }
+        setPrintStatusMessage({
+          text: `Gagal cetak ke Port COM: ${err?.message || "Pastikan printer menyala dan tidak dipakai aplikasi lain."}`,
+          type: "error",
+        });
+        return;
+      } finally {
+        setIsPrintingBt(false);
+      }
     }
 
     if (bluetoothPrinter.isConnected() || forceBluetoothPrompt) {
@@ -4498,13 +4539,25 @@ export default function PosTerminalPage() {
 
                       <button
                         type="button"
-                        onClick={() => handlePrintReceipt(true)}
+                        onClick={() => handlePrintReceipt(true, false)}
                         className="text-slate-500 hover:text-emerald-700 flex items-center gap-1 font-medium transition cursor-pointer"
-                        title="Hubungkan atau cari printer via Web Bluetooth"
+                        title="Hubungkan printer via Web Bluetooth (BLE)"
                       >
                         <Bluetooth className="w-3 h-3 text-emerald-600 shrink-0" />
                         <span>Pair BT</span>
                       </button>
+
+                      {!isAndroidDevice() && (
+                        <button
+                          type="button"
+                          onClick={() => handlePrintReceipt(false, true)}
+                          className="text-slate-500 hover:text-blue-700 flex items-center gap-1 font-medium transition cursor-pointer"
+                          title="Hubungkan printer Bluetooth Classic / USB lewat Port COM Windows (misal COM7)"
+                        >
+                          <Printer className="w-3 h-3 text-blue-600 shrink-0" />
+                          <span>Port COM</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
