@@ -205,17 +205,16 @@ SETTINGS_JSON = {
     ],
     "other": TARGET_URL,
     "match": [
-        ["host", "contains", "ya-kasir-tehpoci.my.id"],
-        ["host", "contains", "kasir.ya-kasir-tehpoci.my.id"],
-        ["host", "contains", "cloudflare"],
-        ["host", "contains", "appassets"]
+        ["url", "contains", "ya-kasir-tehpoci.my.id"],
+        ["url", "contains", "cloudflare"],
+        ["url", "contains", "appassets"]
     ],
     "skip": [],
     "remote_debug": False,
     "console_log": False,
     "js_interface": False,
     "context_menu": False,
-    "not_matching": False,
+    "not_matching": True,
     "local_sites": False,
     "update_zip": "",
     "web_settings": {
