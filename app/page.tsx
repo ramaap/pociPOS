@@ -2025,16 +2025,22 @@ export default function PosTerminalPage() {
     }
 
     if (bluetoothPrinter.isConnected() || forceBluetoothPrompt) {
-      // Jika berjalan di Android APK WebView yang tidak support Web Bluetooth dan user tidak memaksa browser print
-      if (!bluetoothPrinter.isSupported() && isAndroidDevice()) {
-        const sent = printReceiptViaRawBT(completedReceipt);
+      if (!bluetoothPrinter.isSupported()) {
+        if (isAndroidDevice()) {
+          const sent = printReceiptViaRawBT(completedReceipt);
+          setPrintStatusMessage({
+            text: sent
+              ? "Mengirim struk ke RawBT Printer (Android)..."
+              : "Gagal membuka RawBT. Pastikan aplikasi RawBT terpasang.",
+            type: sent ? "success" : "warning",
+          });
+          setTimeout(() => setPrintStatusMessage(null), 4000);
+          return;
+        }
         setPrintStatusMessage({
-          text: sent
-            ? "Mengirim struk ke RawBT Printer (Android)..."
-            : "Gagal membuka RawBT. Pastikan aplikasi RawBT terpasang.",
-          type: sent ? "success" : "warning",
+          text: "Web Bluetooth tidak aktif di URL ini. Buka via http://localhost:3000 atau https://kasir.ya-kasir-tehpoci.my.id di Chrome.",
+          type: "error",
         });
-        setTimeout(() => setPrintStatusMessage(null), 4000);
         return;
       }
 
@@ -2068,6 +2074,11 @@ export default function PosTerminalPage() {
           setPrintStatusMessage({
             text: "Mengalihkan cetak ke aplikasi RawBT Android...",
             type: "warning",
+          });
+        } else if (forceBluetoothPrompt) {
+          setPrintStatusMessage({
+            text: `Gagal koneksi Bluetooth: ${err?.message || "Perangkat tidak mendukung BLE / tidak ditemukan"}. Jika printer Bluetooth Classic, pasang via COM Port Windows atau kabel USB.`,
+            type: "error",
           });
         } else {
           setPrintStatusMessage({

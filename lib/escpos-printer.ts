@@ -312,14 +312,13 @@ class BluetoothThermalManager {
       throw new Error("Tidak menemukan kanal printer bluetooth yang siap cetak.");
     } catch (err: any) {
       // Periksa jika dibatalkan oleh pengguna (User cancelled chooser)
+      const msgLower = (err?.message || "").toLowerCase();
       const isCancelled =
-        err?.name === "NotFoundError" ||
-        err?.message?.toLowerCase().includes("cancel") ||
-        err?.message?.toLowerCase().includes("batal") ||
-        err?.message?.toLowerCase().includes("user selected no device");
+        msgLower.includes("cancel") ||
+        msgLower.includes("batal") ||
+        msgLower.includes("user selected no device");
 
       if (isCancelled) {
-        // Jangan panggil console.error agar tidak memicu dev overlay Next.js
         throw new BluetoothUserCancelledError();
       }
 
