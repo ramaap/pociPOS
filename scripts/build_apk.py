@@ -344,6 +344,10 @@ def patch_classes_dex(dex_bytes):
     zero_targets = [
         ('Landroidx/core/os/BuildCompat$Api30Impl;', 'getExtensionVersion')
     ]
+
+    empty_str_targets = [
+        ('Lnet/mikespub/mywebview/MyAppWebViewClient;', 'getSiteUrlFromAppLink')
+    ]
     
     patched_count = 0
     for cls in d.get_classes():
@@ -360,6 +364,14 @@ def patch_classes_dex(dex_bytes):
                     if m.code_off > 0:
                         patch_return_zero_at(dex_data, m.code_off)
                         print(f"      Patched {cname}::{m.get_name()} (off={m.code_off}) -> return-0 + nop")
+                        patched_count += 1
+            for target_cls, target_name in empty_str_targets:
+                if cname == target_cls and m.get_name() == target_name:
+                    if m.code_off > 0:
+                        insns_start = m.code_off + 16
+                        # const-string v0, "" (1a 00 00 00) + return-object v0 (11 00)
+                        dex_data[insns_start:insns_start + 6] = b"\x1a\x00\x00\x00\x11\x00"
+                        print(f"      Patched {cname}::{m.get_name()} (off={m.code_off}) -> return \"\"")
                         patched_count += 1
                         
     if patched_count < 4:
