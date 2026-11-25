@@ -481,16 +481,21 @@ export const isAndroidDevice = (): boolean => {
   return /android/i.test(navigator.userAgent);
 };
 
+// Encode ESC/POS ReceiptData menjadi string Base64
+export const encodeReceiptBase64 = (data: ReceiptData): string => {
+  const buffer = generateEscPosBuffer(data);
+  let binary = "";
+  for (let i = 0; i < buffer.length; i++) {
+    binary += String.fromCharCode(buffer[i]);
+  }
+  return window.btoa(binary);
+};
+
 // Cetak langsung via RawBT Print Service (untuk Android APK / Huawei / Tablet)
 export const printReceiptViaRawBT = (data: ReceiptData): boolean => {
   if (typeof window === "undefined") return false;
   try {
-    const buffer = generateEscPosBuffer(data);
-    let binary = "";
-    for (let i = 0; i < buffer.length; i++) {
-      binary += String.fromCharCode(buffer[i]);
-    }
-    const base64 = window.btoa(binary);
+    const base64 = encodeReceiptBase64(data);
     const link = document.createElement("a");
     link.href = `rawbt:base64,${base64}`;
     link.style.display = "none";

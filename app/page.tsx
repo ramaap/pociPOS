@@ -55,6 +55,7 @@ import {
   ReceiptData,
   bluetoothPrinter,
   serialPrinter,
+  encodeReceiptBase64,
   isAndroidDevice,
   printReceiptViaRawBT,
   printReceiptViaBrowser,
@@ -2025,38 +2026,35 @@ export default function PosTerminalPage() {
       setIsTimerPaused(true);
     }
 
-    // 1. Prioritas Web Serial (COM Port Bluetooth Classic / USB Windows)
-    if (serialPrinter.isConnected() || forceSerialPrompt) {
-      if (!serialPrinter.isSupported()) {
-        setPrintStatusMessage({
-          text: "Port COM (Web Serial) hanya didukung di Google Chrome / Microsoft Edge pada Windows/Mac.",
-          type: "error",
-        });
-        return;
-      }
-
+    // 1. Prioritas Port COM Server Windows (jika diaktifkan atau dipilih untuk EPPOS RPPO2N COM7)
+    const savedComPort = typeof window !== "undefined" ? localStorage.getItem("poci_laptop_com_port") : null;
+    if (!isAndroidDevice() && (forceSerialPrompt || savedComPort)) {
+      const targetPort = savedComPort || "COM7";
       setIsPrintingBt(true);
       setPrintStatusMessage(null);
       try {
-        await serialPrinter.print(completedReceipt);
+        const escposBase64 = encodeReceiptBase64(completedReceipt);
+        const res = await fetch("/api/print/com", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ port: targetPort, escposBase64 }),
+        });
+        const resData = await res.json();
+        if (!res.ok) {
+          throw new Error(resData.error || `Gagal cetak ke ${targetPort}`);
+        }
+        if (typeof window !== "undefined") {
+          localStorage.setItem("poci_laptop_com_port", targetPort);
+        }
         setPrintStatusMessage({
-          text: "Struk berhasil dicetak ke Printer COM Port!",
+          text: `Struk berhasil dicetak ke Printer ${targetPort}!`,
           type: "success",
         });
         setTimeout(() => setPrintStatusMessage(null), 4000);
         return;
       } catch (err: any) {
-        const msgLower = (err?.message || "").toLowerCase();
-        if (err?.name === "BluetoothUserCancelledError" || msgLower.includes("batal")) {
-          setPrintStatusMessage({
-            text: "Pemilihan port COM dibatalkan.",
-            type: "warning",
-          });
-          setTimeout(() => setPrintStatusMessage(null), 3000);
-          return;
-        }
         setPrintStatusMessage({
-          text: `Gagal cetak ke Port COM: ${err?.message || "Pastikan printer menyala dan tidak dipakai aplikasi lain."}`,
+          text: err?.message || `Gagal cetak ke ${targetPort}. Pastikan printer menyala.`,
           type: "error",
         });
         return;
