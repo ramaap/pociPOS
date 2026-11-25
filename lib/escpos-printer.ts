@@ -371,6 +371,7 @@ export const bluetoothPrinter = new BluetoothThermalManager();
 class SerialThermalManager {
   private port: any = null;
   private isOpen = false;
+  private isPrinting = false;
 
   isSupported(): boolean {
     return typeof window !== "undefined" && "serial" in navigator;
@@ -399,21 +400,39 @@ class SerialThermalManager {
   }
 
   async print(data: ReceiptData): Promise<void> {
-    if (!this.port || !this.isOpen || !this.port.writable) {
-      const connected = await this.connect();
-      if (!connected) throw new Error("Gagal membuka port COM printer.");
+    if (this.isPrinting) {
+      return; // Hindari cetak ganda bersamaan yang mengunci WritableStream
     }
+    this.isPrinting = true;
 
-    const buffer = generateEscPosBuffer(data);
-    const writer = this.port.writable.getWriter();
     try {
-      const CHUNK_SIZE = 256;
-      for (let i = 0; i < buffer.length; i += CHUNK_SIZE) {
-        await writer.write(buffer.slice(i, i + CHUNK_SIZE));
-        await new Promise((resolve) => setTimeout(resolve, 20));
+      if (!this.port || !this.isOpen || !this.port.writable) {
+        const connected = await this.connect();
+        if (!connected) throw new Error("Gagal membuka port COM printer.");
+      }
+
+      // Tunggu jika stream kebetulan masih terkunci sesaat
+      let waitMs = 0;
+      while (this.port.writable.locked && waitMs < 2000) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        waitMs += 100;
+      }
+
+      if (this.port.writable.locked) {
+        throw new Error("Port COM sedang sibuk mencetak struk sebelumnya. Coba tekan Cetak Struk lagi.");
+      }
+
+      const buffer = generateEscPosBuffer(data);
+      const writer = this.port.writable.getWriter();
+      try {
+        await writer.write(buffer);
+      } finally {
+        try {
+          writer.releaseLock();
+        } catch {}
       }
     } finally {
-      writer.releaseLock();
+      this.isPrinting = false;
     }
   }
 
