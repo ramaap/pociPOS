@@ -377,6 +377,13 @@ class SerialThermalManager {
     return typeof window !== "undefined" && "serial" in navigator;
   }
 
+  private withTimeout<T>(promise: Promise<T>, ms: number, errMsg: string): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errMsg)), ms)),
+    ]);
+  }
+
   async connect(baudRate = 9600): Promise<boolean> {
     if (!this.isSupported()) {
       throw new Error("Web Serial tidak didukung di browser ini. Gunakan Google Chrome atau Edge di Windows.");
@@ -386,7 +393,14 @@ class SerialThermalManager {
       const nav = navigator as any;
       this.port = await nav.serial.requestPort();
       if (!this.port.readable && !this.port.writable) {
-        await this.port.open({ baudRate });
+        await this.withTimeout(
+          this.port.open({ baudRate }),
+          7000,
+          "Waktu koneksi Port COM habis (7 detik). Pastikan printer menyala dan Bluetooth HP lain sudah diputus."
+        );
+        try {
+          await this.port.setSignals({ dataTerminalReady: true, requestToSend: true });
+        } catch {}
       }
       this.isOpen = true;
       return true;
@@ -395,6 +409,7 @@ class SerialThermalManager {
       if (err?.name === "NotFoundError" || msgLower.includes("no port selected")) {
         throw new BluetoothUserCancelledError("Pemilihan port COM dibatalkan oleh kasir.");
       }
+      await this.disconnect();
       throw err;
     }
   }
@@ -419,18 +434,25 @@ class SerialThermalManager {
       }
 
       if (this.port.writable.locked) {
-        throw new Error("Port COM sedang sibuk mencetak struk sebelumnya. Coba tekan Cetak Struk lagi.");
+        throw new Error("Port COM sedang sibuk. Silakan klik Port COM lagi.");
       }
 
       const buffer = generateEscPosBuffer(data);
       const writer = this.port.writable.getWriter();
       try {
-        await writer.write(buffer);
+        await this.withTimeout(
+          writer.write(buffer),
+          7000,
+          "Gagal mengirim data struk (timeout). Pastikan printer tidak terhubung ke perangkat lain."
+        );
       } finally {
         try {
           writer.releaseLock();
         } catch {}
       }
+    } catch (err) {
+      await this.disconnect();
+      throw err;
     } finally {
       this.isPrinting = false;
     }
