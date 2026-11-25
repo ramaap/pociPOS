@@ -2021,8 +2021,8 @@ export default function PosTerminalPage() {
   const handlePrintReceipt = async (forceBluetoothPrompt = false, forceSerialPrompt = false) => {
     if (!completedReceipt) return;
 
-    // Hentikan timer auto-close saat proses cetak / pairing berjalan agar modal tidak keburu tertutup
-    if (forceBluetoothPrompt || forceSerialPrompt || (!bluetoothPrinter.isConnected() && !serialPrinter.isConnected())) {
+    // Hentikan timer auto-close sementara hanya saat proses pairing / dialog manual berjalan
+    if (forceBluetoothPrompt || forceSerialPrompt) {
       setIsTimerPaused(true);
     }
 
@@ -2050,7 +2050,9 @@ export default function PosTerminalPage() {
           text: `Struk berhasil dicetak ke Printer ${targetPort}!`,
           type: "success",
         });
-        setTimeout(() => setPrintStatusMessage(null), 4000);
+        setTimeout(() => {
+          handleFinishTransaction();
+        }, 1200);
         return;
       } catch (err: any) {
         setPrintStatusMessage({
@@ -2091,7 +2093,9 @@ export default function PosTerminalPage() {
           text: `Struk berhasil dicetak ke ${bluetoothPrinter.getDeviceName() || "Printer Bluetooth"}!`,
           type: "success",
         });
-        setTimeout(() => setPrintStatusMessage(null), 4000);
+        setTimeout(() => {
+          handleFinishTransaction();
+        }, 1200);
         return;
       } catch (err: any) {
         const isCancelled =
@@ -2140,7 +2144,10 @@ export default function PosTerminalPage() {
           : "Pastikan aplikasi RawBT Print Service terpasang di Android.",
         type: sent ? "success" : "warning",
       });
-      setTimeout(() => setPrintStatusMessage(null), 4000);
+      if (sent) {
+        setIsTimerPaused(false);
+        setAutoCloseSeconds(2);
+      }
     } else {
       // Laptop/Desktop tanpa koneksi Bluetooth: gunakan dialog print browser
       printReceiptViaBrowser();
