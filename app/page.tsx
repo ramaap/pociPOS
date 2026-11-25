@@ -2147,10 +2147,28 @@ export default function PosTerminalPage() {
       if (sent) {
         setIsTimerPaused(false);
         setAutoCloseSeconds(2);
+        // Tutup popup otomatis begitu selesai dari RawBT atau setelah 1.8 detik
+        const closeOnReturn = () => {
+          if (document.visibilityState === "visible") {
+            document.removeEventListener("visibilitychange", closeOnReturn);
+            window.removeEventListener("focus", closeOnReturn);
+            setTimeout(() => handleFinishTransaction(), 300);
+          }
+        };
+        document.addEventListener("visibilitychange", closeOnReturn);
+        window.addEventListener("focus", closeOnReturn);
+        setTimeout(() => {
+          document.removeEventListener("visibilitychange", closeOnReturn);
+          window.removeEventListener("focus", closeOnReturn);
+          handleFinishTransaction();
+        }, 2000);
       }
     } else {
       // Laptop/Desktop tanpa koneksi Bluetooth: gunakan dialog print browser
       printReceiptViaBrowser();
+      setTimeout(() => {
+        handleFinishTransaction();
+      }, 1000);
     }
   };
 
