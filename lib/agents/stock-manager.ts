@@ -1,6 +1,7 @@
 import { escapeHtml, sendMessage } from "@/lib/telegram";
 import { AGENT_CONFIG } from "./config";
 import { logAgentEvent } from "./memory";
+import { createDraftPurchaseOrder } from "./po-planner";
 
 const lastAlertMap = new Map<string, number>();
 
@@ -138,6 +139,38 @@ export async function sendMorningBriefing(): Promise<void> {
     });
 
     await sendMessage(lines.join("\n"));
+
+    if (criticalCentralCount > 0) {
+      const po = await createDraftPurchaseOrder({ createdBy: "agent_draft" });
+      if (po && po.draft_message) {
+        const parsedItems: Array<{
+          name: string;
+          recommended_qty: number;
+          unit: string;
+          days_left: number;
+          avg_daily_usage: number;
+        }> = JSON.parse(po.items_json || "[]");
+
+        const forecastLines = parsedItems.map(
+          (it) =>
+            `• <b>${escapeHtml(it.name)}</b>: order <b>${it.recommended_qty} ${escapeHtml(it.unit)}</b> (cukup ~${it.days_left >= 999 ? "aman" : `${it.days_left} hari`}, rata-rata ${it.avg_daily_usage} ${escapeHtml(it.unit)}/hari)`
+        );
+
+        await sendMessage(
+          [
+            `📋 <b>Draft Purchase Order Otomatis: ${escapeHtml(po.po_number)}</b>`,
+            `<i>Status: DRAFT — agen hanya menyiapkan draft. Silakan salin pesan di bawah untuk dikirim ke supplier.</i>`,
+            ``,
+            `<b>Prediksi Kebutuhan Stok (14 hari terakhir):</b>`,
+            ...forecastLines,
+            ``,
+            `<b>Draft Pesan WhatsApp (siap copy):</b>`,
+            `<pre>${escapeHtml(po.draft_message)}</pre>`,
+          ].join("\n")
+        );
+      }
+    }
+
     console.log("[Agent:StockManager] Morning briefing terkirim.");
   } catch (err) {
     console.warn("[Agent:StockManager] Error sendMorningBriefing:", err);

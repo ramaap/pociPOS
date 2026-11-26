@@ -208,8 +208,19 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedOutletFilter, setSelectedOutletFilter] = useState<string>("all");
 
-  // Admin Navigation Tabs: "financial" | "stocks" | "outlets" | "master_menus" | "outlet_menus" | "vouchers"
-  const [activeAdminTab, setActiveAdminTab] = useState<"financial" | "stocks" | "outlets" | "master_menus" | "outlet_menus" | "vouchers">("financial");
+  // Admin Navigation Tabs: "financial" | "stocks" | "outlets" | "master_menus" | "outlet_menus" | "vouchers" | "purchase_orders"
+  const [activeAdminTab, setActiveAdminTab] = useState<"financial" | "stocks" | "outlets" | "master_menus" | "outlet_menus" | "vouchers" | "purchase_orders">("financial");
+
+  // ================= TAB 7: PO & PREDIKSI STOK STATE =================
+  const [poForecast, setPoForecast] = useState<any[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
+  const [suppliersList, setSuppliersList] = useState<any[]>([]);
+  const [poLoading, setPoLoading] = useState<boolean>(false);
+  const [poMessage, setPoMessage] = useState<{ text: string; isError: boolean } | null>(null);
+  const [selectedPoSupplierId, setSelectedPoSupplierId] = useState<string>("");
+  const [poNotes, setPoNotes] = useState<string>("");
+  const [copiedPoId, setCopiedPoId] = useState<string | null>(null);
+  const [newSupplierForm, setNewSupplierForm] = useState({ name: "", phone: "", lead_time_days: "1", notes: "" });
 
   // ================= TAB 6: VOUCHER PROMO & KAMPANYE PROMO STATE =================
   const [promoCampaignData, setPromoCampaignData] = useState<any>(null);
@@ -1779,6 +1790,140 @@ export default function AdminDashboardPage() {
     }
   }, [activeAdminTab, voucherStatusFilter, voucherOutletFilter, isAuthenticated]);
 
+  const loadPurchaseOrders = async () => {
+    setPoLoading(true);
+    try {
+      const res = await fetch("/api/admin/purchase-orders");
+      const json = await res.json();
+      if (res.ok) {
+        setPoForecast(json.forecast || []);
+        setPurchaseOrders(json.purchaseOrders || []);
+        setSuppliersList(json.suppliers || []);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setPoLoading(false);
+    }
+  };
+
+  const handleCreateAutoPoDraft = async (customItems?: any[]) => {
+    setPoLoading(true);
+    setPoMessage(null);
+    try {
+      const res = await fetch("/api/admin/purchase-orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          supplierId: selectedPoSupplierId || null,
+          notes: poNotes || null,
+          items: customItems,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setPoMessage({
+          text: `Draft PO ${json.purchaseOrder?.po_number || ""} berhasil dibuat. Silakan salin pesan WhatsApp untuk dikirim ke supplier.`,
+          isError: false,
+        });
+        setPoNotes("");
+        await loadPurchaseOrders();
+      } else {
+        setPoMessage({ text: json.error || "Gagal membuat draft PO", isError: true });
+      }
+    } catch {
+      setPoMessage({ text: "Gagal terhubung ke server saat membuat draft PO", isError: true });
+    } finally {
+      setPoLoading(false);
+    }
+  };
+
+  const handleUpdatePoStatus = async (id: string, status: "sent" | "received" | "cancelled") => {
+    if (status === "received" && !confirm("Tandai PO ini sebagai DITERIMA? Stok gudang pusat akan otomatis bertambah.")) {
+      return;
+    }
+    setPoLoading(true);
+    setPoMessage(null);
+    try {
+      const res = await fetch("/api/admin/purchase-orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setPoMessage({
+          text:
+            status === "received"
+              ? "PO ditandai diterima & stok gudang pusat telah diperbarui."
+              : `Status PO berhasil diubah ke ${status.toUpperCase()}.`,
+          isError: false,
+        });
+        await loadPurchaseOrders();
+        if (status === "received") refreshData(undefined, true);
+      } else {
+        setPoMessage({ text: json.error || "Gagal memperbarui status PO", isError: true });
+      }
+    } catch {
+      setPoMessage({ text: "Gagal memperbarui status PO", isError: true });
+    } finally {
+      setPoLoading(false);
+    }
+  };
+
+  const handleDeletePo = async (id: string, poNumber: string) => {
+    if (!confirm(`Hapus draft PO ${poNumber}?`)) return;
+    try {
+      const res = await fetch(`/api/admin/purchase-orders?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (res.ok) {
+        await loadPurchaseOrders();
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleCreateSupplier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSupplierForm.name.trim()) return;
+    setPoLoading(true);
+    try {
+      const res = await fetch("/api/admin/suppliers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newSupplierForm),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setNewSupplierForm({ name: "", phone: "", lead_time_days: "1", notes: "" });
+        setPoMessage({ text: `Supplier "${json.supplier?.name}" berhasil ditambahkan.`, isError: false });
+        await loadPurchaseOrders();
+      } else {
+        setPoMessage({ text: json.error || "Gagal menambah supplier", isError: true });
+      }
+    } catch {
+      setPoMessage({ text: "Gagal menambah supplier", isError: true });
+    } finally {
+      setPoLoading(false);
+    }
+  };
+
+  const handleDeleteSupplier = async (id: string, name: string) => {
+    if (!confirm(`Hapus supplier "${name}"?`)) return;
+    try {
+      const res = await fetch(`/api/admin/suppliers?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (res.ok) await loadPurchaseOrders();
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    if (activeAdminTab === "purchase_orders" && isAuthenticated) {
+      loadPurchaseOrders();
+    }
+  }, [activeAdminTab, isAuthenticated]);
+
   // ================= REAL-TIME AUTO SYNC (BROADCAST, STORAGE & HEARTBEAT POLLING) =================
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -2990,6 +3135,21 @@ export default function AdminDashboardPage() {
           >
             <Ticket className="w-4 h-4" />
             <span>🎟️ Voucher Promo ({voucherStats.total})</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveAdminTab("purchase_orders");
+              loadPurchaseOrders();
+            }}
+            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${
+              activeAdminTab === "purchase_orders"
+                ? "bg-emerald-600 text-white shadow-md"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span>📋 PO &amp; Prediksi Stok</span>
           </button>
         </div>
 
@@ -7368,6 +7528,376 @@ export default function AdminDashboardPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* TAB 7: PURCHASE ORDER (PO) & PREDIKSI KEBUTUHAN STOK           */}
+        {/* ============================================================== */}
+        {activeAdminTab === "purchase_orders" && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                  <ShoppingBag className="w-5 h-5 text-emerald-600" />
+                  Purchase Order (PO) &amp; Prediksi Kebutuhan Stok
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Agen AI menghitung rata-rata pemakaian 14 hari terakhir dan hanya menyiapkan <b>Draft PO + Pesan WhatsApp</b>. Pengiriman ke supplier tetap dilakukan oleh Anda.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => loadPurchaseOrders()}
+                disabled={poLoading}
+                className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer self-start md:self-auto"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${poLoading ? "animate-spin" : ""}`} />
+                <span>Refresh Prediksi</span>
+              </button>
+            </div>
+
+            {poMessage && (
+              <div
+                className={`p-3.5 rounded-xl border text-xs font-bold flex items-center justify-between ${
+                  poMessage.isError
+                    ? "bg-rose-50 border-rose-200 text-rose-700"
+                    : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                }`}
+              >
+                <span>{poMessage.text}</span>
+                <button type="button" onClick={() => setPoMessage(null)} className="ml-3 underline text-[11px]">
+                  Tutup
+                </button>
+              </div>
+            )}
+
+            {/* 1. Prediksi Kebutuhan Order Bahan */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-5 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900">1. Prediksi Kebutuhan Order (Basis 14 Hari Terakhir)</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Target buffer stok gudang: 14 hari pemakaian + batas aman (reorder threshold).
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={selectedPoSupplierId}
+                    onChange={(e) => setSelectedPoSupplierId(e.target.value)}
+                    className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white"
+                  >
+                    <option value="">-- Pilih Supplier (Opsional) --</option>
+                    {suppliersList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} {s.phone ? `(${s.phone})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={poNotes}
+                    onChange={(e) => setPoNotes(e.target.value)}
+                    placeholder="Catatan PO (opsional)"
+                    className="px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 w-44"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleCreateAutoPoDraft()}
+                    disabled={poLoading}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer disabled:opacity-50"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>⚡ Buat Draft PO Otomatis</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider border-b border-slate-200">
+                      <th className="py-3 px-4">Bahan Baku</th>
+                      <th className="py-3 px-4 text-right">Stok Gudang</th>
+                      <th className="py-3 px-4 text-right">Stok Kedai</th>
+                      <th className="py-3 px-4 text-right">Pemakaian/Hari</th>
+                      <th className="py-3 px-4 text-right">Estimasi Habis</th>
+                      <th className="py-3 px-4 text-right">Rekomendasi Order</th>
+                      <th className="py-3 px-4 text-center">Status</th>
+                      <th className="py-3 px-4 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {poForecast.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-slate-400">
+                          {poLoading ? "Menghitung prediksi pemakaian..." : "Belum ada data bahan baku."}
+                        </td>
+                      </tr>
+                    ) : (
+                      poForecast.map((f) => (
+                        <tr key={f.raw_material_id} className={f.needs_order ? "bg-amber-50/40" : "hover:bg-slate-50"}>
+                          <td className="py-3 px-4 font-bold text-slate-800">{f.name}</td>
+                          <td className="py-3 px-4 text-right font-mono">
+                            {Math.round(f.central_stock)} {f.unit}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono text-slate-500">
+                            {Math.round(f.booth_stock_total)} {f.unit}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono">
+                            {f.avg_daily_usage} {f.unit}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono">
+                            {f.days_left_central >= 999 ? "Aman" : `${f.days_left_central} hari`}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                            {f.recommended_qty > 0 ? `${f.recommended_qty} ${f.unit}` : "-"}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {f.needs_order ? (
+                              <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]">
+                                PERLU ORDER
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px]">
+                                Aman
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleCreateAutoPoDraft([
+                                  {
+                                    raw_material_id: f.raw_material_id,
+                                    name: f.name,
+                                    unit: f.unit,
+                                    current_stock: Math.round(f.central_stock),
+                                    avg_daily_usage: f.avg_daily_usage,
+                                    days_left: f.days_left_central,
+                                    recommended_qty: f.recommended_qty > 0 ? f.recommended_qty : Math.max(10, f.reorder_threshold),
+                                  },
+                                ])
+                              }
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 font-bold text-[11px] transition cursor-pointer"
+                            >
+                              + Draft PO
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* 2. Daftar Purchase Order & Draft Pesan WA */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900">2. Daftar Purchase Order (Draft &amp; Riwayat)</h3>
+                <p className="text-[11px] text-slate-500">
+                  Salin pesan WhatsApp atau buka langsung ke aplikasi WhatsApp Anda untuk mengirim ke supplier.
+                </p>
+              </div>
+
+              {purchaseOrders.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
+                  Belum ada Purchase Order. Klik &ldquo;⚡ Buat Draft PO Otomatis&rdquo; di atas atau minta Virtual GM via Telegram.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {purchaseOrders.map((po) => {
+                    let parsedItems: any[] = [];
+                    try {
+                      parsedItems = JSON.parse(po.items_json || "[]");
+                    } catch {
+                      parsedItems = [];
+                    }
+                    const cleanedPhone = (po.supplier?.phone || "").replace(/[^0-9]/g, "");
+                    const waPhone = cleanedPhone.startsWith("0") ? `62${cleanedPhone.slice(1)}` : cleanedPhone;
+                    const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(po.draft_message || "")}`;
+
+                    return (
+                      <div key={po.id} className="border border-slate-200 rounded-2xl p-4 space-y-3 bg-slate-50/60">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono font-extrabold text-sm text-slate-900">{po.po_number}</span>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                  po.status === "draft"
+                                    ? "bg-amber-100 text-amber-800"
+                                    : po.status === "sent"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : po.status === "received"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-slate-200 text-slate-600"
+                                }`}
+                              >
+                                {po.status}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-200 text-slate-700">
+                                {po.created_by === "agent_draft" ? "🤖 Draft Agen" : "👤 Owner"}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-1">
+                              Supplier: <b>{po.supplier?.name || "Belum dipilih"}</b> • {new Date(po.createdAt).toLocaleString("id-ID")}
+                            </p>
+                          </div>
+                          {po.status === "draft" && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePo(po.id, po.po_number)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                              title="Hapus Draft PO"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-1">
+                          {parsedItems.map((it, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-xs">
+                              <span className="font-semibold text-slate-700">{it.name}</span>
+                              <span className="font-mono font-bold text-slate-900">
+                                {it.recommended_qty} {it.unit}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                            Draft Pesan WhatsApp (Siap Kirim)
+                          </label>
+                          <textarea
+                            readOnly
+                            rows={5}
+                            value={po.draft_message || ""}
+                            className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-[11px] font-mono text-slate-700 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(po.draft_message || "");
+                              setCopiedPoId(po.id);
+                              setTimeout(() => setCopiedPoId(null), 2000);
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-[11px] flex items-center gap-1.5 transition cursor-pointer"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>{copiedPoId === po.id ? "Tersalin!" : "Copy Pesan WA"}</span>
+                          </button>
+
+                          <a
+                            href={waUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition"
+                          >
+                            💬 Buka WhatsApp
+                          </a>
+
+                          {po.status === "draft" && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdatePoStatus(po.id, "sent")}
+                              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] transition cursor-pointer"
+                            >
+                              Tandai Terkirim
+                            </button>
+                          )}
+
+                          {(po.status === "draft" || po.status === "sent") && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdatePoStatus(po.id, "received")}
+                              className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition cursor-pointer"
+                            >
+                              ✅ Terima Barang (Masuk Gudang)
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 3. Manajemen Supplier */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+              <h3 className="text-sm font-extrabold text-slate-900">3. Daftar Supplier</h3>
+              <form onSubmit={handleCreateSupplier} className="grid grid-cols-1 md:grid-cols-5 gap-2.5">
+                <input
+                  type="text"
+                  required
+                  placeholder="Nama Supplier *"
+                  value={newSupplierForm.name}
+                  onChange={(e) => setNewSupplierForm((p) => ({ ...p, name: e.target.value }))}
+                  className="px-3 py-2 rounded-xl border border-slate-200 text-xs"
+                />
+                <input
+                  type="text"
+                  placeholder="No. WhatsApp (08xxx / 628xxx)"
+                  value={newSupplierForm.phone}
+                  onChange={(e) => setNewSupplierForm((p) => ({ ...p, phone: e.target.value }))}
+                  className="px-3 py-2 rounded-xl border border-slate-200 text-xs"
+                />
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="Lead Time (hari)"
+                  value={newSupplierForm.lead_time_days}
+                  onChange={(e) => setNewSupplierForm((p) => ({ ...p, lead_time_days: e.target.value }))}
+                  className="px-3 py-2 rounded-xl border border-slate-200 text-xs"
+                />
+                <input
+                  type="text"
+                  placeholder="Catatan (opsional)"
+                  value={newSupplierForm.notes}
+                  onChange={(e) => setNewSupplierForm((p) => ({ ...p, notes: e.target.value }))}
+                  className="px-3 py-2 rounded-xl border border-slate-200 text-xs"
+                />
+                <button
+                  type="submit"
+                  disabled={poLoading}
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Tambah Supplier</span>
+                </button>
+              </form>
+
+              {suppliersList.length > 0 && (
+                <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+                  {suppliersList.map((s) => (
+                    <div key={s.id} className="px-4 py-2.5 flex items-center justify-between text-xs bg-white">
+                      <div>
+                        <span className="font-bold text-slate-800">{s.name}</span>
+                        <span className="text-slate-500 ml-2">
+                          {s.phone || "Tanpa No. WA"} • Lead time {s.lead_time_days} hari
+                        </span>
+                        {s.notes && <span className="text-slate-400 ml-2">({s.notes})</span>}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSupplier(s.id, s.name)}
+                        className="p-1 text-slate-400 hover:text-rose-600 rounded cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
