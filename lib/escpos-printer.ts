@@ -1,4 +1,9 @@
-// ESC/POS Bluetooth & Thermal Printing Engine for Es Teh Poci POS
+// ESC/POS Bluetooth & Thermal Printing Engine for Teh Poci POS
+import {
+  RECEIPT_LOGO_HEIGHT,
+  RECEIPT_LOGO_RASTER_B64,
+  RECEIPT_LOGO_WIDTH_BYTES,
+} from "./receipt-logo";
 
 export interface ReceiptItem {
   name: string;
@@ -77,7 +82,7 @@ export const generateReceiptText = (data: ReceiptData): string => {
   });
 
   const lines: string[] = [
-    "      ES TEH POCI INDONESIA     ",
+    "            Teh Poci            ",
     "   Teh Asli, Segar & Nikmat     ",
     line,
     data.outletName.substring(0, 32),
@@ -154,10 +159,31 @@ export const generateEscPosBuffer = (data: ReceiptData): Uint8Array => {
   // ESC a 1: Center align
   bytes.push(0x1b, 0x61, 0x01);
 
+  // Cetak Logo Teh Poci (GS v 0 raster bit image)
+  if (typeof window !== "undefined") {
+    try {
+      const raw = window.atob(RECEIPT_LOGO_RASTER_B64);
+      bytes.push(
+        0x1d,
+        0x76,
+        0x30,
+        0x00,
+        RECEIPT_LOGO_WIDTH_BYTES & 0xff,
+        (RECEIPT_LOGO_WIDTH_BYTES >> 8) & 0xff,
+        RECEIPT_LOGO_HEIGHT & 0xff,
+        (RECEIPT_LOGO_HEIGHT >> 8) & 0xff
+      );
+      for (let i = 0; i < raw.length; i++) {
+        bytes.push(raw.charCodeAt(i));
+      }
+      bytes.push(0x0a);
+    } catch {}
+  }
+
   // Bold on + Double Height
   bytes.push(0x1b, 0x45, 0x01);
   bytes.push(0x1d, 0x21, 0x11);
-  bytes.push(...encoder.encode("ES TEH POCI\n"));
+  bytes.push(...encoder.encode("Teh Poci\n"));
 
   // Normal text
   bytes.push(0x1d, 0x21, 0x00);
@@ -280,15 +306,19 @@ class BluetoothThermalManager {
     }
 
     try {
-      // Standard Bluetooth POS Service UUIDs
+      // Standard Bluetooth POS & EPPOS/RPP02N Service UUIDs
       const nav = navigator as any;
       this.device = await nav.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: [
           "000018f0-0000-1000-8000-00805f9b34fb",
+          "0000ffe0-0000-1000-8000-00805f9b34fb",
+          "0000ff00-0000-1000-8000-00805f9b34fb",
           "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
           "49535343-fe7d-4ae5-8fa9-9fafd205e455",
-          "0000ff00-0000-1000-8000-00805f9b34fb",
+          "0000fee7-0000-1000-8000-00805f9b34fb",
+          "0000af30-0000-1000-8000-00805f9b34fb",
+          "0000ae30-0000-1000-8000-00805f9b34fb",
         ],
       });
 
@@ -308,14 +338,13 @@ class BluetoothThermalManager {
       throw new Error("Tidak menemukan kanal printer bluetooth yang siap cetak.");
     } catch (err: any) {
       // Periksa jika dibatalkan oleh pengguna (User cancelled chooser)
+      const msgLower = (err?.message || "").toLowerCase();
       const isCancelled =
-        err?.name === "NotFoundError" ||
-        err?.message?.toLowerCase().includes("cancel") ||
-        err?.message?.toLowerCase().includes("batal") ||
-        err?.message?.toLowerCase().includes("user selected no device");
+        msgLower.includes("cancel") ||
+        msgLower.includes("batal") ||
+        msgLower.includes("user selected no device");
 
       if (isCancelled) {
-        // Jangan panggil console.error agar tidak memicu dev overlay Next.js
         throw new BluetoothUserCancelledError();
       }
 
@@ -349,6 +378,10 @@ class BluetoothThermalManager {
     return !!(this.device && this.device.gatt?.connected && this.characteristic);
   }
 
+  getDeviceName(): string | null {
+    return this.isConnected() ? this.device?.name || "Printer BT" : null;
+  }
+
   disconnect() {
     if (this.device && this.device.gatt.connected) {
       this.device.gatt.disconnect();
@@ -359,6 +392,148 @@ class BluetoothThermalManager {
 }
 
 export const bluetoothPrinter = new BluetoothThermalManager();
+
+// Web Serial Printing Manager (untuk Printer Bluetooth Classic SPP via COM Port Windows, misal COM7)
+class SerialThermalManager {
+  private port: any = null;
+  private isOpen = false;
+  private isPrinting = false;
+
+  isSupported(): boolean {
+    return typeof window !== "undefined" && "serial" in navigator;
+  }
+
+  private withTimeout<T>(promise: Promise<T>, ms: number, errMsg: string): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errMsg)), ms)),
+    ]);
+  }
+
+  async connect(baudRate = 9600): Promise<boolean> {
+    if (!this.isSupported()) {
+      throw new Error("Web Serial tidak didukung di browser ini. Gunakan Google Chrome atau Edge di Windows.");
+    }
+
+    try {
+      const nav = navigator as any;
+      this.port = await nav.serial.requestPort();
+      if (!this.port.readable && !this.port.writable) {
+        await this.withTimeout(
+          this.port.open({ baudRate }),
+          7000,
+          "Waktu koneksi Port COM habis (7 detik). Pastikan printer menyala dan Bluetooth HP lain sudah diputus."
+        );
+        try {
+          await this.port.setSignals({ dataTerminalReady: true, requestToSend: true });
+        } catch {}
+      }
+      this.isOpen = true;
+      return true;
+    } catch (err: any) {
+      const msgLower = (err?.message || "").toLowerCase();
+      if (err?.name === "NotFoundError" || msgLower.includes("no port selected")) {
+        throw new BluetoothUserCancelledError("Pemilihan port COM dibatalkan oleh kasir.");
+      }
+      await this.disconnect();
+      throw err;
+    }
+  }
+
+  async print(data: ReceiptData): Promise<void> {
+    if (this.isPrinting) {
+      return; // Hindari cetak ganda bersamaan yang mengunci WritableStream
+    }
+    this.isPrinting = true;
+
+    try {
+      if (!this.port || !this.isOpen || !this.port.writable) {
+        const connected = await this.connect();
+        if (!connected) throw new Error("Gagal membuka port COM printer.");
+      }
+
+      // Tunggu jika stream kebetulan masih terkunci sesaat
+      let waitMs = 0;
+      while (this.port.writable.locked && waitMs < 2000) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        waitMs += 100;
+      }
+
+      if (this.port.writable.locked) {
+        throw new Error("Port COM sedang sibuk. Silakan klik Port COM lagi.");
+      }
+
+      const buffer = generateEscPosBuffer(data);
+      const writer = this.port.writable.getWriter();
+      try {
+        await this.withTimeout(
+          writer.write(buffer),
+          7000,
+          "Gagal mengirim data struk (timeout). Pastikan printer tidak terhubung ke perangkat lain."
+        );
+      } finally {
+        try {
+          writer.releaseLock();
+        } catch {}
+      }
+    } catch (err) {
+      await this.disconnect();
+      throw err;
+    } finally {
+      this.isPrinting = false;
+    }
+  }
+
+  isConnected(): boolean {
+    return !!(this.port && this.isOpen && this.port.writable);
+  }
+
+  async disconnect() {
+    try {
+      if (this.port) {
+        await this.port.close();
+      }
+    } catch {}
+    this.port = null;
+    this.isOpen = false;
+  }
+}
+
+export const serialPrinter = new SerialThermalManager();
+
+// Deteksi apakah berjalan di perangkat Android (APK WebView atau Browser Android)
+export const isAndroidDevice = (): boolean => {
+  if (typeof navigator === "undefined") return false;
+  return /android/i.test(navigator.userAgent);
+};
+
+// Encode ESC/POS ReceiptData menjadi string Base64
+export const encodeReceiptBase64 = (data: ReceiptData): string => {
+  const buffer = generateEscPosBuffer(data);
+  let binary = "";
+  for (let i = 0; i < buffer.length; i++) {
+    binary += String.fromCharCode(buffer[i]);
+  }
+  return window.btoa(binary);
+};
+
+// Cetak langsung via RawBT Print Service (untuk Android APK / Huawei / Tablet)
+export const printReceiptViaRawBT = (data: ReceiptData): boolean => {
+  if (typeof window === "undefined") return false;
+  try {
+    const base64 = encodeReceiptBase64(data);
+    const link = document.createElement("a");
+    link.href = `rawbt:base64,${base64}`;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    return true;
+  } catch (err) {
+    console.warn("RawBT print error:", err);
+    return false;
+  }
+};
 
 // Fallback: Browser Print Window (58mm Thermal Roll)
 export const printReceiptViaBrowser = () => {

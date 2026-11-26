@@ -205,17 +205,16 @@ SETTINGS_JSON = {
     ],
     "other": TARGET_URL,
     "match": [
-        ["host", "contains", "ya-kasir-tehpoci.my.id"],
-        ["host", "contains", "kasir.ya-kasir-tehpoci.my.id"],
-        ["host", "contains", "cloudflare"],
-        ["host", "contains", "appassets"]
+        ["url", "contains", "ya-kasir-tehpoci.my.id"],
+        ["url", "contains", "cloudflare"],
+        ["url", "contains", "appassets"]
     ],
     "skip": [],
-    "remote_debug": True,
+    "remote_debug": False,
     "console_log": False,
     "js_interface": False,
     "context_menu": False,
-    "not_matching": False,
+    "not_matching": True,
     "local_sites": False,
     "update_zip": "",
     "web_settings": {
@@ -224,7 +223,7 @@ SETTINGS_JSON = {
         "DatabaseEnabled": True
     },
     "source": "assets",
-    "timestamp": "2026-11-19T13:00:00Z"
+    "timestamp": "2026-11-25T10:07:00Z"
 }
 
 def patch_min_sdk(axml_data, new_min_sdk=21):
@@ -345,6 +344,10 @@ def patch_classes_dex(dex_bytes):
     zero_targets = [
         ('Landroidx/core/os/BuildCompat$Api30Impl;', 'getExtensionVersion')
     ]
+
+    empty_str_targets = [
+        ('Lnet/mikespub/mywebview/MyAppWebViewClient;', 'getSiteUrlFromAppLink')
+    ]
     
     patched_count = 0
     for cls in d.get_classes():
@@ -361,6 +364,14 @@ def patch_classes_dex(dex_bytes):
                     if m.code_off > 0:
                         patch_return_zero_at(dex_data, m.code_off)
                         print(f"      Patched {cname}::{m.get_name()} (off={m.code_off}) -> return-0 + nop")
+                        patched_count += 1
+            for target_cls, target_name in empty_str_targets:
+                if cname == target_cls and m.get_name() == target_name:
+                    if m.code_off > 0:
+                        insns_start = m.code_off + 16
+                        # const-string v0, "" (1a 00 00 00) + return-object v0 (11 00)
+                        dex_data[insns_start:insns_start + 6] = b"\x1a\x00\x00\x00\x11\x00"
+                        print(f"      Patched {cname}::{m.get_name()} (off={m.code_off}) -> return \"\"")
                         patched_count += 1
                         
     if patched_count < 4:

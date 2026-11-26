@@ -54,6 +54,10 @@ import {
 import {
   ReceiptData,
   bluetoothPrinter,
+  serialPrinter,
+  encodeReceiptBase64,
+  isAndroidDevice,
+  printReceiptViaRawBT,
   printReceiptViaBrowser,
 } from "@/lib/escpos-printer";
 
@@ -2013,20 +2017,85 @@ export default function PosTerminalPage() {
     });
   };
 
-  // Print handler cerdas: Bluetooth jika terkoneksi/diminta, fallback otomatis ke browser default printer
-  const handlePrintReceipt = async (forceBluetoothPrompt = false) => {
+  // Print handler cerdas: Web Serial (COM Port SPP), Web Bluetooth (BLE), RawBT (Android APK), atau Browser Print fallback
+  const handlePrintReceipt = async (forceBluetoothPrompt = false, forceSerialPrompt = false) => {
     if (!completedReceipt) return;
 
+    // Hentikan timer auto-close sementara hanya saat proses pairing / dialog manual berjalan
+    if (forceBluetoothPrompt || forceSerialPrompt) {
+      setIsTimerPaused(true);
+    }
+
+    // 1. Prioritas Port COM Server Windows (jika diaktifkan atau dipilih untuk EPPOS RPPO2N COM7)
+    const savedComPort = typeof window !== "undefined" ? localStorage.getItem("poci_laptop_com_port") : null;
+    if (!isAndroidDevice() && (forceSerialPrompt || savedComPort)) {
+      const targetPort = savedComPort || "COM7";
+      setIsPrintingBt(true);
+      setPrintStatusMessage(null);
+      try {
+        const escposBase64 = encodeReceiptBase64(completedReceipt);
+        const res = await fetch("/api/print/com", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ port: targetPort, escposBase64 }),
+        });
+        const resData = await res.json();
+        if (!res.ok) {
+          throw new Error(resData.error || `Gagal cetak ke ${targetPort}`);
+        }
+        if (typeof window !== "undefined") {
+          localStorage.setItem("poci_laptop_com_port", targetPort);
+        }
+        setPrintStatusMessage({
+          text: `Struk berhasil dicetak ke Printer ${targetPort}!`,
+          type: "success",
+        });
+        setTimeout(() => {
+          handleFinishTransaction();
+        }, 1200);
+        return;
+      } catch (err: any) {
+        setPrintStatusMessage({
+          text: err?.message || `Gagal cetak ke ${targetPort}. Pastikan printer menyala.`,
+          type: "error",
+        });
+        return;
+      } finally {
+        setIsPrintingBt(false);
+      }
+    }
+
     if (bluetoothPrinter.isConnected() || forceBluetoothPrompt) {
+      if (!bluetoothPrinter.isSupported()) {
+        if (isAndroidDevice()) {
+          const sent = printReceiptViaRawBT(completedReceipt);
+          setPrintStatusMessage({
+            text: sent
+              ? "Mengirim struk ke RawBT Printer (Android)..."
+              : "Gagal membuka RawBT. Pastikan aplikasi RawBT terpasang.",
+            type: sent ? "success" : "warning",
+          });
+          setTimeout(() => setPrintStatusMessage(null), 4000);
+          return;
+        }
+        setPrintStatusMessage({
+          text: "Web Bluetooth tidak aktif di URL ini. Buka via http://localhost:3000 atau https://kasir.ya-kasir-tehpoci.my.id di Chrome.",
+          type: "error",
+        });
+        return;
+      }
+
       setIsPrintingBt(true);
       setPrintStatusMessage(null);
       try {
         await bluetoothPrinter.print(completedReceipt);
         setPrintStatusMessage({
-          text: "Struk berhasil dicetak ke Printer Bluetooth!",
+          text: `Struk berhasil dicetak ke ${bluetoothPrinter.getDeviceName() || "Printer Bluetooth"}!`,
           type: "success",
         });
-        setTimeout(() => setPrintStatusMessage(null), 4000);
+        setTimeout(() => {
+          handleFinishTransaction();
+        }, 1200);
         return;
       } catch (err: any) {
         const isCancelled =
@@ -2043,21 +2112,63 @@ export default function PosTerminalPage() {
           });
           setTimeout(() => setPrintStatusMessage(null), 3000);
           return;
+        } else if (isAndroidDevice()) {
+          printReceiptViaRawBT(completedReceipt);
+          setPrintStatusMessage({
+            text: "Mengalihkan cetak ke aplikasi RawBT Android...",
+            type: "warning",
+          });
+        } else if (forceBluetoothPrompt) {
+          setPrintStatusMessage({
+            text: `Gagal koneksi Bluetooth: ${err?.message || "Perangkat tidak mendukung BLE / tidak ditemukan"}. Jika printer Bluetooth Classic, pasang via COM Port Windows atau kabel USB.`,
+            type: "error",
+          });
         } else {
           setPrintStatusMessage({
-            text: "Bluetooth tidak terhubung. Mengalihkan ke printer default...",
+            text: `Bluetooth gagal (${err?.message || "tidak terhubung"}). Membuka dialog cetak browser...`,
             type: "warning",
           });
           setTimeout(() => {
             printReceiptViaBrowser();
-          }, 500);
+          }, 300);
         }
       } finally {
         setIsPrintingBt(false);
       }
+    } else if (isAndroidDevice()) {
+      // Perangkat Android (Huawei APK / Tablet): langsung kirim ESC/POS ke RawBT Print Service
+      const sent = printReceiptViaRawBT(completedReceipt);
+      setPrintStatusMessage({
+        text: sent
+          ? "Struk dikirim ke RawBT Printer!"
+          : "Pastikan aplikasi RawBT Print Service terpasang di Android.",
+        type: sent ? "success" : "warning",
+      });
+      if (sent) {
+        setIsTimerPaused(false);
+        setAutoCloseSeconds(2);
+        // Tutup popup otomatis begitu selesai dari RawBT atau setelah 1.8 detik
+        const closeOnReturn = () => {
+          if (document.visibilityState === "visible") {
+            document.removeEventListener("visibilitychange", closeOnReturn);
+            window.removeEventListener("focus", closeOnReturn);
+            setTimeout(() => handleFinishTransaction(), 300);
+          }
+        };
+        document.addEventListener("visibilitychange", closeOnReturn);
+        window.addEventListener("focus", closeOnReturn);
+        setTimeout(() => {
+          document.removeEventListener("visibilitychange", closeOnReturn);
+          window.removeEventListener("focus", closeOnReturn);
+          handleFinishTransaction();
+        }, 2000);
+      }
     } else {
-      // Standar: langsung cetak ke printer default thermal sistem / RawBT
+      // Laptop/Desktop tanpa koneksi Bluetooth: gunakan dialog print browser
       printReceiptViaBrowser();
+      setTimeout(() => {
+        handleFinishTransaction();
+      }, 1000);
     }
   };
 
@@ -4258,8 +4369,13 @@ export default function PosTerminalPage() {
                   </div>
 
                   <div className="text-center pb-2 border-b border-dashed border-slate-300">
-                    <p className="font-black text-sm text-slate-900 tracking-wider">
-                      ES TEH POCI
+                    <img
+                      src="/logo-struk.png"
+                      alt="Logo Teh Poci"
+                      className="w-16 h-16 mx-auto mb-1.5 object-contain"
+                    />
+                    <p className="font-black text-base text-slate-900 tracking-wide">
+                      Teh Poci
                     </p>
                     <p className="text-[10px] text-slate-500">Teh Asli, Segar &amp; Nikmat</p>
                     <p className="text-[10px] text-slate-700 font-bold mt-1">
@@ -4451,13 +4567,25 @@ export default function PosTerminalPage() {
 
                       <button
                         type="button"
-                        onClick={() => handlePrintReceipt(true)}
+                        onClick={() => handlePrintReceipt(true, false)}
                         className="text-slate-500 hover:text-emerald-700 flex items-center gap-1 font-medium transition cursor-pointer"
-                        title="Hubungkan atau cari printer via Web Bluetooth"
+                        title="Hubungkan printer via Web Bluetooth (BLE)"
                       >
                         <Bluetooth className="w-3 h-3 text-emerald-600 shrink-0" />
                         <span>Pair BT</span>
                       </button>
+
+                      {!isAndroidDevice() && (
+                        <button
+                          type="button"
+                          onClick={() => handlePrintReceipt(false, true)}
+                          className="text-slate-500 hover:text-blue-700 flex items-center gap-1 font-medium transition cursor-pointer"
+                          title="Hubungkan printer Bluetooth Classic / USB lewat Port COM Windows (misal COM7)"
+                        >
+                          <Printer className="w-3 h-3 text-blue-600 shrink-0" />
+                          <span>Port COM</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -5852,7 +5980,18 @@ export default function PosTerminalPage() {
       {completedReceipt && (
         <div id="thermal-receipt-print-area" className="hidden print:block">
           <div style={{ textAlign: "center", paddingBottom: "4px" }}>
-            <div style={{ fontSize: "14px", fontWeight: "bold" }}>ES TEH POCI</div>
+            <img
+              src="/logo-struk.png"
+              alt="Logo Teh Poci"
+              style={{
+                width: "56px",
+                height: "56px",
+                margin: "0 auto 4px",
+                objectFit: "contain",
+                filter: "grayscale(100%) contrast(150%)",
+              }}
+            />
+            <div style={{ fontSize: "14px", fontWeight: "bold" }}>Teh Poci</div>
             <div style={{ fontSize: "10px" }}>Teh Asli, Segar &amp; Nikmat</div>
             <div style={{ fontSize: "10px", fontWeight: "bold", marginTop: "2px" }}>
               {completedReceipt.outletName}
