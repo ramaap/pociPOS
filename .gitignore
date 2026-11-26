@@ -46,3 +46,6 @@ error_crash.txt
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Agentic AI runtime state
+agents-state.json

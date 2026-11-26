@@ -374,6 +374,11 @@ export async function POST(req: Request) {
       };
     });
 
+    // Trigger Stock Manager agent (non-blocking)
+    import("@/lib/agents/dispatcher")
+      .then((d) => d.onCheckout(resolvedOutletId, result.materialsDeducted || []))
+      .catch(() => {});
+
     return NextResponse.json(
       {
         success: true,

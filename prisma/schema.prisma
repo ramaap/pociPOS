@@ -310,4 +310,39 @@ model RndExpense {
   @@map("rnd_expenses")
 }
 
+model AgentEventLog {
+  id         String   @id @default(cuid())
+  agent_name String   // "watchdog" | "stock_manager" | "virtual_gm"
+  event_type String   // "red_alert" | "yellow_alert" | "stock_low" | "stock_zero" | "silent_lunch" | "pin_failed" | "morning_briefing" | "evening_report"
+  outlet_id  String?
+  summary    String
+  details    String?
+  created_at DateTime @default(now())
+
+  @@index([created_at])
+  @@index([agent_name, event_type])
+  @@map("agent_event_logs")
+}
+
+model OwnerChatMemory {
+  id         String   @id @default(cuid())
+  role       String   // "owner" | "assistant"
+  message    String
+  topic      String?
+  created_at DateTime @default(now())
+
+  @@index([created_at])
+  @@map("owner_chat_memories")
+}
+
+model OwnerBehaviorProfile {
+  id         String   @id @default(cuid())
+  key        String   @unique // e.g. "preferred_focus", "reporting_style", "recurring_requests"
+  value      String
+  updated_at DateTime @updatedAt
+
+  @@map("owner_behavior_profiles")
+}
+
+
 

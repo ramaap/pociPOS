@@ -208,6 +208,11 @@ export async function POST(req: Request) {
       });
     }
 
+    // Trigger Watchdog agent (non-blocking)
+    import("@/lib/agents/dispatcher")
+      .then((d) => d.onShiftClosed(closingRecord))
+      .catch(() => {});
+
     return NextResponse.json(
       {
         success: true,
