@@ -1,4 +1,9 @@
-// ESC/POS Bluetooth & Thermal Printing Engine for Es Teh Poci POS
+// ESC/POS Bluetooth & Thermal Printing Engine for Teh Poci POS
+import {
+  RECEIPT_LOGO_HEIGHT,
+  RECEIPT_LOGO_RASTER_B64,
+  RECEIPT_LOGO_WIDTH_BYTES,
+} from "./receipt-logo";
 
 export interface ReceiptItem {
   name: string;
@@ -77,7 +82,7 @@ export const generateReceiptText = (data: ReceiptData): string => {
   });
 
   const lines: string[] = [
-    "      ES TEH POCI INDONESIA     ",
+    "            Teh Poci            ",
     "   Teh Asli, Segar & Nikmat     ",
     line,
     data.outletName.substring(0, 32),
@@ -154,10 +159,31 @@ export const generateEscPosBuffer = (data: ReceiptData): Uint8Array => {
   // ESC a 1: Center align
   bytes.push(0x1b, 0x61, 0x01);
 
+  // Cetak Logo Teh Poci (GS v 0 raster bit image)
+  if (typeof window !== "undefined") {
+    try {
+      const raw = window.atob(RECEIPT_LOGO_RASTER_B64);
+      bytes.push(
+        0x1d,
+        0x76,
+        0x30,
+        0x00,
+        RECEIPT_LOGO_WIDTH_BYTES & 0xff,
+        (RECEIPT_LOGO_WIDTH_BYTES >> 8) & 0xff,
+        RECEIPT_LOGO_HEIGHT & 0xff,
+        (RECEIPT_LOGO_HEIGHT >> 8) & 0xff
+      );
+      for (let i = 0; i < raw.length; i++) {
+        bytes.push(raw.charCodeAt(i));
+      }
+      bytes.push(0x0a);
+    } catch {}
+  }
+
   // Bold on + Double Height
   bytes.push(0x1b, 0x45, 0x01);
   bytes.push(0x1d, 0x21, 0x11);
-  bytes.push(...encoder.encode("ES TEH POCI\n"));
+  bytes.push(...encoder.encode("Teh Poci\n"));
 
   // Normal text
   bytes.push(0x1d, 0x21, 0x00);

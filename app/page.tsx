@@ -4369,8 +4369,13 @@ export default function PosTerminalPage() {
                   </div>
 
                   <div className="text-center pb-2 border-b border-dashed border-slate-300">
-                    <p className="font-black text-sm text-slate-900 tracking-wider">
-                      ES TEH POCI
+                    <img
+                      src="/logo-struk.png"
+                      alt="Logo Teh Poci"
+                      className="w-16 h-16 mx-auto mb-1.5 object-contain"
+                    />
+                    <p className="font-black text-base text-slate-900 tracking-wide">
+                      Teh Poci
                     </p>
                     <p className="text-[10px] text-slate-500">Teh Asli, Segar &amp; Nikmat</p>
                     <p className="text-[10px] text-slate-700 font-bold mt-1">
@@ -5975,7 +5980,18 @@ export default function PosTerminalPage() {
       {completedReceipt && (
         <div id="thermal-receipt-print-area" className="hidden print:block">
           <div style={{ textAlign: "center", paddingBottom: "4px" }}>
-            <div style={{ fontSize: "14px", fontWeight: "bold" }}>ES TEH POCI</div>
+            <img
+              src="/logo-struk.png"
+              alt="Logo Teh Poci"
+              style={{
+                width: "56px",
+                height: "56px",
+                margin: "0 auto 4px",
+                objectFit: "contain",
+                filter: "grayscale(100%) contrast(150%)",
+              }}
+            />
+            <div style={{ fontSize: "14px", fontWeight: "bold" }}>Teh Poci</div>
             <div style={{ fontSize: "10px" }}>Teh Asli, Segar &amp; Nikmat</div>
             <div style={{ fontSize: "10px", fontWeight: "bold", marginTop: "2px" }}>
               {completedReceipt.outletName}
