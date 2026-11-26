@@ -39,6 +39,10 @@ export const AGENT_CONFIG = {
   // Retensi memori jangka panjang (minimal 30 hari -> kita simpan 45 hari)
   MEMORY_RETENTION_DAYS: 45,
 
+  // Kebijakan Keamanan Ketat: Dilarang mengubah data Admin/Backoffice tanpa konfirmasi eksplisit Owner
+  REQUIRE_OWNER_CONFIRMATION_FOR_ADMIN_MUTATIONS: true,
+  PENDING_CONFIRMATION_TTL_MINUTES: 5,
+
   // Gemini AI
   GEMINI_MAX_OUTPUT_TOKENS: 650,
 };
