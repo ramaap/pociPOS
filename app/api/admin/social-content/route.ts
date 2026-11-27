@@ -24,11 +24,13 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const platformHint = body?.platformHint ? String(body.platformHint).trim() : undefined;
     const customTopic = body?.customTopic ? String(body.customTopic).trim() : undefined;
+    const voiceName = body?.voiceName ? String(body.voiceName).trim() : undefined;
     const notifyTelegram = Boolean(body?.notifyTelegram);
 
     const result = await generateAndSendSocialIdea({
       platformHint,
       customTopic,
+      voiceName,
       createdBy: "manual_trigger",
       notifyTelegram,
     });

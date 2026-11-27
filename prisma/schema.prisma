@@ -383,6 +383,11 @@ model SocialContentDraft {
   trend_topic         String   // Topik/tren viral 7 hari terakhir yang dijadikan pijakan
   trend_sources_json  String   @default("[]") // URL sumber tren dari Google Search Grounding / Trends
   post_idea           String   // Ringkasan ide + Hook 3 detik + angle
+  scenes_json         String   @default("[]") // Script Writer: array scene-by-scene (time_range, visual_action, on_screen_text, voiceover, camera_note)
+  voiceover_script    String   @default("")   // Naskah voiceover utuh siap TTS
+  editing_notes       String   @default("")   // Panduan Video Editor (cut rhythm, transisi, SFX, BGM, safe-zone teks)
+  voiceover_audio_url String?  // URL API/file audio TTS (.wav)
+  tts_voice           String   @default("Kore")
   caption_ig          String
   caption_tiktok      String
   prompt_image_flow   String   // Prompt Imagen/Gemini siap paste (4:5 / 9:16)

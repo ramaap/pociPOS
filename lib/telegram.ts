@@ -118,6 +118,37 @@ export async function sendWithButtons(
   }
 }
 
+export async function sendAudioFile(
+  buffer: Buffer,
+  filename: string,
+  caption?: string
+): Promise<boolean> {
+  const cfg = getTelegramConfig();
+  if (!cfg) return false;
+
+  try {
+    const form = new FormData();
+    form.append("chat_id", cfg.ownerChatId);
+    if (caption) {
+      form.append("caption", caption.slice(0, 950));
+      form.append("parse_mode", "HTML");
+    }
+    const blob = new Blob([new Uint8Array(buffer)], { type: "audio/wav" });
+    form.append("audio", blob, filename);
+
+    const url = `https://api.telegram.org/bot${cfg.token}/sendAudio`;
+    const res = await fetch(url, {
+      method: "POST",
+      body: form,
+      signal: AbortSignal.timeout(20000),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn("[Telegram] Gagal mengirim audio:", err);
+    return false;
+  }
+}
+
 export async function getUpdates(
   offset: number
 ): Promise<{ ok: boolean; status: number; result: any[] }> {
