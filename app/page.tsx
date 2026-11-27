@@ -2220,6 +2220,44 @@ export default function PosTerminalPage() {
     setIsTimerPaused(false);
   };
 
+  const renderPromoFulfillmentControls = (item: CartItem) => {
+    if (!item.isPromoFree) return null;
+    if (item.isRedeemedVoucher) {
+      return (
+        <div className="mt-1 p-1 bg-emerald-50 border border-emerald-300 rounded text-[9px] text-emerald-950 flex items-center justify-between gap-1">
+          <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong></span>
+          <span className="text-emerald-700 font-bold shrink-0">🥤 Disajikan Fisik</span>
+        </div>
+      );
+    }
+    if (item.isPromoVoucher) {
+      return (
+        <div className="mt-1 p-1 bg-amber-50 border border-amber-300 rounded text-[9px] text-amber-900 flex items-center justify-between gap-1">
+          <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong> (Struk)</span>
+          <button
+            type="button"
+            onClick={() => togglePromoVoucherMode(item.id)}
+            className="text-emerald-700 font-bold underline shrink-0 hover:text-emerald-900 cursor-pointer"
+          >
+            Sajikan Fisik?
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div className="mt-1 flex items-center justify-between text-[9px] text-emerald-800 gap-2">
+        <span>🥤 Disajikan fisik sekarang</span>
+        <button
+          type="button"
+          onClick={() => togglePromoVoucherMode(item.id)}
+          className="text-amber-800 font-bold underline shrink-0 hover:text-amber-950 cursor-pointer"
+        >
+          Ubah Jadi Voucher?
+        </button>
+      </div>
+    );
+  };
+
   const formatRupiah = (val: number) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
@@ -3492,36 +3530,7 @@ export default function PosTerminalPage() {
                               <span className="text-emerald-700 font-semibold">{formatRupiah(item.product.price)}</span>
                             )}
                           </div>
-                          {item.isPromoFree && (
-                            item.isRedeemedVoucher ? (
-                              <div className="mt-1 p-1 bg-emerald-50 border border-emerald-300 rounded text-[9px] text-emerald-950 flex items-center justify-between gap-1">
-                                <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong></span>
-                                <span className="text-emerald-700 font-bold shrink-0">🥤 Disajikan Fisik</span>
-                              </div>
-                            ) : item.isPromoVoucher ? (
-                              <div className="mt-1 p-1 bg-amber-50 border border-amber-300 rounded text-[9px] text-amber-900 flex items-center justify-between gap-1">
-                                <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong> (Struk)</span>
-                                <button
-                                  type="button"
-                                  onClick={() => togglePromoVoucherMode(item.id)}
-                                  className="text-emerald-700 font-bold underline shrink-0 hover:text-emerald-900 cursor-pointer"
-                                >
-                                  Sajikan Fisik?
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="mt-1 flex items-center justify-between text-[9px] text-emerald-800">
-                                <span>🥤 Disajikan fisik sekarang</span>
-                                <button
-                                  type="button"
-                                  onClick={() => togglePromoVoucherMode(item.id)}
-                                  className="text-amber-800 font-bold underline shrink-0 hover:text-amber-950 cursor-pointer"
-                                >
-                                  Ubah Jadi Voucher?
-                                </button>
-                              </div>
-                            )
-                          )}
+                          {renderPromoFulfillmentControls(item)}
                         </div>
 
                         {/* Stepper Jumlah Cup & Tombol Hapus */}
@@ -4041,13 +4050,17 @@ export default function PosTerminalPage() {
                           </div>
                           <div className="text-[11px] font-mono mt-0.5">
                             {item.isPromoFree ? (
-                              <span className="text-emerald-700 font-black">
-                                {item.isPromoVoucher ? "Rp 0 (VOUCHER)" : item.isRedeemedVoucher ? "Rp 0 (KLAIM)" : "Rp 0 (GRATIS)"}
-                              </span>
+                              <>
+                                <span className="line-through text-slate-400 mr-1 text-[11px]">{formatRupiah(item.product.price)}</span>
+                                <span className="text-emerald-700 font-black">
+                                  {item.isPromoVoucher ? "Rp 0 (VOUCHER)" : item.isRedeemedVoucher ? "Rp 0 (KLAIM)" : "Rp 0 (GRATIS)"}
+                                </span>
+                              </>
                             ) : (
                               <span className="text-emerald-700 font-semibold">{formatRupiah(item.product.price)}</span>
                             )}
                           </div>
+                          {renderPromoFulfillmentControls(item)}
                         </div>
 
                         {/* Stepper Jumlah Cup & Tombol Hapus */}
@@ -4082,8 +4095,8 @@ export default function PosTerminalPage() {
                         </div>
                       </div>
 
-                      {/* Baris 2: Pemilih Level Gula */}
-                      {!item.product.name.includes("Topping") && !item.isPromoFree && (
+                      {/* Baris 2: Pemilih Level Gula (termasuk bonus promo fisik) */}
+                      {!item.product.name.includes("Topping") && !item.isPromoVoucher && (
                         <div className="pt-1.5 border-t border-slate-100">
                           <div className="flex items-center justify-between text-[10px] mb-1">
                             <span className="text-slate-500 font-bold">Porsi Gula:</span>
