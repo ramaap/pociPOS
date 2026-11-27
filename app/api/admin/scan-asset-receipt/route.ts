@@ -141,7 +141,7 @@ KEMBALIKAN HANYA FORMAT JSON VALID BERUPA ARRAY OF OBJECTS:
 ]
 JANGAN gunakan pembungkus markdown (tanpa \`\`\`json atau \`\`\`), dan JANGAN sertakan kalimat pengantar atau penutup.`;
 
-      const models = ["gemini-2.5-flash", "gemini-2.0-flash"];
+      const models = ["gemini-3.8-flash", "gemini-2.5-flash"];
       let rawTextResult: string | null = null;
       let lastErrorMessage = "";
 
