@@ -4734,6 +4734,18 @@ export default function AdminDashboardPage() {
                                 {formatRupiah(financeData?.neraca?.aktivaLancar?.sisaKasModal ?? 0)}
                               </span>
                             </div>
+
+                            {Number(financeData?.neraca?.aktivaLancar?.piutangKaryawan || 0) > 0 && (
+                              <div className="p-2 bg-rose-50 rounded-lg flex items-center justify-between text-rose-900 border border-rose-200">
+                                <div>
+                                  <p className="font-bold font-sans">Piutang Selisih Cup Karyawan</p>
+                                  <p className="text-[10px] text-rose-600 font-sans">Potongan/piutang shift closing</p>
+                                </div>
+                                <span className="font-bold">
+                                  {formatRupiah(financeData?.neraca?.aktivaLancar?.piutangKaryawan || 0)}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -4803,20 +4815,10 @@ export default function AdminDashboardPage() {
                             1. Kewajiban Lancar (Liabilities)
                           </span>
                           <div className="space-y-2">
-                            <div className="p-2 bg-white rounded-lg flex items-center justify-between text-rose-900 border border-slate-100">
-                              <div>
-                                <p className="font-bold font-sans">Hutang Selisih Cup Karyawan</p>
-                                <p className="text-[10px] text-rose-600 font-sans">Piutang/potongan shift closing</p>
-                              </div>
-                              <span className="font-bold">
-                                {formatRupiah(financeData?.neraca?.pasiva?.kewajibanLancar?.hutangSelisihCup || 0)}
-                              </span>
-                            </div>
-
                             <div className="p-2 bg-white rounded-lg flex items-center justify-between border border-slate-100">
                               <div>
-                                <p className="font-bold font-sans text-slate-800">Beban Operasional Terutang</p>
-                                <p className="text-[10px] text-slate-400 font-sans">Biaya operasional berjalan</p>
+                                <p className="font-bold font-sans text-slate-800">Beban Tetap Terutang (Akrual)</p>
+                                <p className="text-[10px] text-slate-400 font-sans">Alokasi beban tetap bulanan berjalan</p>
                               </div>
                               <span className="font-bold text-slate-900">
                                 {formatRupiah(financeData?.neraca?.pasiva?.kewajibanLancar?.bebanOperasionalTerutang || 0)}

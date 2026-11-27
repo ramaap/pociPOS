@@ -498,13 +498,10 @@ export async function GET(req: Request) {
     const kasDiPetiCash = brankasPusat + kasLaciKedai;
     const totalKas = kasDiBank + kasDiPetiCash;
 
-    // 7. Konstruksi Data Neraca Keuangan (Balance Sheet)
-    // - Aset Lancar: Kas Tunai + Kas Bank (QRIS) + Nilai Persediaan Bahan Baku + Sisa Kas Modal Usaha
-    // - Aset Tetap: Pembelian Aset Tetap (Dipisah: Aset Tidak Bergerak vs Aset Bergerak)
-    // - Liabilitas: Hutang/Piutang Selisih Closing + Beban Terutang
-    // - Ekuitas: Modal Disetor (Riil dari Initial Capital) - Biaya RnD + Laba Ditahan (Retained Net Profit)
+    // 7. Konstruksi Data Neraca Keuangan (Balance Sheet) - Double-Entry Seimbang
     const modalAwalFranchise = totalInitialCapital > 0 ? totalInitialCapital : activeOutletsCount * 5000000;
-    const sisaKasModal = Math.max(0, remainingCapitalCash);
+    const sisaKasModal = remainingCapitalCash;
+    const piutangKaryawan = totalEmployeeDebt;
 
     const grossProfit = totalRevenue - totalHPP;
     const netProfit = grossProfit - totalAllExpenses;
@@ -514,7 +511,13 @@ export async function GET(req: Request) {
       kasBankQRIS: qrisRevenue,
       persediaanBahanBaku: Math.round(totalInventoryValue),
       sisaKasModal: Math.round(sisaKasModal),
-      totalAktivaLancar: cashRevenue + qrisRevenue + Math.round(totalInventoryValue) + Math.round(sisaKasModal),
+      piutangKaryawan: Math.round(piutangKaryawan),
+      totalAktivaLancar:
+        cashRevenue +
+        qrisRevenue +
+        Math.round(totalInventoryValue) +
+        Math.round(sisaKasModal) +
+        Math.round(piutangKaryawan),
     };
 
     const aktivaTetap = {
@@ -526,19 +529,27 @@ export async function GET(req: Request) {
 
     const totalAktiva = aktivaLancar.totalAktivaLancar + aktivaTetap.totalAktivaTetap;
 
+    const bebanTetapTerutang = totalFixedExpenses;
+    const labaDitahanNeraca =
+      totalRevenue -
+      totalOperationalExpensesAllTime -
+      bebanTetapTerutang +
+      Math.round(totalInventoryValue) +
+      Math.round(piutangKaryawan);
+
     const pasiva = {
       kewajibanLancar: {
-        hutangSelisihCup: totalEmployeeDebt,
-        bebanOperasionalTerutang: totalAllExpenses,
-        totalKewajiban: totalEmployeeDebt + totalAllExpenses,
+        hutangSelisihCup: 0,
+        bebanOperasionalTerutang: bebanTetapTerutang,
+        totalKewajiban: bebanTetapTerutang,
       },
       ekuitas: {
         modalDisetor: modalAwalFranchise,
         bebanRnd: totalRndExpenses,
-        labaDitahan: netProfit,
-        totalEkuitas: modalAwalFranchise - totalRndExpenses + netProfit,
+        labaDitahan: labaDitahanNeraca,
+        totalEkuitas: modalAwalFranchise - totalRndExpenses + labaDitahanNeraca,
       },
-      totalPasiva: totalEmployeeDebt + totalAllExpenses + (modalAwalFranchise - totalRndExpenses) + netProfit,
+      totalPasiva: bebanTetapTerutang + (modalAwalFranchise - totalRndExpenses + labaDitahanNeraca),
     };
 
     // 8. Daily Timeline Generator untuk Chart Proyeksi & Arus Kas (Grafik seperti di gambar HashMicro)
@@ -745,7 +756,7 @@ export async function GET(req: Request) {
         totalAktiva,
         pasiva,
         totalPasiva: pasiva.totalPasiva,
-        isBalanced: true,
+        isBalanced: totalAktiva === pasiva.totalPasiva,
       },
       expenses: expensesList,
       productSales,
