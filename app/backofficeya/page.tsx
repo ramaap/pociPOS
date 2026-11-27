@@ -226,6 +226,8 @@ export default function AdminDashboardPage() {
   const [boothStockSearch, setBoothStockSearch] = useState<string>("");
   const [boothStockSort, setBoothStockSort] = useState<"name_asc" | "stock_asc" | "stock_desc">("name_asc");
   const [assetPage, setAssetPage] = useState<number>(1);
+  const [assetSearch, setAssetSearch] = useState<string>("");
+  const [assetSort, setAssetSort] = useState<"date_desc" | "date_asc" | "cost_desc" | "cost_asc" | "name_asc">("date_desc");
   const [ttsGeneratingId, setTtsGeneratingId] = useState<string | null>(null);
   const [draftVoiceMap, setDraftVoiceMap] = useState<Record<string, string>>({});
   const [draftScriptMap, setDraftScriptMap] = useState<Record<string, string>>({});
@@ -5425,8 +5427,9 @@ export default function AdminDashboardPage() {
                           </div>
                         </div>
 
-                        {/* Filter Tabs Tipe Karakteristik Aset */}
-                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                        {/* Filter Tabs Tipe Karakteristik Aset + Search & Sort */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                          <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
                             onClick={() => { setAssetTypeFilter("all"); setAssetPage(1); }}
@@ -5466,6 +5469,34 @@ export default function AdminDashboardPage() {
                               ({financeData?.capitalAssets?.filter((a: any) => a.asset_type !== "tidak_bergerak").length || 0})
                             </span>
                           </button>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="relative">
+                              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="text"
+                                value={assetSearch}
+                                onChange={(e) => { setAssetSearch(e.target.value); setAssetPage(1); }}
+                                placeholder="Cari aset / toko / kategori..."
+                                className="bg-slate-50 border border-slate-300 rounded-xl pl-8 pr-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-500 w-48"
+                              />
+                            </div>
+                            <select
+                              value={assetSort}
+                              onChange={(e) => {
+                                setAssetSort(e.target.value as "date_desc" | "date_asc" | "cost_desc" | "cost_asc" | "name_asc");
+                                setAssetPage(1);
+                              }}
+                              className="bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none"
+                            >
+                              <option value="date_desc">Urutkan: Terbaru</option>
+                              <option value="date_asc">Terlama</option>
+                              <option value="cost_desc">Harga Tertinggi ↓</option>
+                              <option value="cost_asc">Harga Terendah ↑</option>
+                              <option value="name_asc">Nama (A-Z)</option>
+                            </select>
+                          </div>
                         </div>
 
                         <div className="overflow-x-auto max-h-[520px] overflow-y-auto border border-slate-200 rounded-xl">
@@ -5491,13 +5522,31 @@ export default function AdminDashboardPage() {
                                 </tr>
                               ) : (
                                 (() => {
-                                  const filteredAssets = financeData.capitalAssets.filter((a: any) =>
-                                    assetTypeFilter === "all"
-                                      ? true
-                                      : assetTypeFilter === "tidak_bergerak"
-                                      ? a.asset_type === "tidak_bergerak"
-                                      : a.asset_type !== "tidak_bergerak"
-                                  );
+                                  const q = assetSearch.trim().toLowerCase();
+                                  const filteredAssets = financeData.capitalAssets
+                                    .filter((a: any) => {
+                                      const matchType =
+                                        assetTypeFilter === "all"
+                                          ? true
+                                          : assetTypeFilter === "tidak_bergerak"
+                                          ? a.asset_type === "tidak_bergerak"
+                                          : a.asset_type !== "tidak_bergerak";
+                                      if (!matchType) return false;
+                                      if (!q) return true;
+                                      return (
+                                        String(a.name || "").toLowerCase().includes(q) ||
+                                        String(a.category || "").toLowerCase().includes(q) ||
+                                        String(a.notes || "").toLowerCase().includes(q) ||
+                                        String(a.outlet?.name || "").toLowerCase().includes(q)
+                                      );
+                                    })
+                                    .sort((a: any, b: any) => {
+                                      if (assetSort === "date_asc") return new Date(a.purchase_date).getTime() - new Date(b.purchase_date).getTime();
+                                      if (assetSort === "cost_desc") return (b.cost || 0) - (a.cost || 0);
+                                      if (assetSort === "cost_asc") return (a.cost || 0) - (b.cost || 0);
+                                      if (assetSort === "name_asc") return String(a.name || "").localeCompare(String(b.name || ""));
+                                      return new Date(b.purchase_date).getTime() - new Date(a.purchase_date).getTime();
+                                    });
                                   const totalPages = Math.max(1, Math.ceil(filteredAssets.length / 40));
                                   const safePage = Math.min(assetPage, totalPages);
                                   return filteredAssets
@@ -5557,13 +5606,23 @@ export default function AdminDashboardPage() {
                           </table>
                         </div>
                         {(() => {
-                          const filteredAssets = (financeData?.capitalAssets || []).filter((a: any) =>
-                            assetTypeFilter === "all"
-                              ? true
-                              : assetTypeFilter === "tidak_bergerak"
-                              ? a.asset_type === "tidak_bergerak"
-                              : a.asset_type !== "tidak_bergerak"
-                          );
+                          const q = assetSearch.trim().toLowerCase();
+                          const filteredAssets = (financeData?.capitalAssets || []).filter((a: any) => {
+                            const matchType =
+                              assetTypeFilter === "all"
+                                ? true
+                                : assetTypeFilter === "tidak_bergerak"
+                                ? a.asset_type === "tidak_bergerak"
+                                : a.asset_type !== "tidak_bergerak";
+                            if (!matchType) return false;
+                            if (!q) return true;
+                            return (
+                              String(a.name || "").toLowerCase().includes(q) ||
+                              String(a.category || "").toLowerCase().includes(q) ||
+                              String(a.notes || "").toLowerCase().includes(q) ||
+                              String(a.outlet?.name || "").toLowerCase().includes(q)
+                            );
+                          });
                           if (filteredAssets.length === 0) return null;
                           const totalPages = Math.max(1, Math.ceil(filteredAssets.length / 40));
                           const safePage = Math.min(assetPage, totalPages);
