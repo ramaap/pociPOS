@@ -205,11 +205,15 @@ JANGAN gunakan pembungkus markdown (tanpa \`\`\`json atau \`\`\`), dan JANGAN se
       // Parsing JSON
       let parsedItems: any[] = [];
       try {
-        const cleanJsonStr = rawTextResult
+        const stripped = rawTextResult
           .replace(/^```json\s*/i, "")
           .replace(/^```\s*/, "")
           .replace(/```$/g, "")
           .trim();
+        const arrStart = stripped.indexOf("[");
+        const arrEnd = stripped.lastIndexOf("]");
+        const cleanJsonStr =
+          arrStart !== -1 && arrEnd > arrStart ? stripped.slice(arrStart, arrEnd + 1) : stripped;
         parsedItems = JSON.parse(cleanJsonStr);
         if (!Array.isArray(parsedItems)) {
           if (typeof parsedItems === "object" && (parsedItems as any).items) {
