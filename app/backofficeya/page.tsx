@@ -225,6 +225,7 @@ export default function AdminDashboardPage() {
   const [centralStockSort, setCentralStockSort] = useState<"name_asc" | "stock_asc" | "stock_desc">("name_asc");
   const [boothStockSearch, setBoothStockSearch] = useState<string>("");
   const [boothStockSort, setBoothStockSort] = useState<"name_asc" | "stock_asc" | "stock_desc">("name_asc");
+  const [assetPage, setAssetPage] = useState<number>(1);
   const [ttsGeneratingId, setTtsGeneratingId] = useState<string | null>(null);
   const [draftVoiceMap, setDraftVoiceMap] = useState<Record<string, string>>({});
   const [draftScriptMap, setDraftScriptMap] = useState<Record<string, string>>({});
@@ -5311,9 +5312,9 @@ export default function AdminDashboardPage() {
                           </button>
                         </div>
 
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto max-h-[520px] overflow-y-auto border border-slate-200 rounded-xl">
                           <table className="w-full text-left border-collapse text-xs">
-                            <thead>
+                            <thead className="sticky top-0 z-10 bg-slate-50 shadow-2xs">
                               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
                                 <th className="py-2.5 px-3">Tanggal Setor</th>
                                 <th className="py-2.5 px-3">Sumber Modal / Penyetor</th>
@@ -5428,7 +5429,7 @@ export default function AdminDashboardPage() {
                         <div className="flex flex-wrap items-center gap-2 pt-1">
                           <button
                             type="button"
-                            onClick={() => setAssetTypeFilter("all")}
+                            onClick={() => { setAssetTypeFilter("all"); setAssetPage(1); }}
                             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
                               assetTypeFilter === "all"
                                 ? "bg-slate-900 text-white shadow-xs"
@@ -5439,7 +5440,7 @@ export default function AdminDashboardPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => setAssetTypeFilter("tidak_bergerak")}
+                            onClick={() => { setAssetTypeFilter("tidak_bergerak"); setAssetPage(1); }}
                             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
                               assetTypeFilter === "tidak_bergerak"
                                 ? "bg-emerald-700 text-white shadow-xs"
@@ -5453,7 +5454,7 @@ export default function AdminDashboardPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => setAssetTypeFilter("bergerak")}
+                            onClick={() => { setAssetTypeFilter("bergerak"); setAssetPage(1); }}
                             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
                               assetTypeFilter === "bergerak"
                                 ? "bg-amber-700 text-white shadow-xs"
@@ -5467,9 +5468,9 @@ export default function AdminDashboardPage() {
                           </button>
                         </div>
 
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto max-h-[520px] overflow-y-auto border border-slate-200 rounded-xl">
                           <table className="w-full text-left border-collapse text-xs">
-                            <thead>
+                            <thead className="sticky top-0 z-10 bg-slate-50 shadow-2xs">
                               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
                                 <th className="py-2.5 px-3">Tgl Beli</th>
                                 <th className="py-2.5 px-3">Nama Aset / Peralatan</th>
@@ -5489,15 +5490,19 @@ export default function AdminDashboardPage() {
                                   </td>
                                 </tr>
                               ) : (
-                                financeData.capitalAssets
-                                  .filter((a: any) =>
+                                (() => {
+                                  const filteredAssets = financeData.capitalAssets.filter((a: any) =>
                                     assetTypeFilter === "all"
                                       ? true
                                       : assetTypeFilter === "tidak_bergerak"
                                       ? a.asset_type === "tidak_bergerak"
                                       : a.asset_type !== "tidak_bergerak"
-                                  )
-                                  .map((a: any) => (
+                                  );
+                                  const totalPages = Math.max(1, Math.ceil(filteredAssets.length / 40));
+                                  const safePage = Math.min(assetPage, totalPages);
+                                  return filteredAssets
+                                    .slice((safePage - 1) * 40, safePage * 40)
+                                    .map((a: any) => (
                                     <tr key={a.id} className="hover:bg-slate-50/70 transition">
                                       <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
                                         {new Date(a.purchase_date).toLocaleDateString("id-ID", {
@@ -5545,11 +5550,51 @@ export default function AdminDashboardPage() {
                                         </button>
                                       </td>
                                     </tr>
-                                  ))
+                                  ));
+                                })()
                               )}
                             </tbody>
                           </table>
                         </div>
+                        {(() => {
+                          const filteredAssets = (financeData?.capitalAssets || []).filter((a: any) =>
+                            assetTypeFilter === "all"
+                              ? true
+                              : assetTypeFilter === "tidak_bergerak"
+                              ? a.asset_type === "tidak_bergerak"
+                              : a.asset_type !== "tidak_bergerak"
+                          );
+                          if (filteredAssets.length === 0) return null;
+                          const totalPages = Math.max(1, Math.ceil(filteredAssets.length / 40));
+                          const safePage = Math.min(assetPage, totalPages);
+                          const startIdx = (safePage - 1) * 40 + 1;
+                          const endIdx = Math.min(safePage * 40, filteredAssets.length);
+                          return (
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-xs text-slate-600">
+                              <span>
+                                Menampilkan <b>{startIdx}–{endIdx}</b> dari <b>{filteredAssets.length}</b> aset (Hal {safePage}/{totalPages})
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  disabled={safePage <= 1}
+                                  onClick={() => setAssetPage((p) => Math.max(1, p - 1))}
+                                  className="px-3 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 font-bold disabled:opacity-40 cursor-pointer"
+                                >
+                                  ← Sebelumnya
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={safePage >= totalPages}
+                                  onClick={() => setAssetPage((p) => Math.min(totalPages, p + 1))}
+                                  className="px-3 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 font-bold disabled:opacity-40 cursor-pointer"
+                                >
+                                  Berikutnya →
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* TABEL 3: PENGELUARAN RnD (RISET & PENGEMBANGAN) */}
@@ -5586,9 +5631,9 @@ export default function AdminDashboardPage() {
                           </button>
                         </div>
 
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto max-h-[520px] overflow-y-auto border border-slate-200 rounded-xl">
                           <table className="w-full text-left border-collapse text-xs">
-                            <thead>
+                            <thead className="sticky top-0 z-10 bg-slate-50 shadow-2xs">
                               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
                                 <th className="py-2.5 px-3">Tanggal</th>
                                 <th className="py-2.5 px-3">Kegiatan RnD</th>
