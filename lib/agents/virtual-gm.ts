@@ -192,22 +192,53 @@ export async function handleOwnerMessage(text: string): Promise<void> {
     const { startUtc: todayStart, endUtc: todayEnd } = getWibDayRange(todayStr);
     const sevenDaysAgo = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
 
-    const [outlets, recentTxs, materials, boothStocks, recentClosings, memory] =
-      await Promise.all([
-        prisma.outlet.findMany({ where: { active_status: true }, orderBy: { code: "asc" } }),
-        prisma.transaction.findMany({
-          where: { created_at: { gte: sevenDaysAgo, lte: todayEnd } },
-          include: { items: { include: { product: { select: { name: true } } } } },
-        }),
-        prisma.rawMaterial.findMany({ orderBy: { name: "asc" } }),
-        prisma.boothStock.findMany({ include: { outlet: true, raw_material: true } }),
-        prisma.shiftClosing.findMany({
-          where: { date: { gte: sevenDaysAgo, lte: todayEnd } },
-          orderBy: { date: "desc" },
-          take: 15,
-        }),
-        getOwnerMemoryContext(),
-      ]);
+    const [
+      outlets,
+      recentTxs,
+      materials,
+      boothStocks,
+      recentClosings,
+      memory,
+      aggCap,
+      aggAsset,
+      aggRnd,
+      aggOpex,
+      recentExpenses,
+    ] = await Promise.all([
+      prisma.outlet.findMany({ where: { active_status: true }, orderBy: { code: "asc" } }),
+      prisma.transaction.findMany({
+        where: { created_at: { gte: sevenDaysAgo, lte: todayEnd } },
+        include: { items: { include: { product: { select: { name: true } } } } },
+      }),
+      prisma.rawMaterial.findMany({ orderBy: { name: "asc" } }),
+      prisma.boothStock.findMany({ include: { outlet: true, raw_material: true } }),
+      prisma.shiftClosing.findMany({
+        where: { date: { gte: sevenDaysAgo, lte: todayEnd } },
+        orderBy: { date: "desc" },
+        take: 15,
+      }),
+      getOwnerMemoryContext(),
+      prisma.initialCapital.aggregate({ _sum: { amount: true } }),
+      prisma.capitalAsset.aggregate({ _sum: { cost: true } }),
+      prisma.rndExpense.aggregate({ _sum: { amount: true } }),
+      prisma.expense.aggregate({ _sum: { amount: true } }),
+      prisma.expense.findMany({
+        where: { date: { gte: sevenDaysAgo, lte: todayEnd } },
+        orderBy: { date: "desc" },
+        take: 15,
+      }),
+    ]);
+
+    const totalModalDisetor = aggCap._sum.amount || 0;
+    const totalCapex = aggAsset._sum.cost || 0;
+    const totalRnd = aggRnd._sum.amount || 0;
+    const totalOpexAllTime = aggOpex._sum.amount || 0;
+    const sisaKasModalAwal = totalModalDisetor - totalCapex - totalRnd - totalOpexAllTime;
+    const recentOpexLines = recentExpenses.map((e) => {
+      const d = getWibDateStr(e.date);
+      const oName = e.outlet_id ? outlets.find((o) => o.id === e.outlet_id)?.name || e.outlet_id : "Semua Kedai";
+      return `- [${d}] (${oName} | ${e.category}) ${e.description}: Rp ${e.amount.toLocaleString("id-ID")}`;
+    });
 
     // Agregasi omzet 7 hari terakhir per tanggal WIB
     const dailyMap = new Map<string, { rev: number; cups: number }>();
@@ -299,6 +330,16 @@ ${lowBoothLines.join("\n") || "(semua aman)"}
 
 Riwayat Tutup Shift 7 Hari Terakhir:
 ${closingLines.join("\n") || "(belum ada data closing)"}
+
+Ringkasan Keuangan & Modal Usaha (Real-time):
+- Total Modal Disetor: Rp ${totalModalDisetor.toLocaleString("id-ID")}
+- Total Pembelian Aset (CAPEX): Rp ${totalCapex.toLocaleString("id-ID")}
+- Total Pengeluaran Riset (RnD): Rp ${totalRnd.toLocaleString("id-ID")}
+- Total Pengeluaran Harian (Variable OPEX All-Time): Rp ${totalOpexAllTime.toLocaleString("id-ID")}
+- Sisa Kas Modal Awal (Bank): Rp ${sisaKasModalAwal.toLocaleString("id-ID")}
+
+Pengeluaran Harian Terbaru (7 Hari Terakhir):
+${recentOpexLines.join("\n") || "(belum ada pengeluaran 7 hari terakhir)"}
 </database_data>
 `.trim();
 
