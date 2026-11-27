@@ -9214,14 +9214,22 @@ export default function AdminDashboardPage() {
                   </div>
                 ) : (
                   <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                    {backupList.map((item, idx) => (
+                    {backupList.map((item, idx) => {
+                      const isMaster =
+                        item.trigger === "master_checkpoint" ||
+                        String(item.filename || "").startsWith("MASTER_CHECKPOINT_");
+                      return (
                       <div
                         key={idx}
-                        className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs hover:bg-slate-100 transition"
+                        className={`p-2.5 border rounded-xl flex items-center justify-between text-xs transition ${
+                          isMaster
+                            ? "bg-amber-50/90 border-amber-300 hover:bg-amber-100/80"
+                            : "bg-slate-50 border-slate-200 hover:bg-slate-100"
+                        }`}
                       >
                         <div className="truncate mr-2">
                           <p className="font-mono font-bold text-[11px] text-slate-800 truncate">
-                            {item.filename}
+                            {isMaster ? `⭐ ${item.filename}` : item.filename}
                           </p>
                           <p className="text-[10px] text-slate-500">
                             {new Date(item.timestamp).toLocaleString("id-ID", {
@@ -9229,8 +9237,12 @@ export default function AdminDashboardPage() {
                               timeStyle: "short",
                             })}{" "}
                             &bull; {item.sizeReadable || (item.sizeBytes ? (item.sizeBytes / 1024).toFixed(1) + " KB" : "-")} &bull;{" "}
-                            <span className="font-semibold text-slate-600">
-                              {item.trigger === "scheduled_cron" ? "⏰ Terjadwal (Cron)" : "👤 Manual"}
+                            <span className={`font-semibold ${isMaster ? "text-amber-800" : "text-slate-600"}`}>
+                              {isMaster
+                                ? "⭐ Master Checkpoint (Pra 1 Des)"
+                                : item.trigger === "scheduled_cron"
+                                  ? "⏰ Terjadwal (Cron)"
+                                  : "👤 Manual"}
                             </span>
                           </p>
                         </div>
@@ -9258,7 +9270,8 @@ export default function AdminDashboardPage() {
                           </a>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

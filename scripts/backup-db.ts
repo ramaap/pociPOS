@@ -23,7 +23,12 @@ export interface BackupResult {
   error?: string;
 }
 
-export function performDatabaseBackup(trigger: "scheduled_cron" | "manual" = "manual"): BackupResult {
+export type BackupTrigger = "scheduled_cron" | "manual" | "master_checkpoint";
+
+export function performDatabaseBackup(
+  trigger: BackupTrigger = "manual",
+  customFilename?: string
+): BackupResult {
   try {
     if (!fs.existsSync(DB_SOURCE_PATH)) {
       throw new Error(`File database sumber tidak ditemukan di: ${DB_SOURCE_PATH}`);
@@ -35,7 +40,8 @@ export function performDatabaseBackup(trigger: "scheduled_cron" | "manual" = "ma
 
     const now = new Date();
     const dateStr = now.toISOString().replace(/T/, "_").replace(/:/g, "-").replace(/\..+/, "");
-    const filename = `tehpoci_backup_${dateStr}.sqlite`;
+    const safeCustom = customFilename ? path.basename(customFilename) : undefined;
+    const filename = safeCustom || `tehpoci_backup_${dateStr}.sqlite`;
     const targetPath = path.join(BACKUP_DIR, filename);
 
     // Salin file dev.db
@@ -78,12 +84,18 @@ export function performDatabaseBackup(trigger: "scheduled_cron" | "manual" = "ma
       trigger,
     };
 
-    history.unshift(newRecord);
+    const isMasterEntry = (item: any) =>
+      item?.trigger === "master_checkpoint" || String(item?.filename || "").startsWith("MASTER_CHECKPOINT_");
 
-    // Retensi: bersihkan backup yang lebih dari MAX_BACKUPS_RETENTION
-    if (history.length > MAX_BACKUPS_RETENTION) {
-      const removed = history.slice(MAX_BACKUPS_RETENTION);
-      history = history.slice(0, MAX_BACKUPS_RETENTION);
+    history = [newRecord, ...history.filter((item) => item?.filename !== filename)];
+
+    // Retensi: lindungi master checkpoint, hanya bersihkan backup reguler > MAX_BACKUPS_RETENTION
+    const protectedItems = history.filter(isMasterEntry);
+    const regularItems = history.filter((item) => !isMasterEntry(item));
+    if (regularItems.length > MAX_BACKUPS_RETENTION) {
+      const removed = regularItems.slice(MAX_BACKUPS_RETENTION);
+      const keptRegular = regularItems.slice(0, MAX_BACKUPS_RETENTION);
+      history = [...protectedItems, ...keptRegular];
 
       for (const item of removed) {
         const oldFile = path.join(BACKUP_DIR, item.filename);
@@ -103,6 +115,8 @@ export function performDatabaseBackup(trigger: "scheduled_cron" | "manual" = "ma
           } catch {}
         }
       }
+    } else {
+      history = [...protectedItems, ...regularItems];
     }
 
     fs.writeFileSync(LOG_FILE, JSON.stringify(history, null, 2), "utf-8");
