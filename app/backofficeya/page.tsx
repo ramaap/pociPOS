@@ -228,6 +228,62 @@ export default function AdminDashboardPage() {
   const [assetPage, setAssetPage] = useState<number>(1);
   const [assetSearch, setAssetSearch] = useState<string>("");
   const [assetSort, setAssetSort] = useState<"date_desc" | "date_asc" | "cost_desc" | "cost_asc" | "name_asc">("date_desc");
+  const [tablePages, setTablePages] = useState<Record<string, number>>({});
+  const LIST_PAGE_SIZE = 30;
+  const paginateList = <T,>(items: T[], key: string) => {
+    const total = items.length;
+    const totalPages = Math.max(1, Math.ceil(total / LIST_PAGE_SIZE));
+    const currentPage = Math.min(tablePages[key] || 1, totalPages);
+    const pagedItems =
+      total > LIST_PAGE_SIZE
+        ? items.slice((currentPage - 1) * LIST_PAGE_SIZE, currentPage * LIST_PAGE_SIZE)
+        : items;
+    return {
+      pagedItems,
+      total,
+      needsScroll: pagedItems.length > 15,
+    };
+  };
+  const renderTablePagination = (key: string, total: number, dark = false) => {
+    if (total <= LIST_PAGE_SIZE) return null;
+    const totalPages = Math.max(1, Math.ceil(total / LIST_PAGE_SIZE));
+    const currentPage = Math.min(tablePages[key] || 1, totalPages);
+    const startIdx = (currentPage - 1) * LIST_PAGE_SIZE + 1;
+    const endIdx = Math.min(currentPage * LIST_PAGE_SIZE, total);
+    return (
+      <div className={`flex flex-wrap items-center justify-between gap-2 pt-2 text-xs ${dark ? "text-slate-300" : "text-slate-600"}`}>
+        <span>
+          Menampilkan <b>{startIdx}–{endIdx}</b> dari <b>{total}</b> data (Hal {currentPage}/{totalPages})
+        </span>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            disabled={currentPage <= 1}
+            onClick={() => setTablePages((prev) => ({ ...prev, [key]: Math.max(1, currentPage - 1) }))}
+            className={`px-3 py-1 rounded-lg border font-bold disabled:opacity-40 cursor-pointer ${
+              dark
+                ? "border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200"
+                : "border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
+            }`}
+          >
+            ← Sebelumnya
+          </button>
+          <button
+            type="button"
+            disabled={currentPage >= totalPages}
+            onClick={() => setTablePages((prev) => ({ ...prev, [key]: Math.min(totalPages, currentPage + 1) }))}
+            className={`px-3 py-1 rounded-lg border font-bold disabled:opacity-40 cursor-pointer ${
+              dark
+                ? "border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200"
+                : "border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
+            }`}
+          >
+            Berikutnya →
+          </button>
+        </div>
+      </div>
+    );
+  };
   const [ttsGeneratingId, setTtsGeneratingId] = useState<string | null>(null);
   const [draftVoiceMap, setDraftVoiceMap] = useState<Record<string, string>>({});
   const [draftScriptMap, setDraftScriptMap] = useState<Record<string, string>>({});
@@ -4416,66 +4472,74 @@ export default function AdminDashboardPage() {
                       </span>
                     </div>
 
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                            <th className="py-2.5 px-3">Tanggal</th>
-                            <th className="py-2.5 px-3 text-right">Kas Masuk (Inflow)</th>
-                            <th className="py-2.5 px-3 text-right">Kas Keluar (Outflow)</th>
-                            <th className="py-2.5 px-3 text-right">Arus Kas Bersih (Net)</th>
-                            <th className="py-2.5 px-3 text-center">Status Arus Kas</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 font-mono">
-                          {!financeData?.timeline || financeData.timeline.length === 0 ? (
-                            <tr>
-                              <td colSpan={5} className="py-8 text-center text-slate-400 font-sans">
-                                Belum ada riwayat pergerakan kas di periode ini
-                              </td>
-                            </tr>
-                          ) : (
-                            financeData.timeline.map((d: any, idx: number) => {
-                              const net = (d.inflow || d.revenue || 0) - (d.outflow || 0);
-                              return (
-                                <tr key={idx} className="hover:bg-slate-50/70 transition">
-                                  <td className="py-2.5 px-3 font-sans font-bold text-slate-800">
-                                    {d.label} ({d.date})
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right font-bold text-emerald-700">
-                                    +{formatRupiah(d.inflow || d.revenue || 0)}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right font-bold text-rose-600">
-                                    {d.outflow > 0 ? `-${formatRupiah(d.outflow)}` : "Rp 0"}
-                                  </td>
-                                  <td
-                                    className={`py-2.5 px-3 text-right font-black ${
-                                      net >= 0 ? "text-emerald-700" : "text-rose-600"
-                                    }`}
-                                  >
-                                    {net >= 0 ? "+" : ""}
-                                    {formatRupiah(net)}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center font-sans">
-                                    <span
-                                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                        net > 0
-                                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                          : net === 0
-                                          ? "bg-slate-50 text-slate-500"
-                                          : "bg-rose-50 text-rose-700 border border-rose-200"
-                                      }`}
-                                    >
-                                      {net > 0 ? "Surplus" : net === 0 ? "Impas (Rp 0)" : "Defisit"}
-                                    </span>
-                                  </td>
+                    {(() => {
+                      const { pagedItems, total, needsScroll } = paginateList(financeData?.timeline || [], "timeline");
+                      return (
+                        <>
+                          <div className={`overflow-x-auto ${needsScroll ? "max-h-[600px] overflow-y-auto border border-slate-200 rounded-xl" : ""}`}>
+                            <table className="w-full text-left border-collapse text-xs">
+                              <thead className={needsScroll ? "sticky top-0 z-10 bg-slate-50 shadow-2xs" : ""}>
+                                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                                  <th className="py-2.5 px-3">Tanggal</th>
+                                  <th className="py-2.5 px-3 text-right">Kas Masuk (Inflow)</th>
+                                  <th className="py-2.5 px-3 text-right">Kas Keluar (Outflow)</th>
+                                  <th className="py-2.5 px-3 text-right">Arus Kas Bersih (Net)</th>
+                                  <th className="py-2.5 px-3 text-center">Status Arus Kas</th>
                                 </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 font-mono">
+                                {pagedItems.length === 0 ? (
+                                  <tr>
+                                    <td colSpan={5} className="py-8 text-center text-slate-400 font-sans">
+                                      Belum ada riwayat pergerakan kas di periode ini
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  pagedItems.map((d: any, idx: number) => {
+                                    const net = (d.inflow || d.revenue || 0) - (d.outflow || 0);
+                                    return (
+                                      <tr key={idx} className="hover:bg-slate-50/70 transition">
+                                        <td className="py-2.5 px-3 font-sans font-bold text-slate-800">
+                                          {d.label} ({d.date})
+                                        </td>
+                                        <td className="py-2.5 px-3 text-right font-bold text-emerald-700">
+                                          +{formatRupiah(d.inflow || d.revenue || 0)}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-right font-bold text-rose-600">
+                                          {d.outflow > 0 ? `-${formatRupiah(d.outflow)}` : "Rp 0"}
+                                        </td>
+                                        <td
+                                          className={`py-2.5 px-3 text-right font-black ${
+                                            net >= 0 ? "text-emerald-700" : "text-rose-600"
+                                          }`}
+                                        >
+                                          {net >= 0 ? "+" : ""}
+                                          {formatRupiah(net)}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-center font-sans">
+                                          <span
+                                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                              net > 0
+                                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                : net === 0
+                                                ? "bg-slate-50 text-slate-500"
+                                                : "bg-rose-50 text-rose-700 border border-rose-200"
+                                            }`}
+                                          >
+                                            {net > 0 ? "Surplus" : net === 0 ? "Impas (Rp 0)" : "Defisit"}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                          {renderTablePagination("timeline", total)}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -4645,53 +4709,61 @@ export default function AdminDashboardPage() {
                       <span className="text-xs text-slate-400">Dihitung otomatis dari resep BOM</span>
                     </div>
 
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                            <th className="py-2.5 px-3">Menu</th>
-                            <th className="py-2.5 px-3">Kategori</th>
-                            <th className="py-2.5 px-3 text-center">Volume</th>
-                            <th className="py-2.5 px-3 text-right">Omset</th>
-                            <th className="py-2.5 px-3 text-right">Total HPP</th>
-                            <th className="py-2.5 px-3 text-right">Laba Kotor</th>
-                            <th className="py-2.5 px-3 text-center">Margin</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 font-mono">
-                          {!financeData?.productSales || financeData.productSales.length === 0 ? (
-                            <tr>
-                              <td colSpan={7} className="py-8 text-center text-slate-400 font-sans">
-                                Belum ada data penjualan menu
-                              </td>
-                            </tr>
-                          ) : (
-                            financeData.productSales.map((p: any) => (
-                              <tr key={p.id} className="hover:bg-slate-50/70 transition">
-                                <td className="py-2.5 px-3 font-bold font-sans text-slate-900">{p.name}</td>
-                                <td className="py-2.5 px-3 font-sans text-slate-500 capitalize">{p.category}</td>
-                                <td className="py-2.5 px-3 text-center font-bold text-slate-700">
-                                  <div>{p.paidQuantity !== undefined ? p.paidQuantity : p.quantity} cup</div>
-                                  {(p.freeQuantity || 0) > 0 && (
-                                    <div className="text-[10px] text-amber-700 font-bold">
-                                      +{p.freeQuantity} gratis
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="py-2.5 px-3 text-right font-bold text-slate-900">{formatRupiah(p.revenue)}</td>
-                                <td className="py-2.5 px-3 text-right text-rose-600">{formatRupiah(p.hpp)}</td>
-                                <td className="py-2.5 px-3 text-right font-bold text-emerald-700">{formatRupiah(p.grossProfit)}</td>
-                                <td className="py-2.5 px-3 text-center">
-                                  <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-emerald-50 text-emerald-800">
-                                    {p.marginPercent}%
-                                  </span>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                    {(() => {
+                      const { pagedItems, total, needsScroll } = paginateList(financeData?.productSales || [], "productSales");
+                      return (
+                        <>
+                          <div className={`overflow-x-auto ${needsScroll ? "max-h-[600px] overflow-y-auto border border-slate-200 rounded-xl" : ""}`}>
+                            <table className="w-full text-left border-collapse text-xs">
+                              <thead className={needsScroll ? "sticky top-0 z-10 bg-slate-50 shadow-2xs" : ""}>
+                                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                                  <th className="py-2.5 px-3">Menu</th>
+                                  <th className="py-2.5 px-3">Kategori</th>
+                                  <th className="py-2.5 px-3 text-center">Volume</th>
+                                  <th className="py-2.5 px-3 text-right">Omset</th>
+                                  <th className="py-2.5 px-3 text-right">Total HPP</th>
+                                  <th className="py-2.5 px-3 text-right">Laba Kotor</th>
+                                  <th className="py-2.5 px-3 text-center">Margin</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 font-mono">
+                                {pagedItems.length === 0 ? (
+                                  <tr>
+                                    <td colSpan={7} className="py-8 text-center text-slate-400 font-sans">
+                                      Belum ada data penjualan menu
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  pagedItems.map((p: any) => (
+                                    <tr key={p.id} className="hover:bg-slate-50/70 transition">
+                                      <td className="py-2.5 px-3 font-bold font-sans text-slate-900">{p.name}</td>
+                                      <td className="py-2.5 px-3 font-sans text-slate-500 capitalize">{p.category}</td>
+                                      <td className="py-2.5 px-3 text-center font-bold text-slate-700">
+                                        <div>{p.paidQuantity !== undefined ? p.paidQuantity : p.quantity} cup</div>
+                                        {(p.freeQuantity || 0) > 0 && (
+                                          <div className="text-[10px] text-amber-700 font-bold">
+                                            +{p.freeQuantity} gratis
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right font-bold text-slate-900">{formatRupiah(p.revenue)}</td>
+                                      <td className="py-2.5 px-3 text-right text-rose-600">{formatRupiah(p.hpp)}</td>
+                                      <td className="py-2.5 px-3 text-right font-bold text-emerald-700">{formatRupiah(p.grossProfit)}</td>
+                                      <td className="py-2.5 px-3 text-center">
+                                        <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-emerald-50 text-emerald-800">
+                                          {p.marginPercent}%
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                          {renderTablePagination("productSales", total)}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -5027,29 +5099,33 @@ export default function AdminDashboardPage() {
                       </div>
 
                       {/* Tabel Beban Tetap */}
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs">
-                          <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                              <th className="py-2.5 px-3">Nama Beban Tetap</th>
-                              <th className="py-2.5 px-3">Kategori</th>
-                              <th className="py-2.5 px-3">Kedai / Alokasi</th>
-                              <th className="py-2.5 px-3 text-right">Biaya / Bulan</th>
-                              <th className="py-2.5 px-3 text-right">Biaya / Hari</th>
-                              <th className="py-2.5 px-3">Catatan</th>
-                              <th className="py-2.5 px-3 text-center">Status</th>
-                              <th className="py-2.5 px-3 text-center">Aksi</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {!financeData?.fixedCosts || financeData.fixedCosts.length === 0 ? (
-                              <tr>
-                                <td colSpan={8} className="py-8 text-center text-slate-400">
-                                  Belum ada komponen beban tetap yang diatur. Klik &quot;+ Tambah Beban Tetap&quot; untuk menambahkan.
-                                </td>
-                              </tr>
-                            ) : (
-                              financeData.fixedCosts.map((fc: any) => (
+                      {(() => {
+                        const { pagedItems, total, needsScroll } = paginateList(financeData?.fixedCosts || [], "fixedCosts");
+                        return (
+                          <>
+                            <div className={`overflow-x-auto ${needsScroll ? "max-h-[600px] overflow-y-auto border border-slate-200 rounded-xl" : ""}`}>
+                              <table className="w-full text-left border-collapse text-xs">
+                                <thead className={needsScroll ? "sticky top-0 z-10 bg-slate-50 shadow-2xs" : ""}>
+                                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                                    <th className="py-2.5 px-3">Nama Beban Tetap</th>
+                                    <th className="py-2.5 px-3">Kategori</th>
+                                    <th className="py-2.5 px-3">Kedai / Alokasi</th>
+                                    <th className="py-2.5 px-3 text-right">Biaya / Bulan</th>
+                                    <th className="py-2.5 px-3 text-right">Biaya / Hari</th>
+                                    <th className="py-2.5 px-3">Catatan</th>
+                                    <th className="py-2.5 px-3 text-center">Status</th>
+                                    <th className="py-2.5 px-3 text-center">Aksi</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {pagedItems.length === 0 ? (
+                                    <tr>
+                                      <td colSpan={8} className="py-8 text-center text-slate-400">
+                                        Belum ada komponen beban tetap yang diatur. Klik &quot;+ Tambah Beban Tetap&quot; untuk menambahkan.
+                                      </td>
+                                    </tr>
+                                  ) : (
+                                    pagedItems.map((fc: any) => (
                                 <tr key={fc.id} className="hover:bg-slate-50/70 transition">
                                   <td className="py-2.5 px-3 font-bold text-slate-900">
                                     <div className="flex items-center gap-1.5">
@@ -5123,6 +5199,10 @@ export default function AdminDashboardPage() {
                           </tbody>
                         </table>
                       </div>
+                      {renderTablePagination("fixedCosts", total)}
+                    </>
+                  );
+                })()}
                     </div>
                   )}
 
@@ -5164,62 +5244,70 @@ export default function AdminDashboardPage() {
                         </div>
                       </div>
 
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs">
-                          <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                              <th className="py-2.5 px-3">Tanggal</th>
-                              <th className="py-2.5 px-3">Kedai</th>
-                              <th className="py-2.5 px-3">Kategori</th>
-                              <th className="py-2.5 px-3">Deskripsi Biaya</th>
-                              <th className="py-2.5 px-3 text-right">Nominal</th>
-                              <th className="py-2.5 px-3 text-center">Aksi</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {!financeData?.expenses || financeData.expenses.length === 0 ? (
-                              <tr>
-                                <td colSpan={6} className="py-8 text-center text-slate-400">
-                                  Belum ada pengeluaran yang dicatat di periode ini
-                                </td>
-                              </tr>
-                            ) : (
-                              financeData.expenses.map((e: any) => (
-                                <tr key={e.id} className="hover:bg-slate-50/70 transition">
-                                  <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
-                                    {new Date(e.date).toLocaleDateString("id-ID", {
-                                      day: "2-digit",
-                                      month: "short",
-                                      year: "numeric",
-                                    })}
-                                  </td>
-                                  <td className="py-2.5 px-3 font-bold text-slate-800">
-                                    {e.outlet?.name || "Semua Kedai"}
-                                  </td>
-                                  <td className="py-2.5 px-3 capitalize">
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                                      {e.category}
-                                    </span>
-                                  </td>
-                                  <td className="py-2.5 px-3 text-slate-800">{e.description}</td>
-                                  <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-600">
-                                    {formatRupiah(e.amount)}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center">
-                                    <button
-                                      onClick={() => handleDeleteExpense(e.id)}
-                                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                      title="Hapus Biaya"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
+                      {(() => {
+                        const { pagedItems, total, needsScroll } = paginateList(financeData?.expenses || [], "expenses");
+                        return (
+                          <>
+                            <div className={`overflow-x-auto ${needsScroll ? "max-h-[600px] overflow-y-auto border border-slate-200 rounded-xl" : ""}`}>
+                              <table className="w-full text-left border-collapse text-xs">
+                                <thead className={needsScroll ? "sticky top-0 z-10 bg-slate-50 shadow-2xs" : ""}>
+                                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                                    <th className="py-2.5 px-3">Tanggal</th>
+                                    <th className="py-2.5 px-3">Kedai</th>
+                                    <th className="py-2.5 px-3">Kategori</th>
+                                    <th className="py-2.5 px-3">Deskripsi Biaya</th>
+                                    <th className="py-2.5 px-3 text-right">Nominal</th>
+                                    <th className="py-2.5 px-3 text-center">Aksi</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {pagedItems.length === 0 ? (
+                                    <tr>
+                                      <td colSpan={6} className="py-8 text-center text-slate-400">
+                                        Belum ada pengeluaran yang dicatat di periode ini
+                                      </td>
+                                    </tr>
+                                  ) : (
+                                    pagedItems.map((e: any) => (
+                                      <tr key={e.id} className="hover:bg-slate-50/70 transition">
+                                        <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
+                                          {new Date(e.date).toLocaleDateString("id-ID", {
+                                            day: "2-digit",
+                                            month: "short",
+                                            year: "numeric",
+                                          })}
+                                        </td>
+                                        <td className="py-2.5 px-3 font-bold text-slate-800">
+                                          {e.outlet?.name || "Semua Kedai"}
+                                        </td>
+                                        <td className="py-2.5 px-3 capitalize">
+                                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                                            {e.category}
+                                          </span>
+                                        </td>
+                                        <td className="py-2.5 px-3 text-slate-800">{e.description}</td>
+                                        <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-600">
+                                          {formatRupiah(e.amount)}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-center">
+                                          <button
+                                            onClick={() => handleDeleteExpense(e.id)}
+                                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                            title="Hapus Biaya"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                            {renderTablePagination("expenses", total)}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -5347,62 +5435,70 @@ export default function AdminDashboardPage() {
                           </button>
                         </div>
 
-                        <div className="overflow-x-auto max-h-[520px] overflow-y-auto border border-slate-200 rounded-xl">
-                          <table className="w-full text-left border-collapse text-xs">
-                            <thead className="sticky top-0 z-10 bg-slate-50 shadow-2xs">
-                              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                                <th className="py-2.5 px-3">Tanggal Setor</th>
-                                <th className="py-2.5 px-3">Sumber Modal / Penyetor</th>
-                                <th className="py-2.5 px-3 text-right">Nominal Setoran</th>
-                                <th className="py-2.5 px-3">Catatan / Keterangan</th>
-                                <th className="py-2.5 px-3 text-center">Aksi</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {!financeData?.capitals || financeData.capitals.length === 0 ? (
-                                <tr>
-                                  <td colSpan={5} className="py-8 text-center text-slate-400">
-                                    Belum ada catatan setoran modal awal. Klik &quot;+ Setor Modal Awal&quot; untuk mencatat.
-                                  </td>
-                                </tr>
-                              ) : (
-                                financeData.capitals.map((c: any) => (
-                                  <tr key={c.id} className="hover:bg-slate-50/70 transition">
-                                    <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
-                                      {new Date(c.date).toLocaleDateString("id-ID", {
-                                        day: "2-digit",
-                                        month: "short",
-                                        year: "numeric",
-                                      })}
-                                    </td>
-                                    <td className="py-2.5 px-3 font-bold text-slate-900">
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                                        <span>{c.source}</span>
-                                      </div>
-                                    </td>
-                                    <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-800 text-xs">
-                                      {formatRupiah(c.amount)}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[200px] truncate" title={c.notes || ""}>
-                                      {c.notes || "-"}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-center">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteCapital(c.id, c.source)}
-                                        className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                        title="Hapus Setoran Modal"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
+                        {(() => {
+                          const { pagedItems, total, needsScroll } = paginateList(financeData?.capitals || [], "capitals");
+                          return (
+                            <>
+                              <div className={`overflow-x-auto ${needsScroll ? "max-h-[600px] overflow-y-auto border border-slate-200 rounded-xl" : ""}`}>
+                                <table className="w-full text-left border-collapse text-xs">
+                                  <thead className={needsScroll ? "sticky top-0 z-10 bg-slate-50 shadow-2xs" : ""}>
+                                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                                      <th className="py-2.5 px-3">Tanggal Setor</th>
+                                      <th className="py-2.5 px-3">Sumber Modal / Penyetor</th>
+                                      <th className="py-2.5 px-3 text-right">Nominal Setoran</th>
+                                      <th className="py-2.5 px-3">Catatan / Keterangan</th>
+                                      <th className="py-2.5 px-3 text-center">Aksi</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {pagedItems.length === 0 ? (
+                                      <tr>
+                                        <td colSpan={5} className="py-8 text-center text-slate-400">
+                                          Belum ada catatan setoran modal awal. Klik &quot;+ Setor Modal Awal&quot; untuk mencatat.
+                                        </td>
+                                      </tr>
+                                    ) : (
+                                      pagedItems.map((c: any) => (
+                                        <tr key={c.id} className="hover:bg-slate-50/70 transition">
+                                          <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
+                                            {new Date(c.date).toLocaleDateString("id-ID", {
+                                              day: "2-digit",
+                                              month: "short",
+                                              year: "numeric",
+                                            })}
+                                          </td>
+                                          <td className="py-2.5 px-3 font-bold text-slate-900">
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                                              <span>{c.source}</span>
+                                            </div>
+                                          </td>
+                                          <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-800 text-xs">
+                                            {formatRupiah(c.amount)}
+                                          </td>
+                                          <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[200px] truncate" title={c.notes || ""}>
+                                            {c.notes || "-"}
+                                          </td>
+                                          <td className="py-2.5 px-3 text-center">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDeleteCapital(c.id, c.source)}
+                                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                              title="Hapus Setoran Modal"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      ))
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                              {renderTablePagination("capitals", total)}
+                            </>
+                          );
+                        })()}
                       </div>
 
                       {/* TABEL 2: PEMBELIAN ASET TETAP (CAPEX) */}
@@ -5723,77 +5819,85 @@ export default function AdminDashboardPage() {
                           </button>
                         </div>
 
-                        <div className="overflow-x-auto max-h-[520px] overflow-y-auto border border-slate-200 rounded-xl">
-                          <table className="w-full text-left border-collapse text-xs">
-                            <thead className="sticky top-0 z-10 bg-slate-50 shadow-2xs">
-                              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                                <th className="py-2.5 px-3">Tanggal</th>
-                                <th className="py-2.5 px-3">Kegiatan RnD</th>
-                                <th className="py-2.5 px-3">Kategori</th>
-                                <th className="py-2.5 px-3 text-right">Biaya Riset</th>
-                                <th className="py-2.5 px-3 text-center">Status / Hasil</th>
-                                <th className="py-2.5 px-3">Keterangan</th>
-                                <th className="py-2.5 px-3 text-center">Aksi</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {!financeData?.rndExpenses || financeData.rndExpenses.length === 0 ? (
-                                <tr>
-                                  <td colSpan={7} className="py-8 text-center text-slate-400">
-                                    Belum ada pengeluaran RnD yang dicatat. Klik &quot;+ Catat Biaya RnD&quot; untuk mencatat.
-                                  </td>
-                                </tr>
-                              ) : (
-                                financeData.rndExpenses.map((r: any) => (
-                                  <tr key={r.id} className="hover:bg-slate-50/70 transition">
-                                    <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
-                                      {new Date(r.date).toLocaleDateString("id-ID", {
-                                        day: "2-digit",
-                                        month: "short",
-                                        year: "numeric",
-                                      })}
-                                    </td>
-                                    <td className="py-2.5 px-3 font-bold text-slate-900">
-                                      {r.title}
-                                    </td>
-                                    <td className="py-2.5 px-3 capitalize">
-                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                        {r.category}
-                                      </span>
-                                    </td>
-                                    <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-900 text-xs">
-                                      {formatRupiah(r.amount)}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-center">
-                                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                        r.outcome?.includes("Berhasil")
-                                          ? "bg-emerald-100 text-emerald-800"
-                                          : r.outcome?.includes("Evaluasi")
-                                          ? "bg-amber-100 text-amber-800"
-                                          : "bg-slate-100 text-slate-700"
-                                      }`}>
-                                        {r.outcome || "Selesai"}
-                                      </span>
-                                    </td>
-                                    <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[180px] truncate" title={r.notes || ""}>
-                                      {r.notes || "-"}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-center">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteRnd(r.id, r.title)}
-                                        className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                        title="Hapus RnD"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
+                        {(() => {
+                          const { pagedItems, total, needsScroll } = paginateList(financeData?.rndExpenses || [], "rndExpenses");
+                          return (
+                            <>
+                              <div className={`overflow-x-auto ${needsScroll ? "max-h-[600px] overflow-y-auto border border-slate-200 rounded-xl" : ""}`}>
+                                <table className="w-full text-left border-collapse text-xs">
+                                  <thead className={needsScroll ? "sticky top-0 z-10 bg-slate-50 shadow-2xs" : ""}>
+                                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                                      <th className="py-2.5 px-3">Tanggal</th>
+                                      <th className="py-2.5 px-3">Kegiatan RnD</th>
+                                      <th className="py-2.5 px-3">Kategori</th>
+                                      <th className="py-2.5 px-3 text-right">Biaya Riset</th>
+                                      <th className="py-2.5 px-3 text-center">Status / Hasil</th>
+                                      <th className="py-2.5 px-3">Keterangan</th>
+                                      <th className="py-2.5 px-3 text-center">Aksi</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {pagedItems.length === 0 ? (
+                                      <tr>
+                                        <td colSpan={7} className="py-8 text-center text-slate-400">
+                                          Belum ada pengeluaran RnD yang dicatat. Klik &quot;+ Catat Biaya RnD&quot; untuk mencatat.
+                                        </td>
+                                      </tr>
+                                    ) : (
+                                      pagedItems.map((r: any) => (
+                                        <tr key={r.id} className="hover:bg-slate-50/70 transition">
+                                          <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
+                                            {new Date(r.date).toLocaleDateString("id-ID", {
+                                              day: "2-digit",
+                                              month: "short",
+                                              year: "numeric",
+                                            })}
+                                          </td>
+                                          <td className="py-2.5 px-3 font-bold text-slate-900">
+                                            {r.title}
+                                          </td>
+                                          <td className="py-2.5 px-3 capitalize">
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                              {r.category}
+                                            </span>
+                                          </td>
+                                          <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-900 text-xs">
+                                            {formatRupiah(r.amount)}
+                                          </td>
+                                          <td className="py-2.5 px-3 text-center">
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                              r.outcome?.includes("Berhasil")
+                                                ? "bg-emerald-100 text-emerald-800"
+                                                : r.outcome?.includes("Evaluasi")
+                                                ? "bg-amber-100 text-amber-800"
+                                                : "bg-slate-100 text-slate-700"
+                                            }`}>
+                                              {r.outcome || "Selesai"}
+                                            </span>
+                                          </td>
+                                          <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[180px] truncate" title={r.notes || ""}>
+                                            {r.notes || "-"}
+                                          </td>
+                                          <td className="py-2.5 px-3 text-center">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDeleteRnd(r.id, r.title)}
+                                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                              title="Hapus RnD"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      ))
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                              {renderTablePagination("rndExpenses", total)}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   )}
@@ -5823,82 +5927,88 @@ export default function AdminDashboardPage() {
                     </button>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                          <th className="py-2.5 px-3">Waktu</th>
-                          <th className="py-2.5 px-3">No. Nota</th>
-                          <th className="py-2.5 px-3">Kedai</th>
-                          <th className="py-2.5 px-3">Item Pesanan</th>
-                          <th className="py-2.5 px-3">Metode</th>
-                          <th className="py-2.5 px-3 text-right">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-mono">
-                        {!financeData?.transactions || financeData.transactions.length === 0 ? (
-                          <tr>
-                            <td colSpan={6} className="py-8 text-center text-slate-400 font-sans">
-                              Tidak ada transaksi yang sesuai filter
-                            </td>
-                          </tr>
-                        ) : (
-                          financeData.transactions
-                            .filter(
-                              (t: any) =>
-                                !financeSearch ||
-                                t.orderCode.toLowerCase().includes(financeSearch.toLowerCase()) ||
-                                t.outletName.toLowerCase().includes(financeSearch.toLowerCase()) ||
-                                (t.itemsSummary &&
-                                  t.itemsSummary.toLowerCase().includes(financeSearch.toLowerCase()))
-                            )
-                            .map((t: any) => (
-                              <tr key={t.id} className="hover:bg-slate-50/70 transition">
-                                <td className="py-2.5 px-3 text-slate-600 text-[11px] whitespace-nowrap font-mono">
-                                  {new Date(t.createdAt).toLocaleDateString("id-ID", {
-                                    day: "2-digit",
-                                    month: "2-digit",
-                                  })}{" "}
-                                  {new Date(t.createdAt).toLocaleTimeString("id-ID", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                </td>
-                                <td className="py-2.5 px-3 font-bold text-slate-900">{t.orderCode}</td>
-                                <td className="py-2.5 px-3 font-sans text-slate-700">{t.outletName}</td>
-                                <td
-                                  className="py-2.5 px-3 font-sans text-slate-600 max-w-sm"
-                                  title={t.itemsSummary}
-                                >
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="truncate max-w-xs">{t.itemsSummary}</span>
-                                    {t.hasPromoFree && (
-                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
-                                        🎁 Promo ({t.freeItemCount} cup)
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="py-2.5 px-3">
-                                  <span
-                                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                      t.paymentMethod === "QRIS"
-                                        ? "bg-emerald-100 text-emerald-800"
-                                        : "bg-amber-100 text-amber-900"
-                                    }`}
-                                  >
-                                    {t.paymentMethod}
-                                  </span>
-                                </td>
-                                <td className="py-2.5 px-3 text-right font-bold text-slate-900">
-                                  {formatRupiah(t.totalAmount)}
-                                </td>
+                  {(() => {
+                    const filteredTx = (financeData?.transactions || []).filter(
+                      (t: any) =>
+                        !financeSearch ||
+                        t.orderCode.toLowerCase().includes(financeSearch.toLowerCase()) ||
+                        t.outletName.toLowerCase().includes(financeSearch.toLowerCase()) ||
+                        (t.itemsSummary && t.itemsSummary.toLowerCase().includes(financeSearch.toLowerCase()))
+                    );
+                    const { pagedItems, total, needsScroll } = paginateList(filteredTx, "transactions");
+                    return (
+                      <>
+                        <div className={`overflow-x-auto ${needsScroll ? "max-h-[600px] overflow-y-auto border border-slate-200 rounded-xl" : ""}`}>
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead className={needsScroll ? "sticky top-0 z-10 bg-slate-50 shadow-2xs" : ""}>
+                              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                                <th className="py-2.5 px-3">Waktu</th>
+                                <th className="py-2.5 px-3">No. Nota</th>
+                                <th className="py-2.5 px-3">Kedai</th>
+                                <th className="py-2.5 px-3">Item Pesanan</th>
+                                <th className="py-2.5 px-3">Metode</th>
+                                <th className="py-2.5 px-3 text-right">Total</th>
                               </tr>
-                            ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-mono">
+                              {pagedItems.length === 0 ? (
+                                <tr>
+                                  <td colSpan={6} className="py-8 text-center text-slate-400 font-sans">
+                                    Tidak ada transaksi yang sesuai filter
+                                  </td>
+                                </tr>
+                              ) : (
+                                pagedItems.map((t: any) => (
+                                  <tr key={t.id} className="hover:bg-slate-50/70 transition">
+                                    <td className="py-2.5 px-3 text-slate-600 text-[11px] whitespace-nowrap font-mono">
+                                      {new Date(t.createdAt).toLocaleDateString("id-ID", {
+                                        day: "2-digit",
+                                        month: "2-digit",
+                                      })}{" "}
+                                      {new Date(t.createdAt).toLocaleTimeString("id-ID", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })}
+                                    </td>
+                                    <td className="py-2.5 px-3 font-bold text-slate-900">{t.orderCode}</td>
+                                    <td className="py-2.5 px-3 font-sans text-slate-700">{t.outletName}</td>
+                                    <td
+                                      className="py-2.5 px-3 font-sans text-slate-600 max-w-sm"
+                                      title={t.itemsSummary}
+                                    >
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="truncate max-w-xs">{t.itemsSummary}</span>
+                                        {t.hasPromoFree && (
+                                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                                            🎁 Promo ({t.freeItemCount} cup)
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="py-2.5 px-3">
+                                      <span
+                                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                          t.paymentMethod === "QRIS"
+                                            ? "bg-emerald-100 text-emerald-800"
+                                            : "bg-amber-100 text-amber-900"
+                                        }`}
+                                      >
+                                        {t.paymentMethod}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right font-bold text-slate-900">
+                                      {formatRupiah(t.totalAmount)}
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                        {renderTablePagination("transactions", total)}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </main>
@@ -6135,8 +6245,12 @@ export default function AdminDashboardPage() {
                       {data.transferLogs.length} mutasi tercatat
                     </span>
                   </div>
-                  <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1 font-sans text-xs">
-                    {data.transferLogs.slice(0, 6).map((log) => {
+                  {(() => {
+                    const { pagedItems, total, needsScroll } = paginateList(data.transferLogs || [], "transferLogs");
+                    return (
+                      <>
+                        <div className={`${needsScroll ? "max-h-[540px] overflow-y-auto" : ""} space-y-1.5 pr-1 font-sans text-xs`}>
+                          {pagedItems.map((log) => {
                       const isRestock = log.type === "restock";
                       const isReturn = log.type === "return";
                       const isCentralIn = log.type === "central_in";
@@ -6205,6 +6319,10 @@ export default function AdminDashboardPage() {
                       );
                     })}
                   </div>
+                  {renderTablePagination("transferLogs", total, true)}
+                </>
+              );
+            })()}
                 </div>
               )}
             </div>
@@ -6461,31 +6579,35 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                      <th className="py-2.5 px-3">Tanggal / Waktu</th>
-                      <th className="py-2.5 px-3">Kedai</th>
-                      <th className="py-2.5 px-3">Fisik Cup (Reg / Jumbo)</th>
-                      <th className="py-2.5 px-3">Sistem (Reg / Jumbo)</th>
-                      <th className="py-2.5 px-3">Kantong Teh (Fisik / Sist)</th>
-                      <th className="py-2.5 px-3">Sisa Gula Cair (Fisik / Sist)</th>
-                      <th className="py-2.5 px-3">Kas di Laci (Fisik / Sist)</th>
-                      <th className="py-2.5 px-3">Selisih Cup</th>
-                      <th className="py-2.5 px-3">Potongan Gaji</th>
-                      <th className="py-2.5 px-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {!data?.closings || data.closings.length === 0 ? (
-                      <tr>
-                        <td colSpan={10} className="py-8 text-center text-slate-400">
-                          Belum ada data rekonsiliasi closing
-                        </td>
-                      </tr>
-                    ) : (
-                      data.closings.map((c) => {
+              {(() => {
+                const { pagedItems, total, needsScroll } = paginateList(data?.closings || [], "closings");
+                return (
+                  <>
+                    <div className={`overflow-x-auto ${needsScroll ? "max-h-[600px] overflow-y-auto border border-slate-200 rounded-xl" : ""}`}>
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead className={needsScroll ? "sticky top-0 z-10 bg-slate-50 shadow-2xs" : ""}>
+                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                            <th className="py-2.5 px-3">Tanggal / Waktu</th>
+                            <th className="py-2.5 px-3">Kedai</th>
+                            <th className="py-2.5 px-3">Fisik Cup (Reg / Jumbo)</th>
+                            <th className="py-2.5 px-3">Sistem (Reg / Jumbo)</th>
+                            <th className="py-2.5 px-3">Kantong Teh (Fisik / Sist)</th>
+                            <th className="py-2.5 px-3">Sisa Gula Cair (Fisik / Sist)</th>
+                            <th className="py-2.5 px-3">Kas di Laci (Fisik / Sist)</th>
+                            <th className="py-2.5 px-3">Selisih Cup</th>
+                            <th className="py-2.5 px-3">Potongan Gaji</th>
+                            <th className="py-2.5 px-3">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {pagedItems.length === 0 ? (
+                            <tr>
+                              <td colSpan={10} className="py-8 text-center text-slate-400">
+                                Belum ada data rekonsiliasi closing
+                              </td>
+                            </tr>
+                          ) : (
+                            pagedItems.map((c) => {
                         const sugarVariance = c.discrepancy_sugar_ml ?? 0;
                         const hasCupShortage = c.discrepancy_cup < 0;
                         const hasCupSurplus = c.discrepancy_cup > 0;
@@ -6603,6 +6725,10 @@ export default function AdminDashboardPage() {
                   </tbody>
                 </table>
               </div>
+              {renderTablePagination("closings", total)}
+            </>
+          );
+        })()}
             </div>
 
             {/* Audit Log Refill & Masak Gula Cair (Anti-Manipulasi Selisih) */}
@@ -6624,27 +6750,31 @@ export default function AdminDashboardPage() {
                 </span>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                      <th className="py-2.5 px-3">Waktu</th>
-                      <th className="py-2.5 px-3">Kedai</th>
-                      <th className="py-2.5 px-3">Jenis Refill</th>
-                      <th className="py-2.5 px-3">Volume Masuk</th>
-                      <th className="py-2.5 px-3">Stok Sebelum &rarr; Sesudah</th>
-                      <th className="py-2.5 px-3">Catatan Kasir / Audit</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {!data?.sugarLogs || data.sugarLogs.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="py-6 text-center text-slate-400 italic">
-                          Belum ada aktivitas masak atau isi ulang gula cair yang tercatat.
-                        </td>
-                      </tr>
-                    ) : (
-                      data.sugarLogs.map((s: SugarRefillLogRecord) => (
+              {(() => {
+                const { pagedItems, total, needsScroll } = paginateList(data?.sugarLogs || [], "sugarLogs");
+                return (
+                  <>
+                    <div className={`overflow-x-auto ${needsScroll ? "max-h-[600px] overflow-y-auto border border-slate-200 rounded-xl" : ""}`}>
+                      <table className="w-full text-left text-xs">
+                        <thead className={needsScroll ? "sticky top-0 z-10 bg-slate-50 shadow-2xs" : ""}>
+                          <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                            <th className="py-2.5 px-3">Waktu</th>
+                            <th className="py-2.5 px-3">Kedai</th>
+                            <th className="py-2.5 px-3">Jenis Refill</th>
+                            <th className="py-2.5 px-3">Volume Masuk</th>
+                            <th className="py-2.5 px-3">Stok Sebelum &rarr; Sesudah</th>
+                            <th className="py-2.5 px-3">Catatan Kasir / Audit</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {pagedItems.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="py-6 text-center text-slate-400 italic">
+                                Belum ada aktivitas masak atau isi ulang gula cair yang tercatat.
+                              </td>
+                            </tr>
+                          ) : (
+                            pagedItems.map((s: SugarRefillLogRecord) => (
                         <tr key={s.id} className="hover:bg-slate-50 transition font-mono">
                           <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
                             {new Date(s.created_at).toLocaleString("id-ID", {
@@ -6688,6 +6818,10 @@ export default function AdminDashboardPage() {
                   </tbody>
                 </table>
               </div>
+              {renderTablePagination("sugarLogs", total)}
+            </>
+          );
+        })()}
             </div>
           </div>
         )}
@@ -7714,43 +7848,47 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Table of Vouchers */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
-                    <tr>
-                      <th className="py-3 px-3.5">Kode Voucher</th>
-                      <th className="py-3 px-3.5">Kedai Penerbit</th>
-                      <th className="py-3 px-3.5">Menu Hadiah</th>
-                      <th className="py-3 px-3.5">Status Klaim</th>
-                      <th className="py-3 px-3.5">Tgl Terbit</th>
-                      <th className="py-3 px-3.5">Masa Berlaku</th>
-                      <th className="py-3 px-3.5">Catatan</th>
-                      <th className="py-3 px-3.5 text-right">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
-                    {voucherLoading && vouchersList.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="py-8 text-center text-slate-400">
-                          <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1 text-emerald-600" />
-                          <span>Memuat data voucher promo...</span>
-                        </td>
-                      </tr>
-                    ) : filteredVouchersList.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="py-8 text-center text-slate-400">
-                          <Ticket className="w-8 h-8 mx-auto mb-1.5 stroke-1 text-slate-300" />
-                          <p className="font-semibold text-slate-600">Tidak ada voucher ditemukan.</p>
-                          <p className="text-[11px] text-slate-400">
-                            {voucherSearch
-                              ? "Coba ubah kata kunci pencarian atau filter status."
-                              : "Voucher otomatis terbit jika ada promo saat stok teh/gula habis di kasir."}
-                          </p>
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredVouchersList.map((v) => {
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-1">
+              {(() => {
+                const { pagedItems, total, needsScroll } = paginateList(filteredVouchersList, "vouchers");
+                return (
+                  <>
+                    <div className={`overflow-x-auto ${needsScroll ? "max-h-[600px] overflow-y-auto" : ""}`}>
+                      <table className="w-full text-left text-xs">
+                        <thead className={`${needsScroll ? "sticky top-0 z-10 shadow-2xs " : ""}bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]`}>
+                          <tr>
+                            <th className="py-3 px-3.5">Kode Voucher</th>
+                            <th className="py-3 px-3.5">Kedai Penerbit</th>
+                            <th className="py-3 px-3.5">Menu Hadiah</th>
+                            <th className="py-3 px-3.5">Status Klaim</th>
+                            <th className="py-3 px-3.5">Tgl Terbit</th>
+                            <th className="py-3 px-3.5">Masa Berlaku</th>
+                            <th className="py-3 px-3.5">Catatan</th>
+                            <th className="py-3 px-3.5 text-right">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-medium">
+                          {voucherLoading && vouchersList.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="py-8 text-center text-slate-400">
+                                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1 text-emerald-600" />
+                                <span>Memuat data voucher promo...</span>
+                              </td>
+                            </tr>
+                          ) : pagedItems.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="py-8 text-center text-slate-400">
+                                <Ticket className="w-8 h-8 mx-auto mb-1.5 stroke-1 text-slate-300" />
+                                <p className="font-semibold text-slate-600">Tidak ada voucher ditemukan.</p>
+                                <p className="text-[11px] text-slate-400">
+                                  {voucherSearch
+                                    ? "Coba ubah kata kunci pencarian atau filter status."
+                                    : "Voucher otomatis terbit jika ada promo saat stok teh/gula habis di kasir."}
+                                </p>
+                              </td>
+                            </tr>
+                          ) : (
+                            pagedItems.map((v) => {
                         const isRedeemed = v.effectiveStatus === "redeemed";
                         const isActive = v.effectiveStatus === "active";
                         const isExpired = v.effectiveStatus === "expired";
@@ -7894,6 +8032,10 @@ export default function AdminDashboardPage() {
                   </tbody>
                 </table>
               </div>
+              {total > LIST_PAGE_SIZE && <div className="px-4 pb-3">{renderTablePagination("vouchers", total)}</div>}
+            </>
+          );
+        })()}
             </div>
           </div>
         )}
@@ -7980,29 +8122,33 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider border-b border-slate-200">
-                      <th className="py-3 px-4">Bahan Baku</th>
-                      <th className="py-3 px-4 text-right">Stok Gudang</th>
-                      <th className="py-3 px-4 text-right">Stok Kedai</th>
-                      <th className="py-3 px-4 text-right">Pemakaian/Hari</th>
-                      <th className="py-3 px-4 text-right">Estimasi Habis</th>
-                      <th className="py-3 px-4 text-right">Rekomendasi Order</th>
-                      <th className="py-3 px-4 text-center">Status</th>
-                      <th className="py-3 px-4 text-right">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {poForecast.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="py-8 text-center text-slate-400">
-                          {poLoading ? "Menghitung prediksi pemakaian..." : "Belum ada data bahan baku."}
-                        </td>
-                      </tr>
-                    ) : (
-                      poForecast.map((f) => (
+              {(() => {
+                const { pagedItems, total, needsScroll } = paginateList(poForecast, "poForecast");
+                return (
+                  <>
+                    <div className={`overflow-x-auto ${needsScroll ? "max-h-[600px] overflow-y-auto border-t border-slate-200" : ""}`}>
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead className={needsScroll ? "sticky top-0 z-10 bg-slate-50 shadow-2xs" : ""}>
+                          <tr className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider border-b border-slate-200">
+                            <th className="py-3 px-4">Bahan Baku</th>
+                            <th className="py-3 px-4 text-right">Stok Gudang</th>
+                            <th className="py-3 px-4 text-right">Stok Kedai</th>
+                            <th className="py-3 px-4 text-right">Pemakaian/Hari</th>
+                            <th className="py-3 px-4 text-right">Estimasi Habis</th>
+                            <th className="py-3 px-4 text-right">Rekomendasi Order</th>
+                            <th className="py-3 px-4 text-center">Status</th>
+                            <th className="py-3 px-4 text-right">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {pagedItems.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="py-8 text-center text-slate-400">
+                                {poLoading ? "Menghitung prediksi pemakaian..." : "Belum ada data bahan baku."}
+                              </td>
+                            </tr>
+                          ) : (
+                            pagedItems.map((f) => (
                         <tr key={f.raw_material_id} className={f.needs_order ? "bg-amber-50/40" : "hover:bg-slate-50"}>
                           <td className="py-3 px-4 font-bold text-slate-800">{f.name}</td>
                           <td className="py-3 px-4 text-right font-mono">
@@ -8058,6 +8204,10 @@ export default function AdminDashboardPage() {
                   </tbody>
                 </table>
               </div>
+              {total > LIST_PAGE_SIZE && <div className="px-4 pb-3">{renderTablePagination("poForecast", total)}</div>}
+            </>
+          );
+        })()}
             </div>
 
             {/* 2. Daftar Purchase Order & Draft Pesan WA */}
