@@ -56,8 +56,10 @@ import {
   bluetoothPrinter,
   serialPrinter,
   encodeReceiptBase64,
+  encodeCashDrawerKickBase64,
   isAndroidDevice,
   printReceiptViaRawBT,
+  openCashDrawerViaRawBT,
   printReceiptViaBrowser,
 } from "@/lib/escpos-printer";
 
@@ -2198,17 +2200,58 @@ export default function PosTerminalPage() {
     return () => clearTimeout(timer);
   }, [checkoutSuccess, autoCloseSeconds, isTimerPaused]);
 
+  // Memicu pembukaan Cash Drawer saja (tanpa cetak kertas) untuk pembayaran tunai
+  const triggerCashDrawerOnly = async () => {
+    try {
+      const savedComPort = typeof window !== "undefined" ? localStorage.getItem("poci_laptop_com_port") : null;
+      if (!isAndroidDevice() && savedComPort) {
+        const res = await fetch("/api/print/com", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ port: savedComPort, escposBase64: encodeCashDrawerKickBase64() }),
+        });
+        if (res.ok) {
+          setPrintStatusMessage({ text: `Laci kasir dibuka melalui ${savedComPort}.`, type: "success" });
+        }
+        return;
+      }
+      if (bluetoothPrinter.isConnected()) {
+        await bluetoothPrinter.openCashDrawer();
+        setPrintStatusMessage({ text: "Laci kasir dibuka via Bluetooth!", type: "success" });
+        return;
+      }
+      if (isAndroidDevice()) {
+        const opened = openCashDrawerViaRawBT();
+        if (opened) {
+          setPrintStatusMessage({ text: "Perintah buka laci kasir dikirim ke RawBT.", type: "success" });
+        }
+      }
+    } catch (err: any) {
+      console.warn("Gagal memicu buka laci kasir:", err);
+    }
+  };
+
   // Auto-print saat transaksi berhasil (hanya jika toggle aktif DAN ada printer hardware/RawBT terhubung)
+  // Jika Auto-Cetak nonaktif namun pembayaran Cash, tetap picu pembukaan Cash Drawer saja tanpa cetak kertas
   useEffect(() => {
-    if (checkoutSuccess && completedReceipt && autoPrintReceipt) {
-      const hasThermalTarget =
-        isAndroidDevice() ||
-        bluetoothPrinter.isConnected() ||
-        Boolean(typeof window !== "undefined" && localStorage.getItem("poci_laptop_com_port"));
-      if (!hasThermalTarget) return;
+    if (!checkoutSuccess || !completedReceipt) return;
+    const hasThermalTarget =
+      isAndroidDevice() ||
+      bluetoothPrinter.isConnected() ||
+      Boolean(typeof window !== "undefined" && localStorage.getItem("poci_laptop_com_port"));
+    if (!hasThermalTarget) return;
+
+    if (autoPrintReceipt) {
       const timer = setTimeout(() => {
         handlePrintReceipt(false);
       }, 500);
+      return () => clearTimeout(timer);
+    }
+
+    if (completedReceipt.paymentMethod === "Cash") {
+      const timer = setTimeout(() => {
+        triggerCashDrawerOnly();
+      }, 300);
       return () => clearTimeout(timer);
     }
   }, [checkoutSuccess, completedReceipt, autoPrintReceipt]);
@@ -4602,6 +4645,18 @@ export default function PosTerminalPage() {
                         <Bluetooth className="w-3 h-3 text-emerald-600 shrink-0" />
                         <span>Pair BT</span>
                       </button>
+
+                      {completedReceipt?.paymentMethod === "Cash" && (
+                        <button
+                          type="button"
+                          onClick={triggerCashDrawerOnly}
+                          className="text-amber-700 hover:text-amber-900 flex items-center gap-1 font-bold transition cursor-pointer"
+                          title="Kirim perintah buka laci kasir (ESC p) lewat printer thermal"
+                        >
+                          <Banknote className="w-3 h-3 shrink-0" />
+                          <span>Buka Laci</span>
+                        </button>
+                      )}
 
                       {!isAndroidDevice() && (
                         <button

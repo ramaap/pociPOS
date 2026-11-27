@@ -19,7 +19,12 @@ import {
   getPendingTransactions,
   syncPendingTransactions,
 } from "../lib/offline-sync";
-import { generateReceiptText, type ReceiptData } from "../lib/escpos-printer";
+import {
+  generateReceiptText,
+  generateEscPosBuffer,
+  CASH_DRAWER_KICK_BYTES,
+  type ReceiptData,
+} from "../lib/escpos-printer";
 
 const BASE_URL = process.env.TEST_BASE_URL || "http://127.0.0.1:3000";
 const KEEP_DATA = process.argv.includes("--keep-data");
@@ -1001,6 +1006,15 @@ async function main() {
       assert.match(text, /Less Sugar/);
       assert.match(text, /VCR-POC-123456/);
       assert.match(text, /KEMBALI/);
+
+      // Verifikasi ESC/POS menyisipkan perintah kick Cash Drawer hanya untuk Cash (bukan QRIS)
+      const cashBuf = Array.from(generateEscPosBuffer(sampleReceipt));
+      const qrisBuf = Array.from(generateEscPosBuffer({ ...sampleReceipt, paymentMethod: "QRIS" }));
+      const kickSeq = Array.from(CASH_DRAWER_KICK_BYTES);
+      const hasKick = (buf: number[]) =>
+        buf.some((_, idx) => kickSeq.every((b, offset) => buf[idx + offset] === b));
+      assert.equal(hasKick(cashBuf), true, "ESC/POS Cash harus mengandung ESC p cash drawer kick.");
+      assert.equal(hasKick(qrisBuf), false, "ESC/POS QRIS tidak boleh memicu cash drawer.");
     });
 
     await runCase("TC-H02", "Negatif", "Endpoint /api/print/com menolak port injeksi, base64 korup & menangani port mati", async () => {

@@ -148,13 +148,29 @@ export const generateReceiptText = (data: ReceiptData): string => {
   return lines.filter(Boolean).join("\n");
 };
 
-// Buat bytes ESC/POS untuk dicetak via Bluetooth langsung
+// Perintah standar ESC/POS untuk membuka Cash Drawer RJ-11 (Pin 2 & Pin 5, pulsa 50ms)
+export const CASH_DRAWER_KICK_BYTES = [
+  0x1b, 0x70, 0x00, 0x19, 0xfa, // ESC p 0 25 250 (Pin 2)
+  0x1b, 0x70, 0x01, 0x19, 0xfa, // ESC p 1 25 250 (Pin 5 fallback)
+] as const;
+
+/** Menghasilkan buffer ESC/POS minimal (12 byte) khusus untuk memicu laci kasir tanpa mencetak kertas. */
+export const generateCashDrawerKickBuffer = (): Uint8Array => {
+  return new Uint8Array([0x1b, 0x40, ...CASH_DRAWER_KICK_BYTES]);
+};
+
+// Buat bytes ESC/POS untuk dicetak via Bluetooth / RawBT / COM Port
 export const generateEscPosBuffer = (data: ReceiptData): Uint8Array => {
   const encoder = new TextEncoder();
   const bytes: number[] = [];
 
   // ESC @: Inisialisasi printer
   bytes.push(0x1b, 0x40);
+
+  // Trigger pembukaan cash drawer khusus untuk pembayaran tunai (Cash)
+  if (String(data.paymentMethod || "").toLowerCase() === "cash") {
+    bytes.push(...CASH_DRAWER_KICK_BYTES);
+  }
 
   // ESC a 1: Center align
   bytes.push(0x1b, 0x61, 0x01);
@@ -354,15 +370,13 @@ class BluetoothThermalManager {
     }
   }
 
-  async print(data: ReceiptData): Promise<void> {
+  private async writeRawBytes(buffer: Uint8Array): Promise<void> {
     if (!this.characteristic) {
       const connected = await this.connect();
       if (!connected) throw new Error("Gagal menghubungkan printer bluetooth.");
     }
 
-    const buffer = generateEscPosBuffer(data);
     const CHUNK_SIZE = 100; // Kirim per potongan 100 bytes agar buffer printer tidak overflow
-
     for (let i = 0; i < buffer.length; i += CHUNK_SIZE) {
       const chunk = buffer.slice(i, i + CHUNK_SIZE);
       if (this.characteristic.writeValueWithoutResponse) {
@@ -372,6 +386,14 @@ class BluetoothThermalManager {
       }
       await new Promise((resolve) => setTimeout(resolve, 30));
     }
+  }
+
+  async print(data: ReceiptData): Promise<void> {
+    await this.writeRawBytes(generateEscPosBuffer(data));
+  }
+
+  async openCashDrawer(): Promise<void> {
+    await this.writeRawBytes(generateCashDrawerKickBuffer());
   }
 
   isConnected(): boolean {
@@ -507,9 +529,7 @@ export const isAndroidDevice = (): boolean => {
   return /android/i.test(navigator.userAgent);
 };
 
-// Encode ESC/POS ReceiptData menjadi string Base64
-export const encodeReceiptBase64 = (data: ReceiptData): string => {
-  const buffer = generateEscPosBuffer(data);
+const encodeUint8ArrayBase64 = (buffer: Uint8Array): string => {
   let binary = "";
   for (let i = 0; i < buffer.length; i++) {
     binary += String.fromCharCode(buffer[i]);
@@ -517,11 +537,19 @@ export const encodeReceiptBase64 = (data: ReceiptData): string => {
   return window.btoa(binary);
 };
 
-// Cetak langsung via RawBT Print Service (untuk Android APK / Huawei / Tablet)
-export const printReceiptViaRawBT = (data: ReceiptData): boolean => {
+// Encode ESC/POS ReceiptData menjadi string Base64
+export const encodeReceiptBase64 = (data: ReceiptData): string => {
+  return encodeUint8ArrayBase64(generateEscPosBuffer(data));
+};
+
+// Encode perintah buka laci kasir (ESC p) menjadi string Base64
+export const encodeCashDrawerKickBase64 = (): string => {
+  return encodeUint8ArrayBase64(generateCashDrawerKickBuffer());
+};
+
+const sendRawBTBase64 = (base64: string): boolean => {
   if (typeof window === "undefined") return false;
   try {
-    const base64 = encodeReceiptBase64(data);
     const link = document.createElement("a");
     link.href = `rawbt:base64,${base64}`;
     link.style.display = "none";
@@ -531,6 +559,28 @@ export const printReceiptViaRawBT = (data: ReceiptData): boolean => {
     return true;
   } catch (err) {
     console.warn("RawBT print error:", err);
+    return false;
+  }
+};
+
+// Cetak langsung via RawBT Print Service (untuk Android APK / Huawei / Tablet)
+export const printReceiptViaRawBT = (data: ReceiptData): boolean => {
+  if (typeof window === "undefined") return false;
+  try {
+    return sendRawBTBase64(encodeReceiptBase64(data));
+  } catch (err) {
+    console.warn("RawBT print error:", err);
+    return false;
+  }
+};
+
+// Trigger pembukaan Cash Drawer saja via RawBT tanpa mencetak struk kertas
+export const openCashDrawerViaRawBT = (): boolean => {
+  if (typeof window === "undefined") return false;
+  try {
+    return sendRawBTBase64(encodeCashDrawerKickBase64());
+  } catch (err) {
+    console.warn("RawBT cash drawer error:", err);
     return false;
   }
 };
