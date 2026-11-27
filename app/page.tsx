@@ -1068,6 +1068,8 @@ export default function PosTerminalPage() {
       // Jangan jadikan Kantong Teh / Premix Teh sebagai acuan disable pada kasir
       if (
         matNameLower.includes("kantong teh") ||
+        matNameLower.includes("teh jasmine") ||
+        matNameLower.includes("teh vanilla") ||
         matNameLower.includes("tea premix") ||
         matNameLower.includes("teh seduh") ||
         matNameLower.includes("liquid tea")

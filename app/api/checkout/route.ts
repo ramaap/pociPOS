@@ -257,6 +257,8 @@ export async function POST(req: Request) {
         // Kantong teh / premix cair diseduh per teko besar dan bukan acuan disable checkout
         if (
           dedNameLower.includes("kantong teh") ||
+          dedNameLower.includes("teh jasmine") ||
+          dedNameLower.includes("teh vanilla") ||
           dedNameLower.includes("tea premix") ||
           dedNameLower.includes("teh seduh") ||
           dedNameLower.includes("liquid tea")
