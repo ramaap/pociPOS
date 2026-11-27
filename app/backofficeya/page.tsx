@@ -260,11 +260,10 @@ export default function AdminDashboardPage() {
             type="button"
             disabled={currentPage <= 1}
             onClick={() => setTablePages((prev) => ({ ...prev, [key]: Math.max(1, currentPage - 1) }))}
-            className={`px-3 py-1 rounded-lg border font-bold disabled:opacity-40 cursor-pointer ${
-              dark
+            className={`px-3 py-1 rounded-lg border font-bold disabled:opacity-40 cursor-pointer ${dark
                 ? "border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200"
                 : "border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
-            }`}
+              }`}
           >
             ← Sebelumnya
           </button>
@@ -272,11 +271,10 @@ export default function AdminDashboardPage() {
             type="button"
             disabled={currentPage >= totalPages}
             onClick={() => setTablePages((prev) => ({ ...prev, [key]: Math.min(totalPages, currentPage + 1) }))}
-            className={`px-3 py-1 rounded-lg border font-bold disabled:opacity-40 cursor-pointer ${
-              dark
+            className={`px-3 py-1 rounded-lg border font-bold disabled:opacity-40 cursor-pointer ${dark
                 ? "border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200"
                 : "border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
-            }`}
+              }`}
           >
             Berikutnya →
           </button>
@@ -527,7 +525,7 @@ export default function AdminDashboardPage() {
     if (menuTargetOutlet && typeof window !== "undefined") {
       try {
         localStorage.setItem("poci_admin_menu_outlet", menuTargetOutlet);
-      } catch {}
+      } catch { }
     }
   }, [menuTargetOutlet]);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState<boolean>(false);
@@ -1521,7 +1519,7 @@ export default function AdminDashboardPage() {
           const ch = new BroadcastChannel("poci_pos_sync");
           ch.postMessage({ type: "PROMO_CAMPAIGN_UPDATED", timestamp: Date.now() });
           ch.close();
-        } catch (_) {}
+        } catch (_) { }
       } else {
         setCampaignMessage({ text: `❌ ${json.error || "Gagal menyimpan promo."}`, isError: true });
       }
@@ -1835,7 +1833,7 @@ export default function AdminDashboardPage() {
           setIsPinDefault(d.isDefault);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     const savedPin = sessionStorage.getItem("poci_admin_pin");
     if (savedPin) {
@@ -2216,7 +2214,7 @@ export default function AdminDashboardPage() {
           const ch = new BroadcastChannel("poci_pos_sync");
           ch.postMessage({ type: "OUTLET_UPDATED", timestamp: Date.now() });
           ch.close();
-        } catch {}
+        } catch { }
         setTimeout(() => {
           setIsAddOutletOpen(false);
           setOutletMessage(null);
@@ -2303,7 +2301,7 @@ export default function AdminDashboardPage() {
           const ch = new BroadcastChannel("poci_pos_sync");
           ch.postMessage({ type: "OUTLET_UPDATED", timestamp: Date.now() });
           ch.close();
-        } catch {}
+        } catch { }
         setTimeout(() => {
           setIsEditOutletOpen(false);
           setEditOutletMessage(null);
@@ -2363,7 +2361,7 @@ export default function AdminDashboardPage() {
           const ch = new BroadcastChannel("poci_pos_sync");
           ch.postMessage({ type: "OUTLET_UPDATED", timestamp: Date.now() });
           ch.close();
-        } catch {}
+        } catch { }
 
         setTimeout(() => {
           setIsCashFloatModalOpen(false);
@@ -3107,7 +3105,7 @@ export default function AdminDashboardPage() {
             <div>
               <div className="flex items-center space-x-2">
                 <h1 className="font-extrabold text-base sm:text-lg tracking-tight">
-                  PANEL OWNER MULTI-KEDAI
+                  YA! Dashboard
                 </h1>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-950">
                   Es Teh Poci
@@ -3195,9 +3193,8 @@ export default function AdminDashboardPage() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 )}
                 <span
-                  className={`relative inline-flex rounded-full h-2 w-2 ${
-                    isAutoSync ? "bg-emerald-500" : "bg-slate-500"
-                  }`}
+                  className={`relative inline-flex rounded-full h-2 w-2 ${isAutoSync ? "bg-emerald-500" : "bg-slate-500"
+                    }`}
                 ></span>
               </span>
               <button
@@ -3266,11 +3263,10 @@ export default function AdminDashboardPage() {
               setActiveAdminTab("financial");
               loadFinancialReport();
             }}
-            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${
-              activeAdminTab === "financial"
+            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "financial"
                 ? "bg-emerald-600 text-white shadow-md"
                 : "text-slate-600 hover:bg-slate-100"
-            }`}
+              }`}
           >
             <TrendingUp className="w-4 h-4" />
             <span>📊 Laporan Keuangan</span>
@@ -3278,11 +3274,10 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveAdminTab("stocks")}
-            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${
-              activeAdminTab === "stocks"
+            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "stocks"
                 ? "bg-emerald-600 text-white shadow-md"
                 : "text-slate-600 hover:bg-slate-100"
-            }`}
+              }`}
           >
             <Layers className="w-4 h-4" />
             <span>📦 Stok &amp; Closing</span>
@@ -3293,11 +3288,10 @@ export default function AdminDashboardPage() {
               setActiveAdminTab("outlets");
               loadOutlets();
             }}
-            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${
-              activeAdminTab === "outlets"
+            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "outlets"
                 ? "bg-emerald-600 text-white shadow-md"
                 : "text-slate-600 hover:bg-slate-100"
-            }`}
+              }`}
           >
             <Store className="w-4 h-4" />
             <span>🏪 Cabang Kedai ({outletsList.length || data?.outlets.length || 0})</span>
@@ -3308,11 +3302,10 @@ export default function AdminDashboardPage() {
               setActiveAdminTab("master_menus");
               loadMenus();
             }}
-            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${
-              activeAdminTab === "master_menus"
+            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "master_menus"
                 ? "bg-emerald-600 text-white shadow-md"
                 : "text-slate-600 hover:bg-slate-100"
-            }`}
+              }`}
           >
             <Coffee className="w-4 h-4" />
             <span>📋 Master Menu ({groupedAdminMenus.length})</span>
@@ -3323,11 +3316,10 @@ export default function AdminDashboardPage() {
               setActiveAdminTab("outlet_menus");
               loadMenus();
             }}
-            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${
-              activeAdminTab === "outlet_menus"
+            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "outlet_menus"
                 ? "bg-emerald-600 text-white shadow-md"
                 : "text-slate-600 hover:bg-slate-100"
-            }`}
+              }`}
           >
             <Sliders className="w-4 h-4" />
             <span>🥤 Menu per Kedai</span>
@@ -3338,11 +3330,10 @@ export default function AdminDashboardPage() {
               setActiveAdminTab("vouchers");
               loadVouchers();
             }}
-            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${
-              activeAdminTab === "vouchers"
+            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "vouchers"
                 ? "bg-emerald-600 text-white shadow-md"
                 : "text-slate-600 hover:bg-slate-100"
-            }`}
+              }`}
           >
             <Ticket className="w-4 h-4" />
             <span>🎟️ Voucher Promo ({voucherStats.total})</span>
@@ -3353,11 +3344,10 @@ export default function AdminDashboardPage() {
               setActiveAdminTab("purchase_orders");
               loadPurchaseOrders();
             }}
-            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${
-              activeAdminTab === "purchase_orders"
+            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "purchase_orders"
                 ? "bg-emerald-600 text-white shadow-md"
                 : "text-slate-600 hover:bg-slate-100"
-            }`}
+              }`}
           >
             <ShoppingBag className="w-4 h-4" />
             <span>📋 PO &amp; Prediksi Stok</span>
@@ -3368,11 +3358,10 @@ export default function AdminDashboardPage() {
               setActiveAdminTab("social_media");
               loadSocialDrafts();
             }}
-            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${
-              activeAdminTab === "social_media"
+            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "social_media"
                 ? "bg-emerald-600 text-white shadow-md"
                 : "text-slate-600 hover:bg-slate-100"
-            }`}
+              }`}
           >
             <Sparkles className="w-4 h-4" />
             <span>📱 Konten Sosmed</span>
@@ -3445,11 +3434,10 @@ export default function AdminDashboardPage() {
                 <nav className="space-y-1 pt-1 text-xs">
                   <button
                     onClick={() => setFinanceModule("forecast")}
-                    className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${
-                      financeModule === "forecast"
+                    className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${financeModule === "forecast"
                         ? "bg-slate-900 text-white shadow-sm"
                         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                    }`}
+                      }`}
                   >
                     <span className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
@@ -3460,11 +3448,10 @@ export default function AdminDashboardPage() {
 
                   <button
                     onClick={() => setFinanceModule("cashflow")}
-                    className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${
-                      financeModule === "cashflow"
+                    className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${financeModule === "cashflow"
                         ? "bg-slate-900 text-white shadow-sm"
                         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                    }`}
+                      }`}
                   >
                     <span className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
@@ -3475,11 +3462,10 @@ export default function AdminDashboardPage() {
 
                   <button
                     onClick={() => setFinanceModule("profitability")}
-                    className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${
-                      financeModule === "profitability"
+                    className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${financeModule === "profitability"
                         ? "bg-slate-900 text-white shadow-sm"
                         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                    }`}
+                      }`}
                   >
                     <span className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
@@ -3490,11 +3476,10 @@ export default function AdminDashboardPage() {
 
                   <button
                     onClick={() => setFinanceModule("balancesheet")}
-                    className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${
-                      financeModule === "balancesheet"
+                    className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${financeModule === "balancesheet"
                         ? "bg-slate-900 text-white shadow-sm"
                         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                    }`}
+                      }`}
                   >
                     <span className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
@@ -3505,11 +3490,10 @@ export default function AdminDashboardPage() {
 
                   <button
                     onClick={() => setFinanceModule("expenses")}
-                    className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${
-                      financeModule === "expenses"
+                    className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${financeModule === "expenses"
                         ? "bg-slate-900 text-white shadow-sm"
                         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                    }`}
+                      }`}
                   >
                     <span className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
@@ -3520,11 +3504,10 @@ export default function AdminDashboardPage() {
 
                   <button
                     onClick={() => setFinanceModule("ledger")}
-                    className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${
-                      financeModule === "ledger"
+                    className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${financeModule === "ledger"
                         ? "bg-slate-900 text-white shadow-sm"
                         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                    }`}
+                      }`}
                   >
                     <span className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
@@ -3585,20 +3568,20 @@ export default function AdminDashboardPage() {
                     {financeModule === "cashflow"
                       ? "Laporan Arus Kas Operasional (Cash Flow)"
                       : financeModule === "profitability"
-                      ? "Laporan Laba Rugi & HPP"
-                      : financeModule === "balancesheet"
-                      ? "Neraca Keuangan Konsolidasi"
-                      : financeModule === "expenses"
-                      ? "Catatan Biaya & Beban Operasional"
-                      : financeModule === "ledger"
-                      ? "Audit Riwayat Transaksi"
-                      : financePeriod === "30d"
-                      ? "Proyeksi Penjualan 30 Hari (Forecast)"
-                      : financePeriod === "7d"
-                      ? "Proyeksi Penjualan 7 Hari (Forecast)"
-                      : financePeriod === "today"
-                      ? "Proyeksi Penjualan Hari Ini (Forecast)"
-                      : "Proyeksi Penjualan & Revenue Forecast"}
+                        ? "Laporan Laba Rugi & HPP"
+                        : financeModule === "balancesheet"
+                          ? "Neraca Keuangan Konsolidasi"
+                          : financeModule === "expenses"
+                            ? "Catatan Biaya & Beban Operasional"
+                            : financeModule === "ledger"
+                              ? "Audit Riwayat Transaksi"
+                              : financePeriod === "30d"
+                                ? "Proyeksi Penjualan 30 Hari (Forecast)"
+                                : financePeriod === "7d"
+                                  ? "Proyeksi Penjualan 7 Hari (Forecast)"
+                                  : financePeriod === "today"
+                                    ? "Proyeksi Penjualan Hari Ini (Forecast)"
+                                    : "Proyeksi Penjualan & Revenue Forecast"}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {financeModule === "cashflow"
@@ -3753,9 +3736,8 @@ export default function AdminDashboardPage() {
                     </span>
                     <div className="mt-2">
                       <h3
-                        className={`text-2xl font-black font-mono tracking-tight ${
-                          (financeData?.cashFlow?.netCashFlow ?? 0) >= 0 ? "text-emerald-700" : "text-rose-600"
-                        }`}
+                        className={`text-2xl font-black font-mono tracking-tight ${(financeData?.cashFlow?.netCashFlow ?? 0) >= 0 ? "text-emerald-700" : "text-rose-600"
+                          }`}
                       >
                         {(financeData?.cashFlow?.netCashFlow ?? 0) >= 0 ? "+" : ""}
                         {formatRupiah(financeData?.cashFlow?.netCashFlow ?? 0)}
@@ -3813,9 +3795,8 @@ export default function AdminDashboardPage() {
                     </span>
                     <div className="mt-2">
                       <h3
-                        className={`text-2xl font-black font-mono tracking-tight ${
-                          Number(financeData?.summary?.gapVsTarget || 0) >= 0 ? "text-emerald-600" : "text-rose-600"
-                        }`}
+                        className={`text-2xl font-black font-mono tracking-tight ${Number(financeData?.summary?.gapVsTarget || 0) >= 0 ? "text-emerald-600" : "text-rose-600"
+                          }`}
                       >
                         {Number(financeData?.summary?.gapVsTarget || 0) >= 0 ? "+" : ""}
                         {financeData?.summary?.gapVsTarget || "0.0"}%
@@ -3833,9 +3814,8 @@ export default function AdminDashboardPage() {
                     </span>
                     <div className="mt-2">
                       <h3
-                        className={`text-2xl font-black tracking-tight ${
-                          financeData?.summary?.deficitRisk === "Rendah" ? "text-emerald-600" : "text-amber-600"
-                        }`}
+                        className={`text-2xl font-black tracking-tight ${financeData?.summary?.deficitRisk === "Rendah" ? "text-emerald-600" : "text-amber-600"
+                          }`}
                       >
                         {financeData?.summary?.deficitRisk || "Rendah"}
                       </h3>
@@ -3885,31 +3865,28 @@ export default function AdminDashboardPage() {
                     <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
                       <button
                         onClick={() => setFinanceChartSubTab("timeline")}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                          financeChartSubTab === "timeline"
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${financeChartSubTab === "timeline"
                             ? "bg-slate-100 text-slate-900"
                             : "text-slate-500 hover:text-slate-800"
-                        }`}
+                          }`}
                       >
                         Revenue Timeline
                       </button>
                       <button
                         onClick={() => setFinanceChartSubTab("seasonality")}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                          financeChartSubTab === "seasonality"
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${financeChartSubTab === "seasonality"
                             ? "bg-slate-100 text-slate-900"
                             : "text-slate-500 hover:text-slate-800"
-                        }`}
+                          }`}
                       >
                         Seasonality Index
                       </button>
                       <button
                         onClick={() => setFinanceChartSubTab("accuracy")}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                          financeChartSubTab === "accuracy"
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${financeChartSubTab === "accuracy"
                             ? "bg-slate-100 text-slate-900"
                             : "text-slate-500 hover:text-slate-800"
-                        }`}
+                          }`}
                       >
                         Forecast Accuracy
                       </button>
@@ -4509,22 +4486,20 @@ export default function AdminDashboardPage() {
                                           {d.outflow > 0 ? `-${formatRupiah(d.outflow)}` : "Rp 0"}
                                         </td>
                                         <td
-                                          className={`py-2.5 px-3 text-right font-black ${
-                                            net >= 0 ? "text-emerald-700" : "text-rose-600"
-                                          }`}
+                                          className={`py-2.5 px-3 text-right font-black ${net >= 0 ? "text-emerald-700" : "text-rose-600"
+                                            }`}
                                         >
                                           {net >= 0 ? "+" : ""}
                                           {formatRupiah(net)}
                                         </td>
                                         <td className="py-2.5 px-3 text-center font-sans">
                                           <span
-                                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                              net > 0
+                                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${net > 0
                                                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                                 : net === 0
-                                                ? "bg-slate-50 text-slate-500"
-                                                : "bg-rose-50 text-rose-700 border border-rose-200"
-                                            }`}
+                                                  ? "bg-slate-50 text-slate-500"
+                                                  : "bg-rose-50 text-rose-700 border border-rose-200"
+                                              }`}
                                           >
                                             {net > 0 ? "Surplus" : net === 0 ? "Impas (Rp 0)" : "Defisit"}
                                           </span>
@@ -4665,9 +4640,8 @@ export default function AdminDashboardPage() {
 
                       {/* Laba Bersih Komprehensif (Net Profit / Loss) */}
                       <div
-                        className={`flex items-center justify-between p-4 rounded-xl text-white ${
-                          (financeData?.summary?.netProfit || 0) >= 0 ? "bg-slate-900" : "bg-rose-950 border border-rose-800"
-                        }`}
+                        className={`flex items-center justify-between p-4 rounded-xl text-white ${(financeData?.summary?.netProfit || 0) >= 0 ? "bg-slate-900" : "bg-rose-950 border border-rose-800"
+                          }`}
                       >
                         <div>
                           <p className="font-black font-sans text-sm flex items-center gap-1.5">
@@ -4685,9 +4659,8 @@ export default function AdminDashboardPage() {
                         </div>
                         <div className="text-right">
                           <span
-                            className={`font-black text-xl ${
-                              (financeData?.summary?.netProfit || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
-                            }`}
+                            className={`font-black text-xl ${(financeData?.summary?.netProfit || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+                              }`}
                           >
                             {(financeData?.summary?.netProfit || 0) >= 0 ? "+" : ""}
                             {formatRupiah(financeData?.summary?.netProfit || 0)}
@@ -4853,7 +4826,7 @@ export default function AdminDashboardPage() {
                           <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider block mb-1 font-sans">
                             2. Aktiva Tetap (Fixed Assets / CAPEX)
                           </span>
-                          
+
                           <div className="p-2 bg-white rounded-lg flex items-center justify-between border border-slate-100">
                             <div>
                               <p className="font-bold font-sans text-slate-800 flex items-center gap-1.5">
@@ -4997,11 +4970,10 @@ export default function AdminDashboardPage() {
                     <button
                       type="button"
                       onClick={() => setExpenseSubTab("fixed")}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-                        expenseSubTab === "fixed"
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${expenseSubTab === "fixed"
                           ? "bg-white text-indigo-900 shadow-xs border border-indigo-100"
                           : "text-slate-600 hover:text-slate-900"
-                      }`}
+                        }`}
                     >
                       <Building2 className="w-3.5 h-3.5" />
                       <span>Beban Tetap Bulanan (Fixed OPEX)</span>
@@ -5009,11 +4981,10 @@ export default function AdminDashboardPage() {
                     <button
                       type="button"
                       onClick={() => setExpenseSubTab("variable")}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-                        expenseSubTab === "variable"
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${expenseSubTab === "variable"
                           ? "bg-white text-rose-900 shadow-xs border border-rose-100"
                           : "text-slate-600 hover:text-slate-900"
-                      }`}
+                        }`}
                     >
                       <CreditCard className="w-3.5 h-3.5" />
                       <span>Pengeluaran Harian (Variable OPEX)</span>
@@ -5021,11 +4992,10 @@ export default function AdminDashboardPage() {
                     <button
                       type="button"
                       onClick={() => setExpenseSubTab("capital")}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-                        expenseSubTab === "capital"
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${expenseSubTab === "capital"
                           ? "bg-white text-emerald-900 shadow-xs border border-emerald-100"
                           : "text-slate-600 hover:text-slate-900"
-                      }`}
+                        }`}
                     >
                       <Landmark className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Modal Awal, Aset (CAPEX) &amp; RnD</span>
@@ -5126,83 +5096,82 @@ export default function AdminDashboardPage() {
                                     </tr>
                                   ) : (
                                     pagedItems.map((fc: any) => (
-                                <tr key={fc.id} className="hover:bg-slate-50/70 transition">
-                                  <td className="py-2.5 px-3 font-bold text-slate-900">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
-                                      <span>{fc.name}</span>
-                                    </div>
-                                  </td>
-                                  <td className="py-2.5 px-3 capitalize">
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-100">
-                                      {fc.category || "operasional"}
-                                    </span>
-                                  </td>
-                                  <td className="py-2.5 px-3 text-slate-700 font-medium">
-                                    {fc.outlet?.name || "Semua Kedai (Konsolidasi)"}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right font-mono font-bold text-indigo-900 text-xs">
-                                    {formatRupiah(fc.amount)}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right font-mono text-slate-600 text-[11px]">
-                                    {formatRupiah(fc.dailyAmount || Math.round(fc.amount / 30))}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[180px] truncate" title={fc.notes || ""}>
-                                    {fc.notes || "-"}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center">
-                                    <button
-                                      onClick={() => handleToggleFixedCost(fc.id, fc.is_active)}
-                                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition ${
-                                        fc.is_active
-                                          ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
-                                          : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                      }`}
-                                      title="Klik untuk mengubah status aktif"
-                                    >
-                                      {fc.is_active ? "Aktif" : "Nonaktif"}
-                                    </button>
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                      <button
-                                        onClick={() => {
-                                          setFixedCostMessage(null);
-                                          setFixedCostForm({
-                                            id: fc.id,
-                                            name: fc.name,
-                                            amount: fc.amount,
-                                            category: fc.category || "operasional",
-                                            outletId: fc.outlet_id || "all",
-                                            notes: fc.notes || "",
-                                            is_active: fc.is_active,
-                                          });
-                                          setIsEditFixedCostOpen(true);
-                                        }}
-                                        className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
-                                        title="Edit Beban Tetap"
-                                      >
-                                        <Edit3 className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteFixedCost(fc.id, fc.name)}
-                                        className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                        title="Hapus Beban Tetap"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                      {renderTablePagination("fixedCosts", total)}
-                    </>
-                  );
-                })()}
+                                      <tr key={fc.id} className="hover:bg-slate-50/70 transition">
+                                        <td className="py-2.5 px-3 font-bold text-slate-900">
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
+                                            <span>{fc.name}</span>
+                                          </div>
+                                        </td>
+                                        <td className="py-2.5 px-3 capitalize">
+                                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-100">
+                                            {fc.category || "operasional"}
+                                          </span>
+                                        </td>
+                                        <td className="py-2.5 px-3 text-slate-700 font-medium">
+                                          {fc.outlet?.name || "Semua Kedai (Konsolidasi)"}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-right font-mono font-bold text-indigo-900 text-xs">
+                                          {formatRupiah(fc.amount)}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-right font-mono text-slate-600 text-[11px]">
+                                          {formatRupiah(fc.dailyAmount || Math.round(fc.amount / 30))}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[180px] truncate" title={fc.notes || ""}>
+                                          {fc.notes || "-"}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-center">
+                                          <button
+                                            onClick={() => handleToggleFixedCost(fc.id, fc.is_active)}
+                                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition ${fc.is_active
+                                                ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                                                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                              }`}
+                                            title="Klik untuk mengubah status aktif"
+                                          >
+                                            {fc.is_active ? "Aktif" : "Nonaktif"}
+                                          </button>
+                                        </td>
+                                        <td className="py-2.5 px-3 text-center">
+                                          <div className="flex items-center justify-center gap-1">
+                                            <button
+                                              onClick={() => {
+                                                setFixedCostMessage(null);
+                                                setFixedCostForm({
+                                                  id: fc.id,
+                                                  name: fc.name,
+                                                  amount: fc.amount,
+                                                  category: fc.category || "operasional",
+                                                  outletId: fc.outlet_id || "all",
+                                                  notes: fc.notes || "",
+                                                  is_active: fc.is_active,
+                                                });
+                                                setIsEditFixedCostOpen(true);
+                                              }}
+                                              className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+                                              title="Edit Beban Tetap"
+                                            >
+                                              <Edit3 className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                              onClick={() => handleDeleteFixedCost(fc.id, fc.name)}
+                                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                              title="Hapus Beban Tetap"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                            {renderTablePagination("fixedCosts", total)}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -5370,9 +5339,8 @@ export default function AdminDashboardPage() {
                               <Wallet className="w-4 h-4 text-indigo-600" />
                             </div>
                           </div>
-                          <p className={`text-xl font-black font-mono ${
-                            (financeData?.capitalSummary?.remainingCapitalCash || 0) >= 0 ? "text-emerald-700" : "text-rose-600"
-                          }`}>
+                          <p className={`text-xl font-black font-mono ${(financeData?.capitalSummary?.remainingCapitalCash || 0) >= 0 ? "text-emerald-700" : "text-rose-600"
+                            }`}>
                             {formatRupiah(financeData?.capitalSummary?.remainingCapitalCash || 0)}
                           </p>
                           <p className="text-[11px] text-slate-500 mt-1 font-sans">
@@ -5559,45 +5527,42 @@ export default function AdminDashboardPage() {
                         {/* Filter Tabs Tipe Karakteristik Aset + Search & Sort */}
                         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                           <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => { setAssetTypeFilter("all"); setAssetPage(1); }}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                              assetTypeFilter === "all"
-                                ? "bg-slate-900 text-white shadow-xs"
-                                : "bg-slate-100 hover:bg-slate-200 text-slate-600"
-                            }`}
-                          >
-                            Semua Aset ({financeData?.capitalAssets?.length || 0})
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => { setAssetTypeFilter("tidak_bergerak"); setAssetPage(1); }}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                              assetTypeFilter === "tidak_bergerak"
-                                ? "bg-emerald-700 text-white shadow-xs"
-                                : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200"
-                            }`}
-                          >
-                            <span>🏛️ Tidak Bergerak</span>
-                            <span className="text-[10px] opacity-80">
-                              ({financeData?.capitalAssets?.filter((a: any) => a.asset_type === "tidak_bergerak").length || 0})
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => { setAssetTypeFilter("bergerak"); setAssetPage(1); }}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                              assetTypeFilter === "bergerak"
-                                ? "bg-amber-700 text-white shadow-xs"
-                                : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200"
-                            }`}
-                          >
-                            <span>🚚 Bergerak</span>
-                            <span className="text-[10px] opacity-80">
-                              ({financeData?.capitalAssets?.filter((a: any) => a.asset_type !== "tidak_bergerak").length || 0})
-                            </span>
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => { setAssetTypeFilter("all"); setAssetPage(1); }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${assetTypeFilter === "all"
+                                  ? "bg-slate-900 text-white shadow-xs"
+                                  : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                                }`}
+                            >
+                              Semua Aset ({financeData?.capitalAssets?.length || 0})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setAssetTypeFilter("tidak_bergerak"); setAssetPage(1); }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${assetTypeFilter === "tidak_bergerak"
+                                  ? "bg-emerald-700 text-white shadow-xs"
+                                  : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                }`}
+                            >
+                              <span>🏛️ Tidak Bergerak</span>
+                              <span className="text-[10px] opacity-80">
+                                ({financeData?.capitalAssets?.filter((a: any) => a.asset_type === "tidak_bergerak").length || 0})
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setAssetTypeFilter("bergerak"); setAssetPage(1); }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${assetTypeFilter === "bergerak"
+                                  ? "bg-amber-700 text-white shadow-xs"
+                                  : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200"
+                                }`}
+                            >
+                              <span>🚚 Bergerak</span>
+                              <span className="text-[10px] opacity-80">
+                                ({financeData?.capitalAssets?.filter((a: any) => a.asset_type !== "tidak_bergerak").length || 0})
+                              </span>
+                            </button>
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2">
@@ -5658,8 +5623,8 @@ export default function AdminDashboardPage() {
                                         assetTypeFilter === "all"
                                           ? true
                                           : assetTypeFilter === "tidak_bergerak"
-                                          ? a.asset_type === "tidak_bergerak"
-                                          : a.asset_type !== "tidak_bergerak";
+                                            ? a.asset_type === "tidak_bergerak"
+                                            : a.asset_type !== "tidak_bergerak";
                                       if (!matchType) return false;
                                       if (!q) return true;
                                       return (
@@ -5681,54 +5646,54 @@ export default function AdminDashboardPage() {
                                   return filteredAssets
                                     .slice((safePage - 1) * 40, safePage * 40)
                                     .map((a: any) => (
-                                    <tr key={a.id} className="hover:bg-slate-50/70 transition">
-                                      <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
-                                        {new Date(a.purchase_date).toLocaleDateString("id-ID", {
-                                          day: "2-digit",
-                                          month: "short",
-                                          year: "numeric",
-                                        })}
-                                      </td>
-                                      <td className="py-2.5 px-3 font-bold text-slate-900">
-                                        {a.name}
-                                      </td>
-                                      <td className="py-2.5 px-3 capitalize">
-                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-100">
-                                          {a.category}
-                                        </span>
-                                      </td>
-                                      <td className="py-2.5 px-3">
-                                        {a.asset_type === "tidak_bergerak" ? (
-                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1 w-fit" title="Masa pakai panjang, nilai stabil">
-                                            <span>🏛️ Tidak Bergerak (Stabil)</span>
+                                      <tr key={a.id} className="hover:bg-slate-50/70 transition">
+                                        <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px] whitespace-nowrap">
+                                          {new Date(a.purchase_date).toLocaleDateString("id-ID", {
+                                            day: "2-digit",
+                                            month: "short",
+                                            year: "numeric",
+                                          })}
+                                        </td>
+                                        <td className="py-2.5 px-3 font-bold text-slate-900">
+                                          {a.name}
+                                        </td>
+                                        <td className="py-2.5 px-3 capitalize">
+                                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-100">
+                                            {a.category}
                                           </span>
-                                        ) : (
-                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1 w-fit" title="Masa pakai terbatas, nilai menyusut">
-                                            <span>🚚 Bergerak (Menyusut)</span>
-                                          </span>
-                                        )}
-                                      </td>
-                                      <td className="py-2.5 px-3 text-slate-700 font-medium">
-                                        {a.outlet?.name || "Semua Kedai (Pusat)"}
-                                      </td>
-                                      <td className="py-2.5 px-3 text-right font-mono font-bold text-sky-900 text-xs">
-                                        {formatRupiah(a.cost)}
-                                      </td>
-                                      <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[180px] truncate" title={a.notes || ""}>
-                                        {a.notes || "-"}
-                                      </td>
-                                      <td className="py-2.5 px-3 text-center">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDeleteAsset(a.id, a.name)}
-                                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                          title="Hapus Aset"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  ));
+                                        </td>
+                                        <td className="py-2.5 px-3">
+                                          {a.asset_type === "tidak_bergerak" ? (
+                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1 w-fit" title="Masa pakai panjang, nilai stabil">
+                                              <span>🏛️ Tidak Bergerak (Stabil)</span>
+                                            </span>
+                                          ) : (
+                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1 w-fit" title="Masa pakai terbatas, nilai menyusut">
+                                              <span>🚚 Bergerak (Menyusut)</span>
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-slate-700 font-medium">
+                                          {a.outlet?.name || "Semua Kedai (Pusat)"}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-right font-mono font-bold text-sky-900 text-xs">
+                                          {formatRupiah(a.cost)}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-[180px] truncate" title={a.notes || ""}>
+                                          {a.notes || "-"}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-center">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteAsset(a.id, a.name)}
+                                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                            title="Hapus Aset"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ));
                                 })()
                               )}
                             </tbody>
@@ -5741,8 +5706,8 @@ export default function AdminDashboardPage() {
                               assetTypeFilter === "all"
                                 ? true
                                 : assetTypeFilter === "tidak_bergerak"
-                                ? a.asset_type === "tidak_bergerak"
-                                : a.asset_type !== "tidak_bergerak";
+                                  ? a.asset_type === "tidak_bergerak"
+                                  : a.asset_type !== "tidak_bergerak";
                             if (!matchType) return false;
                             if (!q) return true;
                             return (
@@ -5865,13 +5830,12 @@ export default function AdminDashboardPage() {
                                             {formatRupiah(r.amount)}
                                           </td>
                                           <td className="py-2.5 px-3 text-center">
-                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                              r.outcome?.includes("Berhasil")
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${r.outcome?.includes("Berhasil")
                                                 ? "bg-emerald-100 text-emerald-800"
                                                 : r.outcome?.includes("Evaluasi")
-                                                ? "bg-amber-100 text-amber-800"
-                                                : "bg-slate-100 text-slate-700"
-                                            }`}>
+                                                  ? "bg-amber-100 text-amber-800"
+                                                  : "bg-slate-100 text-slate-700"
+                                              }`}>
                                               {r.outcome || "Selesai"}
                                             </span>
                                           </td>
@@ -5987,11 +5951,10 @@ export default function AdminDashboardPage() {
                                     </td>
                                     <td className="py-2.5 px-3">
                                       <span
-                                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                          t.paymentMethod === "QRIS"
+                                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${t.paymentMethod === "QRIS"
                                             ? "bg-emerald-100 text-emerald-800"
                                             : "bg-amber-100 text-amber-900"
-                                        }`}
+                                          }`}
                                       >
                                         {t.paymentMethod}
                                       </span>
@@ -6173,64 +6136,63 @@ export default function AdminDashboardPage() {
                     return String(a.name).localeCompare(String(b.name));
                   })
                   .map((mat: any) => {
-                  const isGulaPasir = mat.name.toLowerCase().includes("gula pasir");
-                  const isGulaCair = mat.name.toLowerCase().includes("gula cair");
-                  const masterStock = mat.master_stock !== undefined ? mat.master_stock : 0;
-                  const isLow = masterStock <= (mat.unit === "gram" ? 5000 : mat.unit === "ml" ? 2000 : 20);
+                    const isGulaPasir = mat.name.toLowerCase().includes("gula pasir");
+                    const isGulaCair = mat.name.toLowerCase().includes("gula cair");
+                    const masterStock = mat.master_stock !== undefined ? mat.master_stock : 0;
+                    const isLow = masterStock <= (mat.unit === "gram" ? 5000 : mat.unit === "ml" ? 2000 : 20);
 
-                  return (
-                    <div
-                      key={mat.id}
-                      onClick={() => openRestockModal("central_set", mat.id)}
-                      className={`p-3.5 rounded-2xl border transition cursor-pointer relative group ${
-                        isGulaPasir
-                          ? "bg-amber-950/30 border-amber-500/40 hover:border-amber-400"
-                          : isLow
-                          ? "bg-rose-950/30 border-rose-500/40 hover:border-rose-400"
-                          : "bg-slate-800/80 border-slate-700 hover:border-emerald-500/50 hover:bg-slate-800"
-                      }`}
-                      title="Klik untuk koreksi / opname stok gudang pusat ini"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[11px] font-bold text-slate-300 truncate max-w-[120px] flex items-center gap-1">
-                          {isGulaPasir && "🍬 "}
-                          {isGulaCair && "🍯 "}
-                          {mat.name}
-                        </span>
-                        <Edit3 className="w-3 h-3 text-slate-500 group-hover:text-emerald-400 transition" />
-                      </div>
+                    return (
+                      <div
+                        key={mat.id}
+                        onClick={() => openRestockModal("central_set", mat.id)}
+                        className={`p-3.5 rounded-2xl border transition cursor-pointer relative group ${isGulaPasir
+                            ? "bg-amber-950/30 border-amber-500/40 hover:border-amber-400"
+                            : isLow
+                              ? "bg-rose-950/30 border-rose-500/40 hover:border-rose-400"
+                              : "bg-slate-800/80 border-slate-700 hover:border-emerald-500/50 hover:bg-slate-800"
+                          }`}
+                        title="Klik untuk koreksi / opname stok gudang pusat ini"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-bold text-slate-300 truncate max-w-[120px] flex items-center gap-1">
+                            {isGulaPasir && "🍬 "}
+                            {isGulaCair && "🍯 "}
+                            {mat.name}
+                          </span>
+                          <Edit3 className="w-3 h-3 text-slate-500 group-hover:text-emerald-400 transition" />
+                        </div>
 
-                      <div className="font-mono font-black text-base text-white">
-                        {mat.unit === "gram" ? (
-                          <div className="flex flex-col">
-                            <span>{(masterStock / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} kg</span>
-                            <span className="text-[10px] font-normal text-amber-300">
-                              {masterStock.toLocaleString("id-ID")} gr
-                            </span>
-                          </div>
-                        ) : mat.unit === "ml" ? (
-                          <div className="flex flex-col">
-                            <span>{(masterStock / 1000).toFixed(1)} Liter</span>
-                            <span className="text-[10px] font-normal text-teal-300">
-                              {masterStock.toLocaleString("id-ID")} ml
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-baseline gap-1">
-                            <span>{masterStock.toLocaleString("id-ID")}</span>
-                            <span className="text-[11px] font-normal text-slate-400">{mat.unit}</span>
-                          </div>
+                        <div className="font-mono font-black text-base text-white">
+                          {mat.unit === "gram" ? (
+                            <div className="flex flex-col">
+                              <span>{(masterStock / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} kg</span>
+                              <span className="text-[10px] font-normal text-amber-300">
+                                {masterStock.toLocaleString("id-ID")} gr
+                              </span>
+                            </div>
+                          ) : mat.unit === "ml" ? (
+                            <div className="flex flex-col">
+                              <span>{(masterStock / 1000).toFixed(1)} Liter</span>
+                              <span className="text-[10px] font-normal text-teal-300">
+                                {masterStock.toLocaleString("id-ID")} ml
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-baseline gap-1">
+                              <span>{masterStock.toLocaleString("id-ID")}</span>
+                              <span className="text-[11px] font-normal text-slate-400">{mat.unit}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {isGulaPasir && (
+                          <p className="text-[10px] text-amber-300/80 mt-1 font-medium">
+                            ~{Math.floor(masterStock / 1000)} batch sirup kedai
+                          </p>
                         )}
                       </div>
-
-                      {isGulaPasir && (
-                        <p className="text-[10px] text-amber-300/80 mt-1 font-medium">
-                          ~{Math.floor(masterStock / 1000)} batch sirup kedai
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
 
               {/* Transfer Logs Section */}
@@ -6246,83 +6208,83 @@ export default function AdminDashboardPage() {
                     </span>
                   </div>
                   {(() => {
-                    const { pagedItems, total, needsScroll } = paginateList(data.transferLogs || [], "transferLogs");
+                    const { pagedItems, total } = paginateList(data.transferLogs || [], "transferLogs");
+                    const scrollTransfer = pagedItems.length > 10;
                     return (
                       <>
-                        <div className={`${needsScroll ? "max-h-[540px] overflow-y-auto" : ""} space-y-1.5 pr-1 font-sans text-xs`}>
+                        <div className={`${scrollTransfer ? "max-h-[410px] overflow-y-auto" : ""} space-y-1.5 pr-1 font-sans text-xs`}>
                           {pagedItems.map((log) => {
-                      const isRestock = log.type === "restock";
-                      const isReturn = log.type === "return";
-                      const isCentralIn = log.type === "central_in";
-                      const isBrew = log.type === "sugar_brew";
+                            const isRestock = log.type === "restock";
+                            const isReturn = log.type === "return";
+                            const isCentralIn = log.type === "central_in";
+                            const isBrew = log.type === "sugar_brew";
 
-                      const fromOutlet = data?.outlets.find((o) => o.id === log.from_location);
-                      const toOutlet = data?.outlets.find((o) => o.id === log.to_location);
+                            const fromOutlet = data?.outlets.find((o) => o.id === log.from_location);
+                            const toOutlet = data?.outlets.find((o) => o.id === log.to_location);
 
-                      const fromName =
-                        log.from_location === "central"
-                          ? "Gudang Pusat"
-                          : log.from_location === "supplier"
-                          ? "Supplier"
-                          : fromOutlet?.name || log.from_location;
-                      const toName =
-                        log.to_location === "central"
-                          ? "Gudang Pusat"
-                          : toOutlet?.name || log.to_location;
+                            const fromName =
+                              log.from_location === "central"
+                                ? "Gudang Pusat"
+                                : log.from_location === "supplier"
+                                  ? "Supplier"
+                                  : fromOutlet?.name || log.from_location;
+                            const toName =
+                              log.to_location === "central"
+                                ? "Gudang Pusat"
+                                : toOutlet?.name || log.to_location;
 
-                      return (
-                        <div
-                          key={log.id}
-                          className="flex items-center justify-between bg-slate-800/60 p-2 rounded-xl border border-slate-700/60 text-[11px]"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
-                                isRestock
-                                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                                  : isReturn
-                                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                                  : isCentralIn
-                                  ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
-                                  : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
-                              }`}
-                            >
-                              {isRestock
-                                ? "Restock"
-                                : isReturn
-                                ? "Retur"
-                                : isCentralIn
-                                ? "Supplier In"
-                                : isBrew
-                                ? "Masak Sirup"
-                                : log.type}
-                            </span>
-                            <span className="font-extrabold text-white">
-                              {log.raw_material?.name || "Bahan Baku"}
-                            </span>
-                            <span className="font-mono text-emerald-400 font-bold">
-                              {log.raw_material?.unit === "gram"
-                                ? `${(log.quantity / 1000).toLocaleString("id-ID")} kg (${log.quantity.toLocaleString("id-ID")} gr)`
-                                : `${log.quantity.toLocaleString("id-ID")} ${log.raw_material?.unit || ""}`}
-                            </span>
-                            <span className="text-slate-400">
-                              ({fromName} ➔ {toName})
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            {new Date(log.created_at).toLocaleTimeString("id-ID", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
+                            return (
+                              <div
+                                key={log.id}
+                                className="flex items-center justify-between bg-slate-800/60 p-2 rounded-xl border border-slate-700/60 text-[11px]"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${isRestock
+                                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                        : isReturn
+                                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                          : isCentralIn
+                                            ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                                            : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                                      }`}
+                                  >
+                                    {isRestock
+                                      ? "Restock"
+                                      : isReturn
+                                        ? "Retur"
+                                        : isCentralIn
+                                          ? "Supplier In"
+                                          : isBrew
+                                            ? "Masak Sirup"
+                                            : log.type}
+                                  </span>
+                                  <span className="font-extrabold text-white">
+                                    {log.raw_material?.name || "Bahan Baku"}
+                                  </span>
+                                  <span className="font-mono text-emerald-400 font-bold">
+                                    {log.raw_material?.unit === "gram"
+                                      ? `${(log.quantity / 1000).toLocaleString("id-ID")} kg (${log.quantity.toLocaleString("id-ID")} gr)`
+                                      : `${log.quantity.toLocaleString("id-ID")} ${log.raw_material?.unit || ""}`}
+                                  </span>
+                                  <span className="text-slate-400">
+                                    ({fromName} ➔ {toName})
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-slate-500 font-mono">
+                                  {new Date(log.created_at).toLocaleTimeString("id-ID", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
-                  </div>
-                  {renderTablePagination("transferLogs", total, true)}
-                </>
-              );
-            })()}
+                        {renderTablePagination("transferLogs", total, true)}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -6392,20 +6354,20 @@ export default function AdminDashboardPage() {
                     const cashBalance = isClosed
                       ? 0
                       : outlet.currentCashBalance !== undefined
-                      ? outlet.currentCashBalance
-                      : fullOutlet.currentCashBalance !== undefined
-                      ? fullOutlet.currentCashBalance
-                      : (outlet.initial_cash || 0);
+                        ? outlet.currentCashBalance
+                        : fullOutlet.currentCashBalance !== undefined
+                          ? fullOutlet.currentCashBalance
+                          : (outlet.initial_cash || 0);
                     const cashIn = outlet.todayCashIn !== undefined
                       ? outlet.todayCashIn
                       : fullOutlet.todayCashIn !== undefined
-                      ? fullOutlet.todayCashIn
-                      : 0;
+                        ? fullOutlet.todayCashIn
+                        : 0;
                     const expenseTotal = outlet.todayExpenseTotal !== undefined
                       ? outlet.todayExpenseTotal
                       : fullOutlet.todayExpenseTotal !== undefined
-                      ? fullOutlet.todayExpenseTotal
-                      : 0;
+                        ? fullOutlet.todayExpenseTotal
+                        : 0;
 
                     return (
                       <div key={outlet.id} className="border border-slate-200 rounded-2xl p-4 bg-slate-50/60">
@@ -6442,11 +6404,10 @@ export default function AdminDashboardPage() {
 
                             {/* Total Uang Cash Fisik di Laci Saat Ini (Real-time di Booth) */}
                             <div
-                              className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs border ${
-                                isClosed
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs border ${isClosed
                                   ? "bg-slate-100 text-slate-600 border-slate-300"
                                   : "bg-teal-50 text-teal-950 border-teal-300"
-                              }`}
+                                }`}
                               title={
                                 isClosed
                                   ? "Shift Sedang Tutup: Kas fisik di laci saat ini Rp 0 (sudah disetor saat penutupan shift)"
@@ -6508,57 +6469,56 @@ export default function AdminDashboardPage() {
                               return a.raw_material.name.localeCompare(b.raw_material.name);
                             })
                             .map((stock) => {
-                            const isGulaPasir = stock.raw_material.name.toLowerCase().includes("gula pasir");
-                            const isGulaCair = stock.raw_material.name.toLowerCase().includes("gula cair");
+                              const isGulaPasir = stock.raw_material.name.toLowerCase().includes("gula pasir");
+                              const isGulaCair = stock.raw_material.name.toLowerCase().includes("gula cair");
 
-                            return (
-                              <div
-                                key={stock.id}
-                                onClick={() => openSingleStockEdit(outlet, stock)}
-                                className={`p-3 rounded-xl border cursor-pointer transition flex items-center justify-between group ${
-                                  isGulaPasir
-                                    ? "bg-amber-50/50 border-amber-200 hover:border-amber-400 hover:bg-amber-50"
-                                    : "bg-white border-slate-200 hover:border-emerald-400 hover:shadow-sm"
-                                }`}
-                                title="Klik untuk ubah / kirim / retur stok ini"
-                              >
-                                <div>
-                                  <div className="flex items-center gap-1">
-                                    {isGulaPasir && <span>🍬</span>}
-                                    {isGulaCair && <span>🍯</span>}
-                                    <p className="text-[11px] text-slate-600 font-semibold truncate max-w-[130px]">
-                                      {stock.raw_material.name}
+                              return (
+                                <div
+                                  key={stock.id}
+                                  onClick={() => openSingleStockEdit(outlet, stock)}
+                                  className={`p-3 rounded-xl border cursor-pointer transition flex items-center justify-between group ${isGulaPasir
+                                      ? "bg-amber-50/50 border-amber-200 hover:border-amber-400 hover:bg-amber-50"
+                                      : "bg-white border-slate-200 hover:border-emerald-400 hover:shadow-sm"
+                                    }`}
+                                  title="Klik untuk ubah / kirim / retur stok ini"
+                                >
+                                  <div>
+                                    <div className="flex items-center gap-1">
+                                      {isGulaPasir && <span>🍬</span>}
+                                      {isGulaCair && <span>🍯</span>}
+                                      <p className="text-[11px] text-slate-600 font-semibold truncate max-w-[130px]">
+                                        {stock.raw_material.name}
+                                      </p>
+                                    </div>
+                                    <p className="font-mono font-black text-sm text-slate-900 mt-0.5">
+                                      {stock.raw_material.unit === "gram" ? (
+                                        <>
+                                          {(stock.current_stock / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} kg{" "}
+                                          <span className="text-[10px] font-normal text-slate-500">
+                                            ({Math.round(stock.current_stock).toLocaleString("id-ID")} gr)
+                                          </span>
+                                        </>
+                                      ) : stock.raw_material.unit === "ml" ? (
+                                        <>
+                                          {Math.round(stock.current_stock).toLocaleString("id-ID")} ml{" "}
+                                          <span className="text-[10px] font-normal text-slate-400">
+                                            (~{(stock.current_stock / 1000).toFixed(1)}L)
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          {Math.round(stock.current_stock).toLocaleString("id-ID")}{" "}
+                                          <span className="text-[10px] font-normal text-slate-400">
+                                            {stock.raw_material.unit}
+                                          </span>
+                                        </>
+                                      )}
                                     </p>
                                   </div>
-                                  <p className="font-mono font-black text-sm text-slate-900 mt-0.5">
-                                    {stock.raw_material.unit === "gram" ? (
-                                      <>
-                                        {(stock.current_stock / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} kg{" "}
-                                        <span className="text-[10px] font-normal text-slate-500">
-                                          ({Math.round(stock.current_stock).toLocaleString("id-ID")} gr)
-                                        </span>
-                                      </>
-                                    ) : stock.raw_material.unit === "ml" ? (
-                                      <>
-                                        {Math.round(stock.current_stock).toLocaleString("id-ID")} ml{" "}
-                                        <span className="text-[10px] font-normal text-slate-400">
-                                          (~{(stock.current_stock / 1000).toFixed(1)}L)
-                                        </span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        {Math.round(stock.current_stock).toLocaleString("id-ID")}{" "}
-                                        <span className="text-[10px] font-normal text-slate-400">
-                                          {stock.raw_material.unit}
-                                        </span>
-                                      </>
-                                    )}
-                                  </p>
+                                  <Edit3 className="w-3.5 h-3.5 text-slate-300 group-hover:text-emerald-600 transition shrink-0" />
                                 </div>
-                                <Edit3 className="w-3.5 h-3.5 text-slate-300 group-hover:text-emerald-600 transition shrink-0" />
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
                         </div>
                       </div>
                     );
@@ -6608,127 +6568,126 @@ export default function AdminDashboardPage() {
                             </tr>
                           ) : (
                             pagedItems.map((c) => {
-                        const sugarVariance = c.discrepancy_sugar_ml ?? 0;
-                        const hasCupShortage = c.discrepancy_cup < 0;
-                        const hasCupSurplus = c.discrepancy_cup > 0;
-                        const hasCashShortage = c.discrepancy_cash !== undefined && c.discrepancy_cash < 0;
-                        const hasCashSurplus = c.discrepancy_cash !== undefined && c.discrepancy_cash > 0;
-                        const hasSugarVariance = Math.abs(sugarVariance) > 50;
-                        const isRed = c.theft_flag || hasCupShortage || hasCashShortage;
-                        const isYellow = (c.waste_flag || hasCupSurplus || hasCashSurplus || hasSugarVariance) && !isRed;
-                        const isMatched = !isRed && !isYellow && c.discrepancy_cup === 0 && (!c.discrepancy_cash || c.discrepancy_cash === 0) && Math.abs(sugarVariance) <= 50;
+                              const sugarVariance = c.discrepancy_sugar_ml ?? 0;
+                              const hasCupShortage = c.discrepancy_cup < 0;
+                              const hasCupSurplus = c.discrepancy_cup > 0;
+                              const hasCashShortage = c.discrepancy_cash !== undefined && c.discrepancy_cash < 0;
+                              const hasCashSurplus = c.discrepancy_cash !== undefined && c.discrepancy_cash > 0;
+                              const hasSugarVariance = Math.abs(sugarVariance) > 50;
+                              const isRed = c.theft_flag || hasCupShortage || hasCashShortage;
+                              const isYellow = (c.waste_flag || hasCupSurplus || hasCashSurplus || hasSugarVariance) && !isRed;
+                              const isMatched = !isRed && !isYellow && c.discrepancy_cup === 0 && (!c.discrepancy_cash || c.discrepancy_cash === 0) && Math.abs(sugarVariance) <= 50;
 
-                        return (
-                          <tr
-                            key={c.id}
-                            className={`font-mono transition ${
-                              isRed
-                                ? "bg-rose-50/80 border-l-4 border-l-rose-500"
-                                : isYellow
-                                ? "bg-amber-50/70 border-l-4 border-l-amber-500"
-                                : "hover:bg-slate-50"
-                            }`}
-                          >
-                            <td className="py-2.5 px-3 text-slate-600 text-[11px] whitespace-nowrap">
-                              {new Date(c.created_at).toLocaleDateString("id-ID", {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                              })}
-                              <span className="block text-[10px] text-slate-400 font-sans">
-                                {new Date(c.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 font-sans font-bold text-slate-800">{c.outlet?.name}</td>
-                            <td className="py-2.5 px-3">
-                              {c.actual_cup_reg} / {c.actual_cup_jumbo}
-                            </td>
-                            <td className="py-2.5 px-3 text-slate-500">
-                              {c.system_expected_cup_reg} / {c.system_expected_cup_jumbo}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <strong>{c.actual_liquid_ml}</strong> kantong{" "}
-                              <span className="text-slate-400">/ {c.system_expected_liquid_ml} kantong</span>
-                              {c.discrepancy_liquid !== undefined && c.discrepancy_liquid !== 0 && (
-                                <span className={`ml-1 text-[10px] font-bold ${c.discrepancy_liquid < 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                                  ({c.discrepancy_liquid > 0 ? `+${c.discrepancy_liquid}` : c.discrepancy_liquid})
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-3 font-mono">
-                              <strong>{Math.round(c.actual_sugar_ml ?? 0).toLocaleString("id-ID")} ml</strong>{" "}
-                              <span className="text-slate-400">/ {Math.round(c.system_expected_sugar_ml ?? 0).toLocaleString("id-ID")} ml</span>
-                              {c.discrepancy_sugar_ml !== undefined && c.discrepancy_sugar_ml !== 0 && (
-                                <span className={`ml-1 text-[10px] font-bold ${c.discrepancy_sugar_ml < 0 ? "text-rose-600" : "text-amber-600"}`}>
-                                  ({c.discrepancy_sugar_ml > 0 ? `+${Math.round(c.discrepancy_sugar_ml)}` : Math.round(c.discrepancy_sugar_ml)} ml)
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-3 font-mono">
-                              <strong>Rp {Math.round(c.actual_cash ?? 0).toLocaleString("id-ID")}</strong>{" "}
-                              <span className="text-slate-400">/ Rp {Math.round(c.system_expected_cash ?? 0).toLocaleString("id-ID")}</span>
-                              {c.discrepancy_cash !== undefined && c.discrepancy_cash !== 0 && (
-                                <span className={`block text-[10px] font-bold ${c.discrepancy_cash < 0 ? "text-rose-600" : "text-blue-600"}`}>
-                                  {c.discrepancy_cash > 0 ? `+Rp ${Math.round(c.discrepancy_cash).toLocaleString("id-ID")}` : `-Rp ${Math.abs(Math.round(c.discrepancy_cash)).toLocaleString("id-ID")}`}
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <span className={c.discrepancy_cup < 0 ? "text-rose-600 font-bold" : c.discrepancy_cup > 0 ? "text-amber-600 font-bold" : "text-emerald-700 font-bold"}>
-                                {c.discrepancy_cup > 0 ? `+${c.discrepancy_cup}` : c.discrepancy_cup}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 font-bold text-rose-700">
-                              {c.employee_debt > 0 ? formatRupiah(c.employee_debt) : "-"}
-                            </td>
-                            <td className="py-2.5 px-3 font-sans space-y-1">
-                              {hasCashShortage && (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white block text-center">
-                                  KAS MINUS
-                                </span>
-                              )}
-                              {hasCashSurplus && (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white block text-center">
-                                  KAS LEBIH
-                                </span>
-                              )}
-                              {hasCupShortage && (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white block text-center">
-                                  HUTANG CUP ({c.discrepancy_cup})
-                                </span>
-                              )}
-                              {hasCupSurplus && (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white block text-center">
-                                  SURPLUS CUP (+{c.discrepancy_cup})
-                                </span>
-                              )}
-                              {hasSugarVariance && (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-900 block text-center">
-                                  SELISIH GULA ({sugarVariance > 0 ? `+${Math.round(sugarVariance)}` : Math.round(sugarVariance)} ml)
-                                </span>
-                              )}
-                              {c.waste_flag && !hasSugarVariance && (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-950 block text-center">
-                                  BOROS CAIRAN
-                                </span>
-                              )}
-                              {isMatched && (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 block text-center">
-                                  MATCHED
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {renderTablePagination("closings", total)}
-            </>
-          );
-        })()}
+                              return (
+                                <tr
+                                  key={c.id}
+                                  className={`font-mono transition ${isRed
+                                      ? "bg-rose-50/80 border-l-4 border-l-rose-500"
+                                      : isYellow
+                                        ? "bg-amber-50/70 border-l-4 border-l-amber-500"
+                                        : "hover:bg-slate-50"
+                                    }`}
+                                >
+                                  <td className="py-2.5 px-3 text-slate-600 text-[11px] whitespace-nowrap">
+                                    {new Date(c.created_at).toLocaleDateString("id-ID", {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    })}
+                                    <span className="block text-[10px] text-slate-400 font-sans">
+                                      {new Date(c.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 font-sans font-bold text-slate-800">{c.outlet?.name}</td>
+                                  <td className="py-2.5 px-3">
+                                    {c.actual_cup_reg} / {c.actual_cup_jumbo}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-slate-500">
+                                    {c.system_expected_cup_reg} / {c.system_expected_cup_jumbo}
+                                  </td>
+                                  <td className="py-2.5 px-3">
+                                    <strong>{c.actual_liquid_ml}</strong> kantong{" "}
+                                    <span className="text-slate-400">/ {c.system_expected_liquid_ml} kantong</span>
+                                    {c.discrepancy_liquid !== undefined && c.discrepancy_liquid !== 0 && (
+                                      <span className={`ml-1 text-[10px] font-bold ${c.discrepancy_liquid < 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                                        ({c.discrepancy_liquid > 0 ? `+${c.discrepancy_liquid}` : c.discrepancy_liquid})
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono">
+                                    <strong>{Math.round(c.actual_sugar_ml ?? 0).toLocaleString("id-ID")} ml</strong>{" "}
+                                    <span className="text-slate-400">/ {Math.round(c.system_expected_sugar_ml ?? 0).toLocaleString("id-ID")} ml</span>
+                                    {c.discrepancy_sugar_ml !== undefined && c.discrepancy_sugar_ml !== 0 && (
+                                      <span className={`ml-1 text-[10px] font-bold ${c.discrepancy_sugar_ml < 0 ? "text-rose-600" : "text-amber-600"}`}>
+                                        ({c.discrepancy_sugar_ml > 0 ? `+${Math.round(c.discrepancy_sugar_ml)}` : Math.round(c.discrepancy_sugar_ml)} ml)
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono">
+                                    <strong>Rp {Math.round(c.actual_cash ?? 0).toLocaleString("id-ID")}</strong>{" "}
+                                    <span className="text-slate-400">/ Rp {Math.round(c.system_expected_cash ?? 0).toLocaleString("id-ID")}</span>
+                                    {c.discrepancy_cash !== undefined && c.discrepancy_cash !== 0 && (
+                                      <span className={`block text-[10px] font-bold ${c.discrepancy_cash < 0 ? "text-rose-600" : "text-blue-600"}`}>
+                                        {c.discrepancy_cash > 0 ? `+Rp ${Math.round(c.discrepancy_cash).toLocaleString("id-ID")}` : `-Rp ${Math.abs(Math.round(c.discrepancy_cash)).toLocaleString("id-ID")}`}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3">
+                                    <span className={c.discrepancy_cup < 0 ? "text-rose-600 font-bold" : c.discrepancy_cup > 0 ? "text-amber-600 font-bold" : "text-emerald-700 font-bold"}>
+                                      {c.discrepancy_cup > 0 ? `+${c.discrepancy_cup}` : c.discrepancy_cup}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 font-bold text-rose-700">
+                                    {c.employee_debt > 0 ? formatRupiah(c.employee_debt) : "-"}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-sans space-y-1">
+                                    {hasCashShortage && (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white block text-center">
+                                        KAS MINUS
+                                      </span>
+                                    )}
+                                    {hasCashSurplus && (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white block text-center">
+                                        KAS LEBIH
+                                      </span>
+                                    )}
+                                    {hasCupShortage && (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white block text-center">
+                                        HUTANG CUP ({c.discrepancy_cup})
+                                      </span>
+                                    )}
+                                    {hasCupSurplus && (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white block text-center">
+                                        SURPLUS CUP (+{c.discrepancy_cup})
+                                      </span>
+                                    )}
+                                    {hasSugarVariance && (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-900 block text-center">
+                                        SELISIH GULA ({sugarVariance > 0 ? `+${Math.round(sugarVariance)}` : Math.round(sugarVariance)} ml)
+                                      </span>
+                                    )}
+                                    {c.waste_flag && !hasSugarVariance && (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-950 block text-center">
+                                        BOROS CAIRAN
+                                      </span>
+                                    )}
+                                    {isMatched && (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 block text-center">
+                                        MATCHED
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    {renderTablePagination("closings", total)}
+                  </>
+                );
+              })()}
             </div>
 
             {/* Audit Log Refill & Masak Gula Cair (Anti-Manipulasi Selisih) */}
@@ -6775,53 +6734,53 @@ export default function AdminDashboardPage() {
                             </tr>
                           ) : (
                             pagedItems.map((s: SugarRefillLogRecord) => (
-                        <tr key={s.id} className="hover:bg-slate-50 transition font-mono">
-                          <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
-                            {new Date(s.created_at).toLocaleString("id-ID", {
-                              day: "numeric",
-                              month: "short",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </td>
-                          <td className="py-2.5 px-3 font-sans font-bold text-slate-800">
-                            {s.outlet?.name || s.outlet_id}
-                          </td>
-                          <td className="py-2.5 px-3 font-sans">
-                            {s.type === "brew" ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                                🍯 Masak di Kedai (+1.6L)
-                              </span>
-                            ) : s.type === "opening_brought" ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300">
-                                🌅 Bawa saat Buka Kedai
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
-                                ⚙️ Penyesuaian Manual
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3 font-bold text-emerald-700">
-                            +{Math.round(s.amount_ml).toLocaleString("id-ID")} ml
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-600">
-                            {Math.round(s.stock_before).toLocaleString("id-ID")} ml &rarr;{" "}
-                            <strong className="text-slate-900">{Math.round(s.stock_after).toLocaleString("id-ID")} ml</strong>
-                          </td>
-                          <td className="py-2.5 px-3 font-sans text-slate-600 italic">
-                            {s.notes || "-"}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {renderTablePagination("sugarLogs", total)}
-            </>
-          );
-        })()}
+                              <tr key={s.id} className="hover:bg-slate-50 transition font-mono">
+                                <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
+                                  {new Date(s.created_at).toLocaleString("id-ID", {
+                                    day: "numeric",
+                                    month: "short",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </td>
+                                <td className="py-2.5 px-3 font-sans font-bold text-slate-800">
+                                  {s.outlet?.name || s.outlet_id}
+                                </td>
+                                <td className="py-2.5 px-3 font-sans">
+                                  {s.type === "brew" ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                      🍯 Masak di Kedai (+1.6L)
+                                    </span>
+                                  ) : s.type === "opening_brought" ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300">
+                                      🌅 Bawa saat Buka Kedai
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
+                                      ⚙️ Penyesuaian Manual
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 font-bold text-emerald-700">
+                                  +{Math.round(s.amount_ml).toLocaleString("id-ID")} ml
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-600">
+                                  {Math.round(s.stock_before).toLocaleString("id-ID")} ml &rarr;{" "}
+                                  <strong className="text-slate-900">{Math.round(s.stock_after).toLocaleString("id-ID")} ml</strong>
+                                </td>
+                                <td className="py-2.5 px-3 font-sans text-slate-600 italic">
+                                  {s.notes || "-"}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    {renderTablePagination("sugarLogs", total)}
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -6860,11 +6819,10 @@ export default function AdminDashboardPage() {
               {outletsList.map((outlet) => (
                 <div
                   key={outlet.id}
-                  className={`p-4 rounded-2xl border transition flex flex-col justify-between ${
-                    outlet.active_status !== false
+                  className={`p-4 rounded-2xl border transition flex flex-col justify-between ${outlet.active_status !== false
                       ? "bg-slate-50/70 border-slate-200 hover:border-emerald-300"
                       : "bg-slate-100 border-slate-200 opacity-60"
-                  }`}
+                    }`}
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -6872,11 +6830,10 @@ export default function AdminDashboardPage() {
                         {outlet.code}
                       </span>
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          outlet.active_status !== false
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${outlet.active_status !== false
                             ? "bg-emerald-100 text-emerald-700"
                             : "bg-rose-100 text-rose-700"
-                        }`}
+                          }`}
                       >
                         {outlet.active_status !== false ? "Aktif" : "Nonaktif"}
                       </span>
@@ -6884,7 +6841,7 @@ export default function AdminDashboardPage() {
 
                     <h4 className="font-extrabold text-sm text-slate-900">{outlet.name}</h4>
                     <p className="text-xs text-slate-500">{outlet.address || "Belum ada alamat terdaftar"}</p>
-                    
+
                     <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 text-sky-850 border border-sky-200 text-xs font-bold">
                         <Target className="w-3.5 h-3.5 text-sky-600" />
@@ -6908,11 +6865,10 @@ export default function AdminDashboardPage() {
                         const cashBal = isClosed ? 0 : (outlet.currentCashBalance !== undefined ? outlet.currentCashBalance : (outlet.initial_cash || 0));
                         return (
                           <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${
-                              isClosed
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${isClosed
                                 ? "bg-slate-100 text-slate-600 border-slate-300"
                                 : "bg-teal-50 text-teal-950 border-teal-300"
-                            }`}
+                              }`}
                             title={
                               isClosed
                                 ? "Shift Tutup: Kas fisik di laci Rp 0"
@@ -7031,23 +6987,22 @@ export default function AdminDashboardPage() {
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between">
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              category === "original"
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${category === "original"
                                 ? "bg-emerald-100 text-emerald-800"
                                 : category === "milky"
-                                ? "bg-amber-100 text-amber-800"
-                                : category === "topping"
-                                ? "bg-purple-100 text-purple-800"
-                                : "bg-rose-100 text-rose-800"
-                            }`}
+                                  ? "bg-amber-100 text-amber-800"
+                                  : category === "topping"
+                                    ? "bg-purple-100 text-purple-800"
+                                    : "bg-rose-100 text-rose-800"
+                              }`}
                           >
                             {category === "original"
                               ? "Original Poci"
                               : category === "milky"
-                              ? "Milky Fusion"
-                              : category === "topping"
-                              ? "Topping"
-                              : "Fruit Tea"}
+                                ? "Milky Fusion"
+                                : category === "topping"
+                                  ? "Topping"
+                                  : "Fruit Tea"}
                           </span>
 
                           <div className="flex items-center gap-1">
@@ -7280,20 +7235,18 @@ export default function AdminDashboardPage() {
                           setMenuTargetOutlet(o.id);
                           try {
                             localStorage.setItem("poci_admin_menu_outlet", o.id);
-                          } catch {}
+                          } catch { }
                         }}
-                        className={`px-4 py-2.5 rounded-2xl font-bold text-xs flex items-center gap-2.5 transition shadow-xs cursor-pointer ${
-                          isSelected
+                        className={`px-4 py-2.5 rounded-2xl font-bold text-xs flex items-center gap-2.5 transition shadow-xs cursor-pointer ${isSelected
                             ? "bg-emerald-700 text-white shadow-md ring-2 ring-emerald-500/40"
                             : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
-                        }`}
+                          }`}
                       >
                         <Store className={`w-4 h-4 ${isSelected ? "text-amber-300" : "text-emerald-700"}`} />
                         <span>{o.name}</span>
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                            isSelected ? "bg-emerald-800 text-emerald-100" : "bg-white text-slate-700 border border-slate-200"
-                          }`}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${isSelected ? "bg-emerald-800 text-emerald-100" : "bg-white text-slate-700 border border-slate-200"
+                            }`}
                         >
                           {activeCount} menu aktif
                         </span>
@@ -7324,41 +7277,38 @@ export default function AdminDashboardPage() {
                   return (
                     <div
                       key={baseName}
-                      className={`p-4 rounded-2xl border transition flex flex-col justify-between ${
-                        isAnyAvail
+                      className={`p-4 rounded-2xl border transition flex flex-col justify-between ${isAnyAvail
                           ? "bg-white border-emerald-300 shadow-xs"
                           : "bg-slate-50 border-slate-200 opacity-60"
-                      }`}
+                        }`}
                     >
                       {/* Info Menu */}
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              category === "original"
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${category === "original"
                                 ? "bg-emerald-100 text-emerald-800"
                                 : category === "milky"
-                                ? "bg-amber-100 text-amber-800"
-                                : category === "topping"
-                                ? "bg-purple-100 text-purple-800"
-                                : "bg-rose-100 text-rose-800"
-                            }`}
+                                  ? "bg-amber-100 text-amber-800"
+                                  : category === "topping"
+                                    ? "bg-purple-100 text-purple-800"
+                                    : "bg-rose-100 text-rose-800"
+                              }`}
                           >
                             {category === "original"
                               ? "Original Poci"
                               : category === "milky"
-                              ? "Milky Fusion"
-                              : category === "topping"
-                              ? "Topping"
-                              : "Fruit Tea"}
+                                ? "Milky Fusion"
+                                : category === "topping"
+                                  ? "Topping"
+                                  : "Fruit Tea"}
                           </span>
 
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              isAnyAvail
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isAnyAvail
                                 ? "bg-emerald-100 text-emerald-800"
                                 : "bg-slate-200 text-slate-600"
-                            }`}
+                              }`}
                           >
                             {isAnyAvail ? "Aktif di Kedai" : "Nonaktif di Kedai"}
                           </span>
@@ -7404,11 +7354,10 @@ export default function AdminDashboardPage() {
                               <button
                                 type="button"
                                 onClick={() => handleToggleOutletMenu(currentOutletId, reguler.id, isRegAvail)}
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
-                                  isRegAvail
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${isRegAvail
                                     ? "bg-emerald-600 text-white"
                                     : "bg-slate-200 text-slate-500 hover:bg-slate-300"
-                                }`}
+                                  }`}
                               >
                                 {isRegAvail ? "On" : "Off"}
                               </button>
@@ -7426,11 +7375,10 @@ export default function AdminDashboardPage() {
                               <button
                                 type="button"
                                 onClick={() => handleToggleOutletMenu(currentOutletId, jumbo.id, isJumAvail)}
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
-                                  isJumAvail
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${isJumAvail
                                     ? "bg-emerald-600 text-white"
                                     : "bg-slate-200 text-slate-500 hover:bg-slate-300"
-                                }`}
+                                  }`}
                               >
                                 {isJumAvail ? "On" : "Off"}
                               </button>
@@ -7503,9 +7451,8 @@ export default function AdminDashboardPage() {
                     </h3>
                     {/* Live Status Badge */}
                     <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border shadow-2xs ${
-                        promoCampaignData?.badgeColor || "bg-slate-100 text-slate-700 border-slate-300"
-                      }`}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border shadow-2xs ${promoCampaignData?.badgeColor || "bg-slate-100 text-slate-700 border-slate-300"
+                        }`}
                     >
                       {promoCampaignData?.isCurrentlyActive && (
                         <span className="relative flex h-2 w-2">
@@ -7548,14 +7495,12 @@ export default function AdminDashboardPage() {
                         free_product_name: campaignForm.freeProductName,
                       });
                     }}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      campaignForm.isActive ? "bg-emerald-600" : "bg-slate-300"
-                    }`}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${campaignForm.isActive ? "bg-emerald-600" : "bg-slate-300"
+                      }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        campaignForm.isActive ? "translate-x-5" : "translate-x-0"
-                      }`}
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${campaignForm.isActive ? "translate-x-5" : "translate-x-0"
+                        }`}
                     />
                   </button>
                   <span className={`text-xs font-black ${campaignForm.isActive ? "text-emerald-700" : "text-slate-400"}`}>
@@ -7688,11 +7633,10 @@ export default function AdminDashboardPage() {
                     type="button"
                     onClick={() => handleSavePromoCampaign()}
                     disabled={campaignLoading}
-                    className={`px-4 py-2 text-white rounded-xl font-extrabold text-xs flex items-center gap-2 transition shadow-md cursor-pointer disabled:opacity-50 ${
-                      campaignFormDirty
+                    className={`px-4 py-2 text-white rounded-xl font-extrabold text-xs flex items-center gap-2 transition shadow-md cursor-pointer disabled:opacity-50 ${campaignFormDirty
                         ? "bg-emerald-600 hover:bg-emerald-700 ring-4 ring-emerald-300 animate-pulse"
                         : "bg-slate-900 hover:bg-slate-800"
-                    }`}
+                      }`}
                   >
                     {campaignLoading ? (
                       <>
@@ -7710,11 +7654,10 @@ export default function AdminDashboardPage() {
 
               {campaignMessage && (
                 <div
-                  className={`p-3 rounded-xl text-xs font-bold border transition ${
-                    campaignMessage.isError
+                  className={`p-3 rounded-xl text-xs font-bold border transition ${campaignMessage.isError
                       ? "bg-rose-50 text-rose-800 border-rose-200"
                       : "bg-emerald-50 text-emerald-900 border-emerald-300"
-                  }`}
+                    }`}
                 >
                   {campaignMessage.text}
                 </div>
@@ -7724,11 +7667,10 @@ export default function AdminDashboardPage() {
             {/* Notification Toast Message */}
             {voucherMessage && (
               <div
-                className={`p-3 rounded-2xl text-xs font-bold shadow-xs animate-in fade-in flex items-center justify-between gap-2 ${
-                  voucherMessage.isError
+                className={`p-3 rounded-2xl text-xs font-bold shadow-xs animate-in fade-in flex items-center justify-between gap-2 ${voucherMessage.isError
                     ? "bg-rose-50 border border-rose-300 text-rose-800"
                     : "bg-emerald-50 border border-emerald-300 text-emerald-800"
-                }`}
+                  }`}
               >
                 <span>{voucherMessage.text}</span>
                 <button
@@ -7802,16 +7744,14 @@ export default function AdminDashboardPage() {
                       key={tab.id}
                       type="button"
                       onClick={() => setVoucherStatusFilter(tab.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                        voucherStatusFilter === tab.id
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${voucherStatusFilter === tab.id
                           ? "bg-slate-900 text-white shadow-2xs"
                           : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
+                        }`}
                     >
                       <span>{tab.label}</span>
-                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                        voucherStatusFilter === tab.id ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
-                      }`}>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${voucherStatusFilter === tab.id ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+                        }`}>
                         {tab.count}
                       </span>
                     </button>
@@ -7889,153 +7829,153 @@ export default function AdminDashboardPage() {
                             </tr>
                           ) : (
                             pagedItems.map((v) => {
-                        const isRedeemed = v.effectiveStatus === "redeemed";
-                        const isActive = v.effectiveStatus === "active";
-                        const isExpired = v.effectiveStatus === "expired";
+                              const isRedeemed = v.effectiveStatus === "redeemed";
+                              const isActive = v.effectiveStatus === "active";
+                              const isExpired = v.effectiveStatus === "expired";
 
-                        return (
-                          <tr key={v.id} className="hover:bg-slate-50/80 transition">
-                            {/* Kode Voucher + Copy Button */}
-                            <td className="py-3 px-3.5">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-mono font-black text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                                  {v.code}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopyVoucherCode(v.code)}
-                                  title="Salin Kode Voucher"
-                                  className="p-1 hover:bg-slate-200 text-slate-500 rounded transition cursor-pointer"
-                                >
-                                  {copiedVoucherCode === v.code ? (
-                                    <span className="text-[9px] font-bold text-emerald-700">Tersalin!</span>
-                                  ) : (
-                                    <Copy className="w-3.5 h-3.5" />
-                                  )}
-                                </button>
-                              </div>
-                            </td>
+                              return (
+                                <tr key={v.id} className="hover:bg-slate-50/80 transition">
+                                  {/* Kode Voucher + Copy Button */}
+                                  <td className="py-3 px-3.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-mono font-black text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                                        {v.code}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopyVoucherCode(v.code)}
+                                        title="Salin Kode Voucher"
+                                        className="p-1 hover:bg-slate-200 text-slate-500 rounded transition cursor-pointer"
+                                      >
+                                        {copiedVoucherCode === v.code ? (
+                                          <span className="text-[9px] font-bold text-emerald-700">Tersalin!</span>
+                                        ) : (
+                                          <Copy className="w-3.5 h-3.5" />
+                                        )}
+                                      </button>
+                                    </div>
+                                  </td>
 
-                            {/* Kedai */}
-                            <td className="py-3 px-3.5">
-                              <span className="font-bold text-slate-800 block">{v.outlet?.name || "-"}</span>
-                              <span className="text-[10px] text-slate-400 font-mono">{v.outlet?.code}</span>
-                            </td>
+                                  {/* Kedai */}
+                                  <td className="py-3 px-3.5">
+                                    <span className="font-bold text-slate-800 block">{v.outlet?.name || "-"}</span>
+                                    <span className="text-[10px] text-slate-400 font-mono">{v.outlet?.code}</span>
+                                  </td>
 
-                            {/* Menu Hadiah */}
-                            <td className="py-3 px-3.5">
-                              <span className="font-bold text-emerald-900 block">{v.product_name}</span>
-                              <span className="text-[10px] text-emerald-700 font-bold">Gratis (Rp 0)</span>
-                            </td>
+                                  {/* Menu Hadiah */}
+                                  <td className="py-3 px-3.5">
+                                    <span className="font-bold text-emerald-900 block">{v.product_name}</span>
+                                    <span className="text-[10px] text-emerald-700 font-bold">Gratis (Rp 0)</span>
+                                  </td>
 
-                            {/* Status Klaim */}
-                            <td className="py-3 px-3.5">
-                              {isRedeemed ? (
-                                <div>
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                    Sudah Ditukar
-                                  </span>
-                                  {v.redeemed_at && (
-                                    <span className="block text-[9px] text-slate-500 font-mono mt-0.5">
-                                      {new Date(v.redeemed_at).toLocaleString("id-ID", {
+                                  {/* Status Klaim */}
+                                  <td className="py-3 px-3.5">
+                                    {isRedeemed ? (
+                                      <div>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                          Sudah Ditukar
+                                        </span>
+                                        {v.redeemed_at && (
+                                          <span className="block text-[9px] text-slate-500 font-mono mt-0.5">
+                                            {new Date(v.redeemed_at).toLocaleString("id-ID", {
+                                              day: "2-digit",
+                                              month: "short",
+                                              hour: "2-digit",
+                                              minute: "2-digit",
+                                            })}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : isActive ? (
+                                      <div>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                                          <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                          Belum Ditukar (Aktif)
+                                        </span>
+                                        <span className="block text-[9px] text-amber-800 font-medium mt-0.5">
+                                          Sisa ~{Math.max(1, Math.ceil((new Date(v.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} hari
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                                          <X className="w-3 h-3 text-rose-600" />
+                                          Kedaluwarsa
+                                        </span>
+                                      </div>
+                                    )}
+                                  </td>
+
+                                  {/* Tgl Terbit */}
+                                  <td className="py-3 px-3.5 font-mono text-[11px] text-slate-600">
+                                    {new Date(v.created_at).toLocaleDateString("id-ID", {
+                                      day: "2-digit",
+                                      month: "short",
+                                      year: "numeric",
+                                    })}
+                                  </td>
+
+                                  {/* Masa Berlaku */}
+                                  <td className="py-3 px-3.5 font-mono text-[11px]">
+                                    <span className={isExpired ? "text-rose-600 line-through" : "text-slate-800 font-bold"}>
+                                      {new Date(v.expires_at).toLocaleDateString("id-ID", {
                                         day: "2-digit",
                                         month: "short",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
+                                        year: "numeric",
                                       })}
                                     </span>
-                                  )}
-                                </div>
-                              ) : isActive ? (
-                                <div>
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
-                                    <AlertTriangle className="w-3 h-3 text-amber-600" />
-                                    Belum Ditukar (Aktif)
-                                  </span>
-                                  <span className="block text-[9px] text-amber-800 font-medium mt-0.5">
-                                    Sisa ~{Math.max(1, Math.ceil((new Date(v.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} hari
-                                  </span>
-                                </div>
-                              ) : (
-                                <div>
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
-                                    <X className="w-3 h-3 text-rose-600" />
-                                    Kedaluwarsa
-                                  </span>
-                                </div>
-                              )}
-                            </td>
+                                  </td>
 
-                            {/* Tgl Terbit */}
-                            <td className="py-3 px-3.5 font-mono text-[11px] text-slate-600">
-                              {new Date(v.created_at).toLocaleDateString("id-ID", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              })}
-                            </td>
+                                  {/* Catatan */}
+                                  <td className="py-3 px-3.5 text-slate-500 max-w-[180px] truncate" title={v.notes || "-"}>
+                                    {v.notes || "-"}
+                                  </td>
 
-                            {/* Masa Berlaku */}
-                            <td className="py-3 px-3.5 font-mono text-[11px]">
-                              <span className={isExpired ? "text-rose-600 line-through" : "text-slate-800 font-bold"}>
-                                {new Date(v.expires_at).toLocaleDateString("id-ID", {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                })}
-                              </span>
-                            </td>
-
-                            {/* Catatan */}
-                            <td className="py-3 px-3.5 text-slate-500 max-w-[180px] truncate" title={v.notes || "-"}>
-                              {v.notes || "-"}
-                            </td>
-
-                            {/* Aksi */}
-                            <td className="py-3 px-3.5 text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                {isActive && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleUpdateVoucherStatus(v.id, "redeemed")}
-                                    title="Tandai Sudah Ditukar Manual"
-                                    className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-bold border border-emerald-200 transition cursor-pointer"
-                                  >
-                                    Tandai Ditukar
-                                  </button>
-                                )}
-                                {isRedeemed && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleUpdateVoucherStatus(v.id, "active")}
-                                    title="Aktifkan Kembali Voucher"
-                                    className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg text-[10px] font-bold border border-amber-200 transition cursor-pointer"
-                                  >
-                                    Batalkan Klaim
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteVoucher(v.id, v.code)}
-                                  title="Hapus Voucher"
-                                  className="p-1 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {total > LIST_PAGE_SIZE && <div className="px-4 pb-3">{renderTablePagination("vouchers", total)}</div>}
-            </>
-          );
-        })()}
+                                  {/* Aksi */}
+                                  <td className="py-3 px-3.5 text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                      {isActive && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleUpdateVoucherStatus(v.id, "redeemed")}
+                                          title="Tandai Sudah Ditukar Manual"
+                                          className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-bold border border-emerald-200 transition cursor-pointer"
+                                        >
+                                          Tandai Ditukar
+                                        </button>
+                                      )}
+                                      {isRedeemed && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleUpdateVoucherStatus(v.id, "active")}
+                                          title="Aktifkan Kembali Voucher"
+                                          className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg text-[10px] font-bold border border-amber-200 transition cursor-pointer"
+                                        >
+                                          Batalkan Klaim
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteVoucher(v.id, v.code)}
+                                        title="Hapus Voucher"
+                                        className="p-1 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    {total > LIST_PAGE_SIZE && <div className="px-4 pb-3">{renderTablePagination("vouchers", total)}</div>}
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -8068,11 +8008,10 @@ export default function AdminDashboardPage() {
 
             {poMessage && (
               <div
-                className={`p-3.5 rounded-xl border text-xs font-bold flex items-center justify-between ${
-                  poMessage.isError
+                className={`p-3.5 rounded-xl border text-xs font-bold flex items-center justify-between ${poMessage.isError
                     ? "bg-rose-50 border-rose-200 text-rose-700"
                     : "bg-emerald-50 border-emerald-200 text-emerald-700"
-                }`}
+                  }`}
               >
                 <span>{poMessage.text}</span>
                 <button type="button" onClick={() => setPoMessage(null)} className="ml-3 underline text-[11px]">
@@ -8149,65 +8088,65 @@ export default function AdminDashboardPage() {
                             </tr>
                           ) : (
                             pagedItems.map((f) => (
-                        <tr key={f.raw_material_id} className={f.needs_order ? "bg-amber-50/40" : "hover:bg-slate-50"}>
-                          <td className="py-3 px-4 font-bold text-slate-800">{f.name}</td>
-                          <td className="py-3 px-4 text-right font-mono">
-                            {Math.round(f.central_stock)} {f.unit}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono text-slate-500">
-                            {Math.round(f.booth_stock_total)} {f.unit}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono">
-                            {f.avg_daily_usage} {f.unit}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono">
-                            {f.days_left_central >= 999 ? "Aman" : `${f.days_left_central} hari`}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
-                            {f.recommended_qty > 0 ? `${f.recommended_qty} ${f.unit}` : "-"}
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            {f.needs_order ? (
-                              <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]">
-                                PERLU ORDER
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px]">
-                                Aman
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleCreateAutoPoDraft([
-                                  {
-                                    raw_material_id: f.raw_material_id,
-                                    name: f.name,
-                                    unit: f.unit,
-                                    current_stock: Math.round(f.central_stock),
-                                    avg_daily_usage: f.avg_daily_usage,
-                                    days_left: f.days_left_central,
-                                    recommended_qty: f.recommended_qty > 0 ? f.recommended_qty : Math.max(10, f.reorder_threshold),
-                                  },
-                                ])
-                              }
-                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 font-bold text-[11px] transition cursor-pointer"
-                            >
-                              + Draft PO
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {total > LIST_PAGE_SIZE && <div className="px-4 pb-3">{renderTablePagination("poForecast", total)}</div>}
-            </>
-          );
-        })()}
+                              <tr key={f.raw_material_id} className={f.needs_order ? "bg-amber-50/40" : "hover:bg-slate-50"}>
+                                <td className="py-3 px-4 font-bold text-slate-800">{f.name}</td>
+                                <td className="py-3 px-4 text-right font-mono">
+                                  {Math.round(f.central_stock)} {f.unit}
+                                </td>
+                                <td className="py-3 px-4 text-right font-mono text-slate-500">
+                                  {Math.round(f.booth_stock_total)} {f.unit}
+                                </td>
+                                <td className="py-3 px-4 text-right font-mono">
+                                  {f.avg_daily_usage} {f.unit}
+                                </td>
+                                <td className="py-3 px-4 text-right font-mono">
+                                  {f.days_left_central >= 999 ? "Aman" : `${f.days_left_central} hari`}
+                                </td>
+                                <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                                  {f.recommended_qty > 0 ? `${f.recommended_qty} ${f.unit}` : "-"}
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  {f.needs_order ? (
+                                    <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]">
+                                      PERLU ORDER
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px]">
+                                      Aman
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleCreateAutoPoDraft([
+                                        {
+                                          raw_material_id: f.raw_material_id,
+                                          name: f.name,
+                                          unit: f.unit,
+                                          current_stock: Math.round(f.central_stock),
+                                          avg_daily_usage: f.avg_daily_usage,
+                                          days_left: f.days_left_central,
+                                          recommended_qty: f.recommended_qty > 0 ? f.recommended_qty : Math.max(10, f.reorder_threshold),
+                                        },
+                                      ])
+                                    }
+                                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 font-bold text-[11px] transition cursor-pointer"
+                                  >
+                                    + Draft PO
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    {total > LIST_PAGE_SIZE && <div className="px-4 pb-3">{renderTablePagination("poForecast", total)}</div>}
+                  </>
+                );
+              })()}
             </div>
 
             {/* 2. Daftar Purchase Order & Draft Pesan WA */}
@@ -8243,15 +8182,14 @@ export default function AdminDashboardPage() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-mono font-extrabold text-sm text-slate-900">{po.po_number}</span>
                               <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                  po.status === "draft"
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${po.status === "draft"
                                     ? "bg-amber-100 text-amber-800"
                                     : po.status === "sent"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : po.status === "received"
-                                    ? "bg-emerald-100 text-emerald-800"
-                                    : "bg-slate-200 text-slate-600"
-                                }`}
+                                      ? "bg-blue-100 text-blue-800"
+                                      : po.status === "received"
+                                        ? "bg-emerald-100 text-emerald-800"
+                                        : "bg-slate-200 text-slate-600"
+                                  }`}
                               >
                                 {po.status}
                               </span>
@@ -8504,11 +8442,10 @@ export default function AdminDashboardPage() {
 
             {socialMessage && (
               <div
-                className={`p-3.5 rounded-xl border text-xs font-bold flex items-center justify-between ${
-                  socialMessage.isError
+                className={`p-3.5 rounded-xl border text-xs font-bold flex items-center justify-between ${socialMessage.isError
                     ? "bg-rose-50 border-rose-200 text-rose-700"
                     : "bg-emerald-50 border-emerald-200 text-emerald-700"
-                }`}
+                  }`}
               >
                 <span>{socialMessage.text}</span>
                 <button type="button" onClick={() => setSocialMessage(null)} className="ml-3 underline text-[11px]">
@@ -8536,13 +8473,13 @@ export default function AdminDashboardPage() {
                   }> = [];
                   try {
                     sources = JSON.parse(d.trend_sources_json || "[]");
-                  } catch {}
+                  } catch { }
                   try {
                     realImages = JSON.parse(d.image_urls_json || "[]");
-                  } catch {}
+                  } catch { }
                   try {
                     scenes = JSON.parse(d.scenes_json || "[]");
-                  } catch {}
+                  } catch { }
                   const currentScriptValue = draftScriptMap[d.id] ?? d.voiceover_script ?? "";
                   const currentVoiceValue = draftVoiceMap[d.id] || d.tts_voice || "Kore";
                   const googleImagesUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(
@@ -8558,13 +8495,12 @@ export default function AdminDashboardPage() {
                           </span>
                           <span className="text-xs font-mono font-bold text-slate-600">{d.scheduled_date}</span>
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                              d.status === "posted"
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${d.status === "posted"
                                 ? "bg-emerald-100 text-emerald-800"
                                 : d.status === "skipped"
-                                ? "bg-slate-200 text-slate-600"
-                                : "bg-amber-100 text-amber-800"
-                            }`}
+                                  ? "bg-slate-200 text-slate-600"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}
                           >
                             {d.status === "posted" ? "Sudah Diposting" : d.status === "skipped" ? "Dilewati" : "Draft"}
                           </span>
@@ -8728,8 +8664,8 @@ export default function AdminDashboardPage() {
                                 {ttsGeneratingId === d.id
                                   ? "Merender Audio..."
                                   : d.voiceover_audio_url
-                                  ? "🔄 Render Ulang TTS (.wav)"
-                                  : "🎙️ Render Audio TTS (.wav)"}
+                                    ? "🔄 Render Ulang TTS (.wav)"
+                                    : "🎙️ Render Audio TTS (.wav)"}
                               </button>
                               <button
                                 type="button"
@@ -9135,11 +9071,10 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => setEditOutletForm({ ...editOutletForm, active_status: true })}
-                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition ${
-                      editOutletForm.active_status
+                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition ${editOutletForm.active_status
                         ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
                         : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
-                    }`}
+                      }`}
                   >
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                     <span>Aktif (Buka)</span>
@@ -9148,11 +9083,10 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => setEditOutletForm({ ...editOutletForm, active_status: false })}
-                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition ${
-                      !editOutletForm.active_status
+                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition ${!editOutletForm.active_status
                         ? "bg-rose-50 border-rose-500 text-rose-700 shadow-sm"
                         : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
-                    }`}
+                      }`}
                   >
                     <span className="w-2 h-2 rounded-full bg-rose-500"></span>
                     <span>Nonaktif (Tutup)</span>
@@ -9258,11 +9192,10 @@ export default function AdminDashboardPage() {
 
               {changePinMessage && (
                 <div
-                  className={`p-3 rounded-xl text-xs font-bold ${
-                    changePinMessage.isError
+                  className={`p-3 rounded-xl text-xs font-bold ${changePinMessage.isError
                       ? "bg-rose-50 text-rose-700 border border-rose-200"
                       : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                  }`}
+                    }`}
                 >
                   {changePinMessage.text}
                 </div>
@@ -9525,9 +9458,8 @@ export default function AdminDashboardPage() {
               {newMenuForm.category !== "topping" ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
                   {/* Panel Reguler */}
-                  <div className={`p-3.5 rounded-2xl border transition ${
-                    newMenuForm.enableReguler ? "bg-emerald-50/50 border-emerald-300" : "bg-slate-50 border-slate-200 opacity-60"
-                  }`}>
+                  <div className={`p-3.5 rounded-2xl border transition ${newMenuForm.enableReguler ? "bg-emerald-50/50 border-emerald-300" : "bg-slate-50 border-slate-200 opacity-60"
+                    }`}>
                     <div className="flex items-center justify-between pb-2 border-b border-emerald-200/60 mb-2.5">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -9586,9 +9518,8 @@ export default function AdminDashboardPage() {
                   </div>
 
                   {/* Panel Jumbo */}
-                  <div className={`p-3.5 rounded-2xl border transition ${
-                    newMenuForm.enableJumbo ? "bg-emerald-50/50 border-emerald-300" : "bg-slate-50 border-slate-200 opacity-60"
-                  }`}>
+                  <div className={`p-3.5 rounded-2xl border transition ${newMenuForm.enableJumbo ? "bg-emerald-50/50 border-emerald-300" : "bg-slate-50 border-slate-200 opacity-60"
+                    }`}>
                     <div className="flex items-center justify-between pb-2 border-b border-emerald-200/60 mb-2.5">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -9795,9 +9726,8 @@ export default function AdminDashboardPage() {
               {editMenuForm.category !== "topping" ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
                   {/* Panel Reguler */}
-                  <div className={`p-3.5 rounded-2xl border transition ${
-                    editMenuForm.enableReguler ? "bg-emerald-50/50 border-emerald-300" : "bg-rose-50/40 border-rose-200"
-                  }`}>
+                  <div className={`p-3.5 rounded-2xl border transition ${editMenuForm.enableReguler ? "bg-emerald-50/50 border-emerald-300" : "bg-rose-50/40 border-rose-200"
+                    }`}>
                     <div className="flex items-center justify-between pb-2 border-b border-slate-200 mb-2.5">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -9871,9 +9801,8 @@ export default function AdminDashboardPage() {
                   </div>
 
                   {/* Panel Jumbo */}
-                  <div className={`p-3.5 rounded-2xl border transition ${
-                    editMenuForm.enableJumbo ? "bg-emerald-50/50 border-emerald-300" : "bg-rose-50/40 border-rose-200"
-                  }`}>
+                  <div className={`p-3.5 rounded-2xl border transition ${editMenuForm.enableJumbo ? "bg-emerald-50/50 border-emerald-300" : "bg-rose-50/40 border-rose-200"
+                    }`}>
                     <div className="flex items-center justify-between pb-2 border-b border-slate-200 mb-2.5">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -10218,11 +10147,10 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setSingleStockMode("set")}
-                  className={`py-2 px-1 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-                    singleStockMode === "set"
+                  className={`py-2 px-1 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${singleStockMode === "set"
                       ? "bg-slate-900 text-white shadow-sm font-extrabold"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-                  }`}
+                    }`}
                 >
                   <span className="text-xs font-mono font-black">= Set Stok Fisik</span>
                   <span className={`text-[10px] ${singleStockMode === "set" ? "text-slate-300" : "text-slate-400"}`}>
@@ -10233,11 +10161,10 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setSingleStockMode("add")}
-                  className={`py-2 px-1 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-                    singleStockMode === "add"
+                  className={`py-2 px-1 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${singleStockMode === "add"
                       ? "bg-emerald-600 text-white shadow-sm font-extrabold"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-                  }`}
+                    }`}
                 >
                   <span className="text-xs font-mono font-black">+ Kirim ke Kedai</span>
                   <span className={`text-[10px] ${singleStockMode === "add" ? "text-emerald-100" : "text-slate-400"}`}>
@@ -10248,11 +10175,10 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setSingleStockMode("return")}
-                  className={`py-2 px-1 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-                    singleStockMode === "return"
+                  className={`py-2 px-1 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${singleStockMode === "return"
                       ? "bg-amber-600 text-white shadow-sm font-extrabold"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-                  }`}
+                    }`}
                 >
                   <span className="text-xs font-mono font-black">↺ Retur ke Pusat</span>
                   <span className={`text-[10px] ${singleStockMode === "return" ? "text-amber-100" : "text-slate-400"}`}>
@@ -10324,11 +10250,10 @@ export default function AdminDashboardPage() {
 
                     {/* Penjelasan Logis Visual */}
                     {singleStockMode === "set" && inputVal !== currentKedai && (
-                      <div className={`p-2 rounded-xl text-[11px] font-sans font-bold flex items-center gap-1.5 ${
-                        deltaKedai < 0
+                      <div className={`p-2 rounded-xl text-[11px] font-sans font-bold flex items-center gap-1.5 ${deltaKedai < 0
                           ? "bg-amber-100/80 text-amber-950 border border-amber-300"
                           : "bg-emerald-100/80 text-emerald-950 border border-emerald-300"
-                      }`}>
+                        }`}>
                         <span>{deltaKedai < 0 ? "📦" : "🚚"}</span>
                         <span>
                           {deltaKedai < 0
@@ -10346,8 +10271,8 @@ export default function AdminDashboardPage() {
                   {singleStockMode === "set"
                     ? "Ketik Jumlah Total Stok Fisik Riil di Kedai:"
                     : singleStockMode === "return"
-                    ? "Jumlah yang Diretur DARI Kedai KE Pusat:"
-                    : "Jumlah yang Dikirim DARI Pusat KE Kedai:"}
+                      ? "Jumlah yang Diretur DARI Kedai KE Pusat:"
+                      : "Jumlah yang Dikirim DARI Pusat KE Kedai:"}
                 </label>
                 <div className="relative">
                   <input
@@ -10370,8 +10295,8 @@ export default function AdminDashboardPage() {
                 const chips = isGram
                   ? [1000, 2000, 5000, 10000, 15000, 20000]
                   : isMl
-                  ? [500, 1000, 1600, 3200, 5000]
-                  : [10, 20, 50, 100, 150, 200];
+                    ? [500, 1000, 1600, 3200, 5000]
+                    : [10, 20, 50, 100, 150, 200];
 
                 return (
                   <div className="flex flex-wrap gap-1.5">
@@ -10402,13 +10327,12 @@ export default function AdminDashboardPage() {
                 <button
                   type="submit"
                   disabled={singleStockLoading}
-                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs shadow-md transition text-white cursor-pointer ${
-                    singleStockMode === "return"
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs shadow-md transition text-white cursor-pointer ${singleStockMode === "return"
                       ? "bg-amber-600 hover:bg-amber-700"
                       : singleStockMode === "add"
-                      ? "bg-blue-600 hover:bg-blue-700"
-                      : "bg-emerald-600 hover:bg-emerald-700"
-                  }`}
+                        ? "bg-blue-600 hover:bg-blue-700"
+                        : "bg-emerald-600 hover:bg-emerald-700"
+                    }`}
                 >
                   {(() => {
                     if (singleStockLoading) return "Menyimpan...";
@@ -10499,11 +10423,10 @@ export default function AdminDashboardPage() {
                           </span>
                           {delta !== 0 && (
                             <span
-                              className={`font-bold px-1 rounded ${
-                                delta > 0
+                              className={`font-bold px-1 rounded ${delta > 0
                                   ? "bg-amber-100 text-amber-800"
                                   : "bg-emerald-100 text-emerald-800"
-                              }`}
+                                }`}
                             >
                               {delta > 0
                                 ? `+${delta} (potong pusat)`
@@ -10579,33 +10502,30 @@ export default function AdminDashboardPage() {
               <button
                 type="button"
                 onClick={() => setRestockMode("add")}
-                className={`py-1.5 px-2 rounded-lg transition text-center ${
-                  restockMode === "add"
+                className={`py-1.5 px-2 rounded-lg transition text-center ${restockMode === "add"
                     ? "bg-emerald-600 text-white shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 Kirim ke Kedai
               </button>
               <button
                 type="button"
                 onClick={() => setRestockMode("return")}
-                className={`py-1.5 px-2 rounded-lg transition text-center ${
-                  restockMode === "return"
+                className={`py-1.5 px-2 rounded-lg transition text-center ${restockMode === "return"
                     ? "bg-amber-600 text-white shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 Retur ke Pusat
               </button>
               <button
                 type="button"
                 onClick={() => setRestockMode("central_in")}
-                className={`py-1.5 px-2 rounded-lg transition text-center ${
-                  restockMode === "central_in"
+                className={`py-1.5 px-2 rounded-lg transition text-center ${restockMode === "central_in"
                     ? "bg-blue-600 text-white shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 Pasokan Masuk
               </button>
@@ -10793,8 +10713,8 @@ export default function AdminDashboardPage() {
                   const chips = isGram
                     ? [1000, 2000, 5000, 10000, 25000, 50000]
                     : isMl
-                    ? [1600, 3200, 5000, 10000]
-                    : [20, 50, 100, 200, 500];
+                      ? [1600, 3200, 5000, 10000]
+                      : [20, 50, 100, 200, 500];
 
                   return (
                     <div className="flex flex-wrap gap-1.5 mt-2">
@@ -10837,19 +10757,18 @@ export default function AdminDashboardPage() {
                 </button>
                 <button
                   type="submit"
-                  className={`flex-1 py-2.5 rounded-xl text-white font-bold text-xs shadow-md transition cursor-pointer ${
-                    restockMode === "return"
+                  className={`flex-1 py-2.5 rounded-xl text-white font-bold text-xs shadow-md transition cursor-pointer ${restockMode === "return"
                       ? "bg-amber-600 hover:bg-amber-700"
                       : restockMode === "central_in"
-                      ? "bg-blue-600 hover:bg-blue-700"
-                      : "bg-emerald-600 hover:bg-emerald-700"
-                  }`}
+                        ? "bg-blue-600 hover:bg-blue-700"
+                        : "bg-emerald-600 hover:bg-emerald-700"
+                    }`}
                 >
                   {restockMode === "return"
                     ? "Konfirmasi Retur ke Pusat"
                     : restockMode === "central_in"
-                    ? "Simpan Pasokan Masuk"
-                    : "Kirim Stok ke Kedai"}
+                      ? "Simpan Pasokan Masuk"
+                      : "Kirim Stok ke Kedai"}
                 </button>
               </div>
             </form>
@@ -11429,11 +11348,10 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => setAssetForm({ ...assetForm, asset_type: "tidak_bergerak" })}
-                    className={`p-2.5 rounded-xl border text-left transition ${
-                      assetForm.asset_type === "tidak_bergerak"
+                    className={`p-2.5 rounded-xl border text-left transition ${assetForm.asset_type === "tidak_bergerak"
                         ? "bg-emerald-50 border-emerald-300 ring-2 ring-emerald-500/20"
                         : "bg-slate-50 border-slate-200 hover:bg-slate-100"
-                    }`}
+                      }`}
                   >
                     <p className="font-bold text-xs text-emerald-950 flex items-center gap-1">
                       🏛️ Tidak Bergerak
@@ -11446,11 +11364,10 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => setAssetForm({ ...assetForm, asset_type: "bergerak" })}
-                    className={`p-2.5 rounded-xl border text-left transition ${
-                      assetForm.asset_type === "bergerak"
+                    className={`p-2.5 rounded-xl border text-left transition ${assetForm.asset_type === "bergerak"
                         ? "bg-amber-50 border-amber-300 ring-2 ring-amber-500/20"
                         : "bg-slate-50 border-slate-200 hover:bg-slate-100"
-                    }`}
+                      }`}
                   >
                     <p className="font-bold text-xs text-amber-950 flex items-center gap-1">
                       🚚 Aset Bergerak
@@ -11834,11 +11751,10 @@ export default function AdminDashboardPage() {
 
               {/* Status Message */}
               {scanMessage && (
-                <div className={`p-3 rounded-xl text-xs font-bold ${
-                  scanMessage.includes("Berhasil") || scanMessage.includes("tersimpan")
+                <div className={`p-3 rounded-xl text-xs font-bold ${scanMessage.includes("Berhasil") || scanMessage.includes("tersimpan")
                     ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
                     : "bg-rose-50 text-rose-700 border border-rose-200"
-                }`}>
+                  }`}>
                   {scanMessage}
                 </div>
               )}
@@ -12248,11 +12164,10 @@ export default function AdminDashboardPage() {
                       key={amt}
                       type="button"
                       onClick={() => setCashFloatValue(amt)}
-                      className={`py-1.5 px-2 rounded-lg text-[11px] font-bold border transition ${
-                        cashFloatValue === amt
+                      className={`py-1.5 px-2 rounded-lg text-[11px] font-bold border transition ${cashFloatValue === amt
                           ? "bg-amber-500 border-amber-600 text-white shadow-xs"
                           : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                      }`}
+                        }`}
                     >
                       {amt === 0 ? "Rp 0" : `Rp ${(amt / 1000).toLocaleString("id-ID")}rb`}
                     </button>
@@ -12329,9 +12244,8 @@ export default function AdminDashboardPage() {
                   setCentralCashAmount(500000);
                   setCentralCashMessage(null);
                 }}
-                className={`py-1.5 rounded-lg transition text-center cursor-pointer ${
-                  centralCashAction === "topup" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
-                }`}
+                className={`py-1.5 rounded-lg transition text-center cursor-pointer ${centralCashAction === "topup" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  }`}
               >
                 + Tambah Kas (Top-up)
               </button>
@@ -12342,9 +12256,8 @@ export default function AdminDashboardPage() {
                   setCentralCashAmount(centralVault?.cash_balance ?? 5000000);
                   setCentralCashMessage(null);
                 }}
-                className={`py-1.5 rounded-lg transition text-center cursor-pointer ${
-                  centralCashAction === "set" ? "bg-slate-700 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
-                }`}
+                className={`py-1.5 rounded-lg transition text-center cursor-pointer ${centralCashAction === "set" ? "bg-slate-700 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  }`}
               >
                 = Set Saldo Fisik Riil
               </button>
@@ -12385,11 +12298,10 @@ export default function AdminDashboardPage() {
                       key={amt}
                       type="button"
                       onClick={() => setCentralCashAmount(amt)}
-                      className={`py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
-                        centralCashAmount === amt
+                      className={`py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${centralCashAmount === amt
                           ? "bg-emerald-600 border-emerald-700 text-white"
                           : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                      }`}
+                        }`}
                     >
                       +{amt >= 1000000 ? `${amt / 1000000}jt` : `${amt / 1000}rb`}
                     </button>
