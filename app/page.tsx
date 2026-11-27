@@ -229,7 +229,12 @@ export default function PosTerminalPage() {
 
   useEffect(() => {
     setIsPantunCollapsed(localStorage.getItem("poci_pantun_collapsed") === "true");
-    setAutoPrintReceipt(localStorage.getItem("poci_autoprint_receipt") === "true");
+    const savedAutoPrint = localStorage.getItem("poci_autoprint_receipt");
+    if (savedAutoPrint !== null) {
+      setAutoPrintReceipt(savedAutoPrint === "true");
+    } else {
+      setAutoPrintReceipt(isAndroidDevice());
+    }
   }, []);
 
   const toggleAutoPrint = () => {
