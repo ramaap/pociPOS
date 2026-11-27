@@ -468,7 +468,10 @@ export async function GET(req: Request) {
       .filter((a) => a.asset_type !== "tidak_bergerak")
       .reduce((acc, curr) => acc + curr.cost, 0);
     const totalRndExpenses = allRndExpenses.reduce((acc, curr) => acc + curr.amount, 0);
-    const remainingCapitalCash = totalInitialCapital - totalCapitalAssets - totalRndExpenses;
+    const aggAllOpex = await prisma.expense.aggregate({ _sum: { amount: true } });
+    const totalOperationalExpensesAllTime = aggAllOpex._sum.amount || 0;
+    const remainingCapitalCash =
+      totalInitialCapital - totalCapitalAssets - totalRndExpenses - totalOperationalExpensesAllTime;
 
     // 7. Konstruksi Data Neraca Keuangan (Balance Sheet)
     // - Aset Lancar: Kas Tunai + Kas Bank (QRIS) + Nilai Persediaan Bahan Baku + Sisa Kas Modal Usaha
@@ -691,6 +694,7 @@ export async function GET(req: Request) {
         totalAsetTidakBergerak,
         totalAsetBergerak,
         totalRndExpenses,
+        totalOperationalExpensesAllTime,
         remainingCapitalCash,
       },
       capitals: allCapitals,
