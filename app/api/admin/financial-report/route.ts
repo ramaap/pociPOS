@@ -473,6 +473,18 @@ export async function GET(req: Request) {
     const remainingCapitalCash =
       totalInitialCapital - totalCapitalAssets - totalRndExpenses - totalOperationalExpensesAllTime;
 
+    const [aggQrisAllTime, centralVaultRow, openOutlets] = await Promise.all([
+      prisma.transaction.aggregate({ where: { payment_method: "QRIS" }, _sum: { total_amount: true } }),
+      prisma.centralVault.findUnique({ where: { id: "default" } }),
+      prisma.outlet.findMany({ where: { active_status: true, shift_status: { not: "closed" } }, select: { initial_cash: true } }),
+    ]);
+    const qrisRevenueAllTime = aggQrisAllTime._sum.total_amount || 0;
+    const brankasPusat = centralVaultRow?.cash_balance || 0;
+    const kasLaciKedai = openOutlets.reduce((s, o) => s + (o.initial_cash || 0), 0);
+    const kasDiBank = remainingCapitalCash + qrisRevenueAllTime;
+    const kasDiPetiCash = brankasPusat + kasLaciKedai;
+    const totalKas = kasDiBank + kasDiPetiCash;
+
     // 7. Konstruksi Data Neraca Keuangan (Balance Sheet)
     // - Aset Lancar: Kas Tunai + Kas Bank (QRIS) + Nilai Persediaan Bahan Baku + Sisa Kas Modal Usaha
     // - Aset Tetap: Pembelian Aset Tetap (Dipisah: Aset Tidak Bergerak vs Aset Bergerak)
@@ -696,6 +708,11 @@ export async function GET(req: Request) {
         totalRndExpenses,
         totalOperationalExpensesAllTime,
         remainingCapitalCash,
+      },
+      cashPosition: {
+        totalKas,
+        kasDiBank,
+        kasDiPetiCash,
       },
       capitals: allCapitals,
       capitalAssets: allAssets,

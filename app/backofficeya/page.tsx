@@ -3624,6 +3624,39 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
+              {/* 3 Kartu Posisi Kas Harian (Total Kas, Kas di Bank, Kas di Peti Cash) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-xs flex flex-col justify-between">
+                  <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider">
+                    💰 1. Total Kas Keseluruhan
+                  </span>
+                  <h3 className="text-2xl font-black font-mono mt-1.5">
+                    {formatRupiah(financeData?.cashPosition?.totalKas ?? 0)}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-1">Gabungan Kas di Bank + Kas di Peti Cash</p>
+                </div>
+
+                <div className="bg-white rounded-2xl p-4 border border-blue-200 shadow-xs flex flex-col justify-between">
+                  <span className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider">
+                    🏦 2. Kas di Bank (Payment)
+                  </span>
+                  <h3 className="text-2xl font-black text-blue-900 font-mono mt-1.5">
+                    {formatRupiah(financeData?.cashPosition?.kasDiBank ?? 0)}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-1">Sisa Kas Modal Awal + Penjualan QRIS</p>
+                </div>
+
+                <div className="bg-white rounded-2xl p-4 border border-amber-200 shadow-xs flex flex-col justify-between">
+                  <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">
+                    💵 3. Kas di Peti Cash
+                  </span>
+                  <h3 className="text-2xl font-black text-amber-900 font-mono mt-1.5">
+                    {formatRupiah(financeData?.cashPosition?.kasDiPetiCash ?? 0)}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-1">Brankas Pusat + Kas di Laci Kedai</p>
+                </div>
+              </div>
+
               {/* 4 Top KPI Cards: Dynamic between Cash Flow vs Forecast */}
               {financeModule === "cashflow" ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

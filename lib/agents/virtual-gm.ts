@@ -133,10 +133,35 @@ export async function sendEveningReport(targetWibDateStr?: string): Promise<void
       return m.master_stock < limit;
     });
 
+    const [aggCap, aggAsset, aggRnd, aggOpex, aggQris, centralVaultRow, openOutlets] = await Promise.all([
+      prisma.initialCapital.aggregate({ _sum: { amount: true } }),
+      prisma.capitalAsset.aggregate({ _sum: { cost: true } }),
+      prisma.rndExpense.aggregate({ _sum: { amount: true } }),
+      prisma.expense.aggregate({ _sum: { amount: true } }),
+      prisma.transaction.aggregate({ where: { payment_method: "QRIS" }, _sum: { total_amount: true } }),
+      prisma.centralVault.findUnique({ where: { id: "default" } }),
+      prisma.outlet.findMany({ where: { active_status: true, shift_status: { not: "closed" } }, select: { initial_cash: true } }),
+    ]);
+    const sisaModal =
+      (aggCap._sum.amount || 0) -
+      (aggAsset._sum.cost || 0) -
+      (aggRnd._sum.amount || 0) -
+      (aggOpex._sum.amount || 0);
+    const kasDiBank = sisaModal + (aggQris._sum.total_amount || 0);
+    const kasDiPetiCash =
+      (centralVaultRow?.cash_balance || 0) +
+      openOutlets.reduce((s, o) => s + (o.initial_cash || 0), 0);
+    const totalKas = kasDiBank + kasDiPetiCash;
+
     const baseSummary = [
       `📊 <b>LAPORAN MALAM VIRTUAL GM (${escapeHtml(dateStr)})</b>`,
       ``,
       `💰 <b>Total Omzet:</b> Rp ${totalRevenue.toLocaleString("id-ID")} (${totalCups} cup)`,
+      ``,
+      `🏦 <b>Posisi Kas Hari Ini:</b>`,
+      `• Total Kas: <b>Rp ${totalKas.toLocaleString("id-ID")}</b>`,
+      `• Kas di Bank (Payment): Rp ${kasDiBank.toLocaleString("id-ID")}`,
+      `• Kas di Peti Cash: Rp ${kasDiPetiCash.toLocaleString("id-ID")}`,
       ``,
       `🏪 <b>Rincian Per Kedai:</b>`,
       ...(outletLines.length > 0 ? outletLines : ["• Belum ada outlet aktif"]),
@@ -203,6 +228,8 @@ export async function handleOwnerMessage(text: string): Promise<void> {
       aggAsset,
       aggRnd,
       aggOpex,
+      aggQris,
+      centralVaultRow,
       recentExpenses,
     ] = await Promise.all([
       prisma.outlet.findMany({ where: { active_status: true }, orderBy: { code: "asc" } }),
@@ -222,6 +249,8 @@ export async function handleOwnerMessage(text: string): Promise<void> {
       prisma.capitalAsset.aggregate({ _sum: { cost: true } }),
       prisma.rndExpense.aggregate({ _sum: { amount: true } }),
       prisma.expense.aggregate({ _sum: { amount: true } }),
+      prisma.transaction.aggregate({ where: { payment_method: "QRIS" }, _sum: { total_amount: true } }),
+      prisma.centralVault.findUnique({ where: { id: "default" } }),
       prisma.expense.findMany({
         where: { date: { gte: sevenDaysAgo, lte: todayEnd } },
         orderBy: { date: "desc" },
@@ -234,6 +263,11 @@ export async function handleOwnerMessage(text: string): Promise<void> {
     const totalRnd = aggRnd._sum.amount || 0;
     const totalOpexAllTime = aggOpex._sum.amount || 0;
     const sisaKasModalAwal = totalModalDisetor - totalCapex - totalRnd - totalOpexAllTime;
+    const kasDiBank = sisaKasModalAwal + (aggQris._sum.total_amount || 0);
+    const kasDiPetiCash =
+      (centralVaultRow?.cash_balance || 0) +
+      outlets.filter((o) => o.shift_status !== "closed").reduce((s, o) => s + (o.initial_cash || 0), 0);
+    const totalKas = kasDiBank + kasDiPetiCash;
     const recentOpexLines = recentExpenses.map((e) => {
       const d = getWibDateStr(e.date);
       const oName = e.outlet_id ? outlets.find((o) => o.id === e.outlet_id)?.name || e.outlet_id : "Semua Kedai";
@@ -337,6 +371,9 @@ Ringkasan Keuangan & Modal Usaha (Real-time):
 - Total Pengeluaran Riset (RnD): Rp ${totalRnd.toLocaleString("id-ID")}
 - Total Pengeluaran Harian (Variable OPEX All-Time): Rp ${totalOpexAllTime.toLocaleString("id-ID")}
 - Sisa Kas Modal Awal (Bank): Rp ${sisaKasModalAwal.toLocaleString("id-ID")}
+- Total Kas Keseluruhan: Rp ${totalKas.toLocaleString("id-ID")}
+- Kas di Bank (Payment): Rp ${kasDiBank.toLocaleString("id-ID")}
+- Kas di Peti Cash: Rp ${kasDiPetiCash.toLocaleString("id-ID")}
 
 Pengeluaran Harian Terbaru (7 Hari Terakhir):
 ${recentOpexLines.join("\n") || "(belum ada pengeluaran 7 hari terakhir)"}
