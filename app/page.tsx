@@ -4578,7 +4578,7 @@ export default function PosTerminalPage() {
                   {/* Footer Struk */}
                   <div className="pt-2 border-t border-dashed border-slate-300 text-center text-[9px] text-slate-500 space-y-0.5">
                     <p className="font-medium">Terima Kasih Atas Kunjungan Anda! ^_^</p>
-                    <p className="text-[8px] text-slate-400">Follow IG: @estehpoci.id</p>
+                    <p className="text-[8px] text-slate-400">Follow IG: @yatehpoci</p>
                   </div>
                 </div>
                 </div>
@@ -6184,7 +6184,7 @@ export default function PosTerminalPage() {
 
           <div style={{ textAlign: "center", fontSize: "9px", marginTop: "4px" }}>
             <div>Terima Kasih Atas Kunjungan Anda!</div>
-            <div>Follow IG: @estehpoci.id</div>
+            <div>Follow IG: @yatehpoci</div>
           </div>
         </div>
       )}

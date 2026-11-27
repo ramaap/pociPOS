@@ -142,7 +142,7 @@ export const generateReceiptText = (data: ReceiptData): string => {
   lines.push(line);
   lines.push("  Terima Kasih Atas Kunjungan   ");
   lines.push("          Anda! ^_^             ");
-  lines.push("  Follow IG: @estehpoci.id      ");
+  lines.push("   Follow IG: @yatehpoci        ");
   lines.push("\n\n\n");
 
   return lines.filter(Boolean).join("\n");
@@ -291,7 +291,7 @@ export const generateEscPosBuffer = (data: ReceiptData): Uint8Array => {
   bytes.push(...encoder.encode("--------------------------------\n"));
   bytes.push(0x1b, 0x61, 0x01); // Center
   bytes.push(...encoder.encode("Terima Kasih Atas Kunjungan Anda!\n"));
-  bytes.push(...encoder.encode("Follow IG: @estehpoci.id\n"));
+  bytes.push(...encoder.encode("Follow IG: @yatehpoci\n"));
 
   // Feed lines & cut
   bytes.push(0x0a, 0x0a, 0x0a, 0x0a);

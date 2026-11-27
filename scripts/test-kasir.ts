@@ -1006,6 +1006,7 @@ async function main() {
       assert.match(text, /Less Sugar/);
       assert.match(text, /VCR-POC-123456/);
       assert.match(text, /KEMBALI/);
+      assert.match(text, /@yatehpoci/);
 
       // Verifikasi ESC/POS menyisipkan perintah kick Cash Drawer hanya untuk Cash (bukan QRIS)
       const cashBuf = Array.from(generateEscPosBuffer(sampleReceipt));
