@@ -567,7 +567,8 @@ export async function GET(req: Request) {
 
       const dayRev = dayTxs.reduce((s, t) => s + t.total_amount, 0);
       const dayExpAmount = dayExps.reduce((s, e) => s + e.amount, 0);
-      const dayTotalOutflow = dayExpAmount + dailyFixedCostRate;
+      const effectiveFixedRate = dayStr >= "2026-12-01" ? dailyFixedCostRate : 0;
+      const dayTotalOutflow = dayExpAmount + effectiveFixedRate;
       const dayCOGS = Math.round(dayRev * 0.42); // Rata-rata COGS ~42%
       const dayNet = dayRev - dayTotalOutflow; // Kas Masuk - Total Kas Keluar Riil (Variabel + Tetap)
 
