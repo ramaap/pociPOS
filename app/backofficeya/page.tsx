@@ -261,8 +261,8 @@ export default function AdminDashboardPage() {
             disabled={currentPage <= 1}
             onClick={() => setTablePages((prev) => ({ ...prev, [key]: Math.max(1, currentPage - 1) }))}
             className={`px-3 py-1 rounded-lg border font-bold disabled:opacity-40 cursor-pointer ${dark
-                ? "border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200"
-                : "border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
+              ? "border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200"
+              : "border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
               }`}
           >
             ← Sebelumnya
@@ -272,8 +272,8 @@ export default function AdminDashboardPage() {
             disabled={currentPage >= totalPages}
             onClick={() => setTablePages((prev) => ({ ...prev, [key]: Math.min(totalPages, currentPage + 1) }))}
             className={`px-3 py-1 rounded-lg border font-bold disabled:opacity-40 cursor-pointer ${dark
-                ? "border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200"
-                : "border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
+              ? "border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200"
+              : "border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
               }`}
           >
             Berikutnya →
@@ -3107,9 +3107,6 @@ export default function AdminDashboardPage() {
                 <h1 className="font-extrabold text-base sm:text-lg tracking-tight">
                   YA! Dashboard
                 </h1>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-950">
-                  Es Teh Poci
-                </span>
               </div>
               <p className="text-xs text-slate-400 font-mono">
                 Laporan Keuangan, Stok BOM &amp; Kontrol Cabang
@@ -3264,8 +3261,8 @@ export default function AdminDashboardPage() {
               loadFinancialReport();
             }}
             className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "financial"
-                ? "bg-emerald-600 text-white shadow-md"
-                : "text-slate-600 hover:bg-slate-100"
+              ? "bg-emerald-600 text-white shadow-md"
+              : "text-slate-600 hover:bg-slate-100"
               }`}
           >
             <TrendingUp className="w-4 h-4" />
@@ -3275,8 +3272,8 @@ export default function AdminDashboardPage() {
           <button
             onClick={() => setActiveAdminTab("stocks")}
             className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "stocks"
-                ? "bg-emerald-600 text-white shadow-md"
-                : "text-slate-600 hover:bg-slate-100"
+              ? "bg-emerald-600 text-white shadow-md"
+              : "text-slate-600 hover:bg-slate-100"
               }`}
           >
             <Layers className="w-4 h-4" />
@@ -3289,8 +3286,8 @@ export default function AdminDashboardPage() {
               loadOutlets();
             }}
             className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "outlets"
-                ? "bg-emerald-600 text-white shadow-md"
-                : "text-slate-600 hover:bg-slate-100"
+              ? "bg-emerald-600 text-white shadow-md"
+              : "text-slate-600 hover:bg-slate-100"
               }`}
           >
             <Store className="w-4 h-4" />
@@ -3303,8 +3300,8 @@ export default function AdminDashboardPage() {
               loadMenus();
             }}
             className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "master_menus"
-                ? "bg-emerald-600 text-white shadow-md"
-                : "text-slate-600 hover:bg-slate-100"
+              ? "bg-emerald-600 text-white shadow-md"
+              : "text-slate-600 hover:bg-slate-100"
               }`}
           >
             <Coffee className="w-4 h-4" />
@@ -3317,8 +3314,8 @@ export default function AdminDashboardPage() {
               loadMenus();
             }}
             className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "outlet_menus"
-                ? "bg-emerald-600 text-white shadow-md"
-                : "text-slate-600 hover:bg-slate-100"
+              ? "bg-emerald-600 text-white shadow-md"
+              : "text-slate-600 hover:bg-slate-100"
               }`}
           >
             <Sliders className="w-4 h-4" />
@@ -3331,8 +3328,8 @@ export default function AdminDashboardPage() {
               loadVouchers();
             }}
             className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "vouchers"
-                ? "bg-emerald-600 text-white shadow-md"
-                : "text-slate-600 hover:bg-slate-100"
+              ? "bg-emerald-600 text-white shadow-md"
+              : "text-slate-600 hover:bg-slate-100"
               }`}
           >
             <Ticket className="w-4 h-4" />
@@ -3345,8 +3342,8 @@ export default function AdminDashboardPage() {
               loadPurchaseOrders();
             }}
             className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "purchase_orders"
-                ? "bg-emerald-600 text-white shadow-md"
-                : "text-slate-600 hover:bg-slate-100"
+              ? "bg-emerald-600 text-white shadow-md"
+              : "text-slate-600 hover:bg-slate-100"
               }`}
           >
             <ShoppingBag className="w-4 h-4" />
@@ -3359,8 +3356,8 @@ export default function AdminDashboardPage() {
               loadSocialDrafts();
             }}
             className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${activeAdminTab === "social_media"
-                ? "bg-emerald-600 text-white shadow-md"
-                : "text-slate-600 hover:bg-slate-100"
+              ? "bg-emerald-600 text-white shadow-md"
+              : "text-slate-600 hover:bg-slate-100"
               }`}
           >
             <Sparkles className="w-4 h-4" />
@@ -3378,65 +3375,13 @@ export default function AdminDashboardPage() {
             {/* ============================================================== */}
             <aside className="w-full xl:w-64 bg-slate-50/70 border-b xl:border-b-0 xl:border-r border-slate-200 p-4 flex flex-col justify-between shrink-0">
               <div className="space-y-4">
-                {/* Company Dropdown / Badge */}
-                <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/80 shadow-xs">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center shrink-0 border border-slate-200 shadow-2xs overflow-hidden">
-                      <img src="/logo.jpg" alt="Logo Teh Cap Poci" className="w-full h-full object-contain" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Company</span>
-                      <p className="text-xs font-black text-slate-900 leading-tight">Teh Cap Poci</p>
-                    </div>
-                  </div>
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
-                </div>
-
-                {/* Team Tag Pills */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200/60">
-                    Poci Group <span className="text-purple-500 font-normal">+20</span>
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60">
-                    Kedai POS <span className="text-blue-500 font-normal">Active</span>
-                  </span>
-                </div>
-
-                {/* Finance Section Indicator */}
-                <div className="pt-2 border-t border-slate-200/60">
-                  <div className="flex items-center justify-between px-2 py-1 text-xs font-bold text-slate-800">
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center font-black text-[10px]">
-                        F
-                      </span>
-                      <span>Finance Core</span>
-                    </div>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                  </div>
-                </div>
-
-                {/* Quick Search inside Sidebar */}
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Search menu..."
-                    value={financeSearch}
-                    onChange={(e) => setFinanceSearch(e.target.value)}
-                    className="w-full pl-8 pr-12 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:border-emerald-500 transition"
-                  />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-mono text-slate-400 bg-slate-100 px-1 py-0.5 rounded border border-slate-200">
-                    Alt+S
-                  </span>
-                </div>
-
                 {/* Navigation Module Pills */}
                 <nav className="space-y-1 pt-1 text-xs">
                   <button
                     onClick={() => setFinanceModule("forecast")}
                     className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${financeModule === "forecast"
-                        ? "bg-slate-900 text-white shadow-sm"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                       }`}
                   >
                     <span className="flex items-center gap-2">
@@ -3449,8 +3394,8 @@ export default function AdminDashboardPage() {
                   <button
                     onClick={() => setFinanceModule("cashflow")}
                     className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${financeModule === "cashflow"
-                        ? "bg-slate-900 text-white shadow-sm"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                       }`}
                   >
                     <span className="flex items-center gap-2">
@@ -3463,8 +3408,8 @@ export default function AdminDashboardPage() {
                   <button
                     onClick={() => setFinanceModule("profitability")}
                     className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${financeModule === "profitability"
-                        ? "bg-slate-900 text-white shadow-sm"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                       }`}
                   >
                     <span className="flex items-center gap-2">
@@ -3477,8 +3422,8 @@ export default function AdminDashboardPage() {
                   <button
                     onClick={() => setFinanceModule("balancesheet")}
                     className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${financeModule === "balancesheet"
-                        ? "bg-slate-900 text-white shadow-sm"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                       }`}
                   >
                     <span className="flex items-center gap-2">
@@ -3491,8 +3436,8 @@ export default function AdminDashboardPage() {
                   <button
                     onClick={() => setFinanceModule("expenses")}
                     className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${financeModule === "expenses"
-                        ? "bg-slate-900 text-white shadow-sm"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                       }`}
                   >
                     <span className="flex items-center gap-2">
@@ -3505,8 +3450,8 @@ export default function AdminDashboardPage() {
                   <button
                     onClick={() => setFinanceModule("ledger")}
                     className={`w-full text-left px-3 py-2 rounded-xl font-bold flex items-center justify-between transition ${financeModule === "ledger"
-                        ? "bg-slate-900 text-white shadow-sm"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                       }`}
                   >
                     <span className="flex items-center gap-2">
@@ -3532,35 +3477,6 @@ export default function AdminDashboardPage() {
             {/* MAIN WORKSPACE CONTENT AREA                                    */}
             {/* ============================================================== */}
             <main className="flex-1 p-5 md:p-7 flex flex-col gap-6 bg-white overflow-y-auto">
-              {/* Top Bar: Search & AI Badge */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setFinanceModule("forecast")}
-                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-xs transition"
-                    title="Kembali ke Dashboard Utama"
-                  >
-                    &lt;
-                  </button>
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      placeholder="Cari transaksi / menu..."
-                      value={financeSearch}
-                      onChange={(e) => setFinanceSearch(e.target.value)}
-                      className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:bg-white focus:border-slate-300 w-48 sm:w-64 transition"
-                    />
-                  </div>
-                </div>
-
-                {/* AI Badge matching HashMicro reference */}
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold shadow-xs">
-                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                  <span>Powered by Hashy AI</span>
-                </div>
-              </div>
-
               {/* Title & Action Controls */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -3866,8 +3782,8 @@ export default function AdminDashboardPage() {
                       <button
                         onClick={() => setFinanceChartSubTab("timeline")}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${financeChartSubTab === "timeline"
-                            ? "bg-slate-100 text-slate-900"
-                            : "text-slate-500 hover:text-slate-800"
+                          ? "bg-slate-100 text-slate-900"
+                          : "text-slate-500 hover:text-slate-800"
                           }`}
                       >
                         Revenue Timeline
@@ -3875,8 +3791,8 @@ export default function AdminDashboardPage() {
                       <button
                         onClick={() => setFinanceChartSubTab("seasonality")}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${financeChartSubTab === "seasonality"
-                            ? "bg-slate-100 text-slate-900"
-                            : "text-slate-500 hover:text-slate-800"
+                          ? "bg-slate-100 text-slate-900"
+                          : "text-slate-500 hover:text-slate-800"
                           }`}
                       >
                         Seasonality Index
@@ -3884,8 +3800,8 @@ export default function AdminDashboardPage() {
                       <button
                         onClick={() => setFinanceChartSubTab("accuracy")}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${financeChartSubTab === "accuracy"
-                            ? "bg-slate-100 text-slate-900"
-                            : "text-slate-500 hover:text-slate-800"
+                          ? "bg-slate-100 text-slate-900"
+                          : "text-slate-500 hover:text-slate-800"
                           }`}
                       >
                         Forecast Accuracy
@@ -4495,10 +4411,10 @@ export default function AdminDashboardPage() {
                                         <td className="py-2.5 px-3 text-center font-sans">
                                           <span
                                             className={`px-2 py-0.5 rounded text-[10px] font-bold ${net > 0
-                                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                                : net === 0
-                                                  ? "bg-slate-50 text-slate-500"
-                                                  : "bg-rose-50 text-rose-700 border border-rose-200"
+                                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                              : net === 0
+                                                ? "bg-slate-50 text-slate-500"
+                                                : "bg-rose-50 text-rose-700 border border-rose-200"
                                               }`}
                                           >
                                             {net > 0 ? "Surplus" : net === 0 ? "Impas (Rp 0)" : "Defisit"}
@@ -4971,8 +4887,8 @@ export default function AdminDashboardPage() {
                       type="button"
                       onClick={() => setExpenseSubTab("fixed")}
                       className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${expenseSubTab === "fixed"
-                          ? "bg-white text-indigo-900 shadow-xs border border-indigo-100"
-                          : "text-slate-600 hover:text-slate-900"
+                        ? "bg-white text-indigo-900 shadow-xs border border-indigo-100"
+                        : "text-slate-600 hover:text-slate-900"
                         }`}
                     >
                       <Building2 className="w-3.5 h-3.5" />
@@ -4982,8 +4898,8 @@ export default function AdminDashboardPage() {
                       type="button"
                       onClick={() => setExpenseSubTab("variable")}
                       className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${expenseSubTab === "variable"
-                          ? "bg-white text-rose-900 shadow-xs border border-rose-100"
-                          : "text-slate-600 hover:text-slate-900"
+                        ? "bg-white text-rose-900 shadow-xs border border-rose-100"
+                        : "text-slate-600 hover:text-slate-900"
                         }`}
                     >
                       <CreditCard className="w-3.5 h-3.5" />
@@ -4993,8 +4909,8 @@ export default function AdminDashboardPage() {
                       type="button"
                       onClick={() => setExpenseSubTab("capital")}
                       className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${expenseSubTab === "capital"
-                          ? "bg-white text-emerald-900 shadow-xs border border-emerald-100"
-                          : "text-slate-600 hover:text-slate-900"
+                        ? "bg-white text-emerald-900 shadow-xs border border-emerald-100"
+                        : "text-slate-600 hover:text-slate-900"
                         }`}
                     >
                       <Landmark className="w-3.5 h-3.5 text-emerald-600" />
@@ -5124,8 +5040,8 @@ export default function AdminDashboardPage() {
                                           <button
                                             onClick={() => handleToggleFixedCost(fc.id, fc.is_active)}
                                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition ${fc.is_active
-                                                ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
-                                                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                              ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                                              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                                               }`}
                                             title="Klik untuk mengubah status aktif"
                                           >
@@ -5531,8 +5447,8 @@ export default function AdminDashboardPage() {
                               type="button"
                               onClick={() => { setAssetTypeFilter("all"); setAssetPage(1); }}
                               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${assetTypeFilter === "all"
-                                  ? "bg-slate-900 text-white shadow-xs"
-                                  : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                                ? "bg-slate-900 text-white shadow-xs"
+                                : "bg-slate-100 hover:bg-slate-200 text-slate-600"
                                 }`}
                             >
                               Semua Aset ({financeData?.capitalAssets?.length || 0})
@@ -5541,8 +5457,8 @@ export default function AdminDashboardPage() {
                               type="button"
                               onClick={() => { setAssetTypeFilter("tidak_bergerak"); setAssetPage(1); }}
                               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${assetTypeFilter === "tidak_bergerak"
-                                  ? "bg-emerald-700 text-white shadow-xs"
-                                  : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                ? "bg-emerald-700 text-white shadow-xs"
+                                : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200"
                                 }`}
                             >
                               <span>🏛️ Tidak Bergerak</span>
@@ -5554,8 +5470,8 @@ export default function AdminDashboardPage() {
                               type="button"
                               onClick={() => { setAssetTypeFilter("bergerak"); setAssetPage(1); }}
                               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${assetTypeFilter === "bergerak"
-                                  ? "bg-amber-700 text-white shadow-xs"
-                                  : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200"
+                                ? "bg-amber-700 text-white shadow-xs"
+                                : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200"
                                 }`}
                             >
                               <span>🚚 Bergerak</span>
@@ -5831,10 +5747,10 @@ export default function AdminDashboardPage() {
                                           </td>
                                           <td className="py-2.5 px-3 text-center">
                                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${r.outcome?.includes("Berhasil")
-                                                ? "bg-emerald-100 text-emerald-800"
-                                                : r.outcome?.includes("Evaluasi")
-                                                  ? "bg-amber-100 text-amber-800"
-                                                  : "bg-slate-100 text-slate-700"
+                                              ? "bg-emerald-100 text-emerald-800"
+                                              : r.outcome?.includes("Evaluasi")
+                                                ? "bg-amber-100 text-amber-800"
+                                                : "bg-slate-100 text-slate-700"
                                               }`}>
                                               {r.outcome || "Selesai"}
                                             </span>
@@ -5952,8 +5868,8 @@ export default function AdminDashboardPage() {
                                     <td className="py-2.5 px-3">
                                       <span
                                         className={`px-2 py-0.5 rounded text-[10px] font-bold ${t.paymentMethod === "QRIS"
-                                            ? "bg-emerald-100 text-emerald-800"
-                                            : "bg-amber-100 text-amber-900"
+                                          ? "bg-emerald-100 text-emerald-800"
+                                          : "bg-amber-100 text-amber-900"
                                           }`}
                                       >
                                         {t.paymentMethod}
@@ -6146,10 +6062,10 @@ export default function AdminDashboardPage() {
                         key={mat.id}
                         onClick={() => openRestockModal("central_set", mat.id)}
                         className={`p-3.5 rounded-2xl border transition cursor-pointer relative group ${isGulaPasir
-                            ? "bg-amber-950/30 border-amber-500/40 hover:border-amber-400"
-                            : isLow
-                              ? "bg-rose-950/30 border-rose-500/40 hover:border-rose-400"
-                              : "bg-slate-800/80 border-slate-700 hover:border-emerald-500/50 hover:bg-slate-800"
+                          ? "bg-amber-950/30 border-amber-500/40 hover:border-amber-400"
+                          : isLow
+                            ? "bg-rose-950/30 border-rose-500/40 hover:border-rose-400"
+                            : "bg-slate-800/80 border-slate-700 hover:border-emerald-500/50 hover:bg-slate-800"
                           }`}
                         title="Klik untuk koreksi / opname stok gudang pusat ini"
                       >
@@ -6241,12 +6157,12 @@ export default function AdminDashboardPage() {
                                 <div className="flex items-center gap-2">
                                   <span
                                     className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${isRestock
-                                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                                        : isReturn
-                                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                                          : isCentralIn
-                                            ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
-                                            : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                      : isReturn
+                                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                        : isCentralIn
+                                          ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                                          : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
                                       }`}
                                   >
                                     {isRestock
@@ -6405,8 +6321,8 @@ export default function AdminDashboardPage() {
                             {/* Total Uang Cash Fisik di Laci Saat Ini (Real-time di Booth) */}
                             <div
                               className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs border ${isClosed
-                                  ? "bg-slate-100 text-slate-600 border-slate-300"
-                                  : "bg-teal-50 text-teal-950 border-teal-300"
+                                ? "bg-slate-100 text-slate-600 border-slate-300"
+                                : "bg-teal-50 text-teal-950 border-teal-300"
                                 }`}
                               title={
                                 isClosed
@@ -6477,8 +6393,8 @@ export default function AdminDashboardPage() {
                                   key={stock.id}
                                   onClick={() => openSingleStockEdit(outlet, stock)}
                                   className={`p-3 rounded-xl border cursor-pointer transition flex items-center justify-between group ${isGulaPasir
-                                      ? "bg-amber-50/50 border-amber-200 hover:border-amber-400 hover:bg-amber-50"
-                                      : "bg-white border-slate-200 hover:border-emerald-400 hover:shadow-sm"
+                                    ? "bg-amber-50/50 border-amber-200 hover:border-amber-400 hover:bg-amber-50"
+                                    : "bg-white border-slate-200 hover:border-emerald-400 hover:shadow-sm"
                                     }`}
                                   title="Klik untuk ubah / kirim / retur stok ini"
                                 >
@@ -6582,10 +6498,10 @@ export default function AdminDashboardPage() {
                                 <tr
                                   key={c.id}
                                   className={`font-mono transition ${isRed
-                                      ? "bg-rose-50/80 border-l-4 border-l-rose-500"
-                                      : isYellow
-                                        ? "bg-amber-50/70 border-l-4 border-l-amber-500"
-                                        : "hover:bg-slate-50"
+                                    ? "bg-rose-50/80 border-l-4 border-l-rose-500"
+                                    : isYellow
+                                      ? "bg-amber-50/70 border-l-4 border-l-amber-500"
+                                      : "hover:bg-slate-50"
                                     }`}
                                 >
                                   <td className="py-2.5 px-3 text-slate-600 text-[11px] whitespace-nowrap">
@@ -6820,8 +6736,8 @@ export default function AdminDashboardPage() {
                 <div
                   key={outlet.id}
                   className={`p-4 rounded-2xl border transition flex flex-col justify-between ${outlet.active_status !== false
-                      ? "bg-slate-50/70 border-slate-200 hover:border-emerald-300"
-                      : "bg-slate-100 border-slate-200 opacity-60"
+                    ? "bg-slate-50/70 border-slate-200 hover:border-emerald-300"
+                    : "bg-slate-100 border-slate-200 opacity-60"
                     }`}
                 >
                   <div className="space-y-2">
@@ -6831,8 +6747,8 @@ export default function AdminDashboardPage() {
                       </span>
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${outlet.active_status !== false
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-rose-100 text-rose-700"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-rose-100 text-rose-700"
                           }`}
                       >
                         {outlet.active_status !== false ? "Aktif" : "Nonaktif"}
@@ -6866,8 +6782,8 @@ export default function AdminDashboardPage() {
                         return (
                           <span
                             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${isClosed
-                                ? "bg-slate-100 text-slate-600 border-slate-300"
-                                : "bg-teal-50 text-teal-950 border-teal-300"
+                              ? "bg-slate-100 text-slate-600 border-slate-300"
+                              : "bg-teal-50 text-teal-950 border-teal-300"
                               }`}
                             title={
                               isClosed
@@ -6988,12 +6904,12 @@ export default function AdminDashboardPage() {
                         <div className="flex items-center justify-between">
                           <span
                             className={`px-2 py-0.5 rounded text-[10px] font-bold ${category === "original"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : category === "milky"
-                                  ? "bg-amber-100 text-amber-800"
-                                  : category === "topping"
-                                    ? "bg-purple-100 text-purple-800"
-                                    : "bg-rose-100 text-rose-800"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : category === "milky"
+                                ? "bg-amber-100 text-amber-800"
+                                : category === "topping"
+                                  ? "bg-purple-100 text-purple-800"
+                                  : "bg-rose-100 text-rose-800"
                               }`}
                           >
                             {category === "original"
@@ -7238,8 +7154,8 @@ export default function AdminDashboardPage() {
                           } catch { }
                         }}
                         className={`px-4 py-2.5 rounded-2xl font-bold text-xs flex items-center gap-2.5 transition shadow-xs cursor-pointer ${isSelected
-                            ? "bg-emerald-700 text-white shadow-md ring-2 ring-emerald-500/40"
-                            : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
+                          ? "bg-emerald-700 text-white shadow-md ring-2 ring-emerald-500/40"
+                          : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
                           }`}
                       >
                         <Store className={`w-4 h-4 ${isSelected ? "text-amber-300" : "text-emerald-700"}`} />
@@ -7278,8 +7194,8 @@ export default function AdminDashboardPage() {
                     <div
                       key={baseName}
                       className={`p-4 rounded-2xl border transition flex flex-col justify-between ${isAnyAvail
-                          ? "bg-white border-emerald-300 shadow-xs"
-                          : "bg-slate-50 border-slate-200 opacity-60"
+                        ? "bg-white border-emerald-300 shadow-xs"
+                        : "bg-slate-50 border-slate-200 opacity-60"
                         }`}
                     >
                       {/* Info Menu */}
@@ -7287,12 +7203,12 @@ export default function AdminDashboardPage() {
                         <div className="flex items-center justify-between">
                           <span
                             className={`px-2 py-0.5 rounded text-[10px] font-bold ${category === "original"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : category === "milky"
-                                  ? "bg-amber-100 text-amber-800"
-                                  : category === "topping"
-                                    ? "bg-purple-100 text-purple-800"
-                                    : "bg-rose-100 text-rose-800"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : category === "milky"
+                                ? "bg-amber-100 text-amber-800"
+                                : category === "topping"
+                                  ? "bg-purple-100 text-purple-800"
+                                  : "bg-rose-100 text-rose-800"
                               }`}
                           >
                             {category === "original"
@@ -7306,8 +7222,8 @@ export default function AdminDashboardPage() {
 
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isAnyAvail
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-slate-200 text-slate-600"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-slate-200 text-slate-600"
                               }`}
                           >
                             {isAnyAvail ? "Aktif di Kedai" : "Nonaktif di Kedai"}
@@ -7355,8 +7271,8 @@ export default function AdminDashboardPage() {
                                 type="button"
                                 onClick={() => handleToggleOutletMenu(currentOutletId, reguler.id, isRegAvail)}
                                 className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${isRegAvail
-                                    ? "bg-emerald-600 text-white"
-                                    : "bg-slate-200 text-slate-500 hover:bg-slate-300"
+                                  ? "bg-emerald-600 text-white"
+                                  : "bg-slate-200 text-slate-500 hover:bg-slate-300"
                                   }`}
                               >
                                 {isRegAvail ? "On" : "Off"}
@@ -7376,8 +7292,8 @@ export default function AdminDashboardPage() {
                                 type="button"
                                 onClick={() => handleToggleOutletMenu(currentOutletId, jumbo.id, isJumAvail)}
                                 className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${isJumAvail
-                                    ? "bg-emerald-600 text-white"
-                                    : "bg-slate-200 text-slate-500 hover:bg-slate-300"
+                                  ? "bg-emerald-600 text-white"
+                                  : "bg-slate-200 text-slate-500 hover:bg-slate-300"
                                   }`}
                               >
                                 {isJumAvail ? "On" : "Off"}
@@ -7634,8 +7550,8 @@ export default function AdminDashboardPage() {
                     onClick={() => handleSavePromoCampaign()}
                     disabled={campaignLoading}
                     className={`px-4 py-2 text-white rounded-xl font-extrabold text-xs flex items-center gap-2 transition shadow-md cursor-pointer disabled:opacity-50 ${campaignFormDirty
-                        ? "bg-emerald-600 hover:bg-emerald-700 ring-4 ring-emerald-300 animate-pulse"
-                        : "bg-slate-900 hover:bg-slate-800"
+                      ? "bg-emerald-600 hover:bg-emerald-700 ring-4 ring-emerald-300 animate-pulse"
+                      : "bg-slate-900 hover:bg-slate-800"
                       }`}
                   >
                     {campaignLoading ? (
@@ -7655,8 +7571,8 @@ export default function AdminDashboardPage() {
               {campaignMessage && (
                 <div
                   className={`p-3 rounded-xl text-xs font-bold border transition ${campaignMessage.isError
-                      ? "bg-rose-50 text-rose-800 border-rose-200"
-                      : "bg-emerald-50 text-emerald-900 border-emerald-300"
+                    ? "bg-rose-50 text-rose-800 border-rose-200"
+                    : "bg-emerald-50 text-emerald-900 border-emerald-300"
                     }`}
                 >
                   {campaignMessage.text}
@@ -7668,8 +7584,8 @@ export default function AdminDashboardPage() {
             {voucherMessage && (
               <div
                 className={`p-3 rounded-2xl text-xs font-bold shadow-xs animate-in fade-in flex items-center justify-between gap-2 ${voucherMessage.isError
-                    ? "bg-rose-50 border border-rose-300 text-rose-800"
-                    : "bg-emerald-50 border border-emerald-300 text-emerald-800"
+                  ? "bg-rose-50 border border-rose-300 text-rose-800"
+                  : "bg-emerald-50 border border-emerald-300 text-emerald-800"
                   }`}
               >
                 <span>{voucherMessage.text}</span>
@@ -7745,8 +7661,8 @@ export default function AdminDashboardPage() {
                       type="button"
                       onClick={() => setVoucherStatusFilter(tab.id)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${voucherStatusFilter === tab.id
-                          ? "bg-slate-900 text-white shadow-2xs"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        ? "bg-slate-900 text-white shadow-2xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                         }`}
                     >
                       <span>{tab.label}</span>
@@ -8009,8 +7925,8 @@ export default function AdminDashboardPage() {
             {poMessage && (
               <div
                 className={`p-3.5 rounded-xl border text-xs font-bold flex items-center justify-between ${poMessage.isError
-                    ? "bg-rose-50 border-rose-200 text-rose-700"
-                    : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                  ? "bg-rose-50 border-rose-200 text-rose-700"
+                  : "bg-emerald-50 border-emerald-200 text-emerald-700"
                   }`}
               >
                 <span>{poMessage.text}</span>
@@ -8183,12 +8099,12 @@ export default function AdminDashboardPage() {
                               <span className="font-mono font-extrabold text-sm text-slate-900">{po.po_number}</span>
                               <span
                                 className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${po.status === "draft"
-                                    ? "bg-amber-100 text-amber-800"
-                                    : po.status === "sent"
-                                      ? "bg-blue-100 text-blue-800"
-                                      : po.status === "received"
-                                        ? "bg-emerald-100 text-emerald-800"
-                                        : "bg-slate-200 text-slate-600"
+                                  ? "bg-amber-100 text-amber-800"
+                                  : po.status === "sent"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : po.status === "received"
+                                      ? "bg-emerald-100 text-emerald-800"
+                                      : "bg-slate-200 text-slate-600"
                                   }`}
                               >
                                 {po.status}
@@ -8443,8 +8359,8 @@ export default function AdminDashboardPage() {
             {socialMessage && (
               <div
                 className={`p-3.5 rounded-xl border text-xs font-bold flex items-center justify-between ${socialMessage.isError
-                    ? "bg-rose-50 border-rose-200 text-rose-700"
-                    : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                  ? "bg-rose-50 border-rose-200 text-rose-700"
+                  : "bg-emerald-50 border-emerald-200 text-emerald-700"
                   }`}
               >
                 <span>{socialMessage.text}</span>
@@ -8496,10 +8412,10 @@ export default function AdminDashboardPage() {
                           <span className="text-xs font-mono font-bold text-slate-600">{d.scheduled_date}</span>
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${d.status === "posted"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : d.status === "skipped"
-                                  ? "bg-slate-200 text-slate-600"
-                                  : "bg-amber-100 text-amber-800"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : d.status === "skipped"
+                                ? "bg-slate-200 text-slate-600"
+                                : "bg-amber-100 text-amber-800"
                               }`}
                           >
                             {d.status === "posted" ? "Sudah Diposting" : d.status === "skipped" ? "Dilewati" : "Draft"}
@@ -9072,8 +8988,8 @@ export default function AdminDashboardPage() {
                     type="button"
                     onClick={() => setEditOutletForm({ ...editOutletForm, active_status: true })}
                     className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition ${editOutletForm.active_status
-                        ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
-                        : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
+                      ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
+                      : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
                       }`}
                   >
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -9084,8 +9000,8 @@ export default function AdminDashboardPage() {
                     type="button"
                     onClick={() => setEditOutletForm({ ...editOutletForm, active_status: false })}
                     className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition ${!editOutletForm.active_status
-                        ? "bg-rose-50 border-rose-500 text-rose-700 shadow-sm"
-                        : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
+                      ? "bg-rose-50 border-rose-500 text-rose-700 shadow-sm"
+                      : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
                       }`}
                   >
                     <span className="w-2 h-2 rounded-full bg-rose-500"></span>
@@ -9193,8 +9109,8 @@ export default function AdminDashboardPage() {
               {changePinMessage && (
                 <div
                   className={`p-3 rounded-xl text-xs font-bold ${changePinMessage.isError
-                      ? "bg-rose-50 text-rose-700 border border-rose-200"
-                      : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    ? "bg-rose-50 text-rose-700 border border-rose-200"
+                    : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                     }`}
                 >
                   {changePinMessage.text}
@@ -10148,8 +10064,8 @@ export default function AdminDashboardPage() {
                   type="button"
                   onClick={() => setSingleStockMode("set")}
                   className={`py-2 px-1 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${singleStockMode === "set"
-                      ? "bg-slate-900 text-white shadow-sm font-extrabold"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                    ? "bg-slate-900 text-white shadow-sm font-extrabold"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
                     }`}
                 >
                   <span className="text-xs font-mono font-black">= Set Stok Fisik</span>
@@ -10162,8 +10078,8 @@ export default function AdminDashboardPage() {
                   type="button"
                   onClick={() => setSingleStockMode("add")}
                   className={`py-2 px-1 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${singleStockMode === "add"
-                      ? "bg-emerald-600 text-white shadow-sm font-extrabold"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                    ? "bg-emerald-600 text-white shadow-sm font-extrabold"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
                     }`}
                 >
                   <span className="text-xs font-mono font-black">+ Kirim ke Kedai</span>
@@ -10176,8 +10092,8 @@ export default function AdminDashboardPage() {
                   type="button"
                   onClick={() => setSingleStockMode("return")}
                   className={`py-2 px-1 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${singleStockMode === "return"
-                      ? "bg-amber-600 text-white shadow-sm font-extrabold"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                    ? "bg-amber-600 text-white shadow-sm font-extrabold"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
                     }`}
                 >
                   <span className="text-xs font-mono font-black">↺ Retur ke Pusat</span>
@@ -10251,8 +10167,8 @@ export default function AdminDashboardPage() {
                     {/* Penjelasan Logis Visual */}
                     {singleStockMode === "set" && inputVal !== currentKedai && (
                       <div className={`p-2 rounded-xl text-[11px] font-sans font-bold flex items-center gap-1.5 ${deltaKedai < 0
-                          ? "bg-amber-100/80 text-amber-950 border border-amber-300"
-                          : "bg-emerald-100/80 text-emerald-950 border border-emerald-300"
+                        ? "bg-amber-100/80 text-amber-950 border border-amber-300"
+                        : "bg-emerald-100/80 text-emerald-950 border border-emerald-300"
                         }`}>
                         <span>{deltaKedai < 0 ? "📦" : "🚚"}</span>
                         <span>
@@ -10328,10 +10244,10 @@ export default function AdminDashboardPage() {
                   type="submit"
                   disabled={singleStockLoading}
                   className={`flex-1 py-2.5 rounded-xl font-bold text-xs shadow-md transition text-white cursor-pointer ${singleStockMode === "return"
-                      ? "bg-amber-600 hover:bg-amber-700"
-                      : singleStockMode === "add"
-                        ? "bg-blue-600 hover:bg-blue-700"
-                        : "bg-emerald-600 hover:bg-emerald-700"
+                    ? "bg-amber-600 hover:bg-amber-700"
+                    : singleStockMode === "add"
+                      ? "bg-blue-600 hover:bg-blue-700"
+                      : "bg-emerald-600 hover:bg-emerald-700"
                     }`}
                 >
                   {(() => {
@@ -10424,8 +10340,8 @@ export default function AdminDashboardPage() {
                           {delta !== 0 && (
                             <span
                               className={`font-bold px-1 rounded ${delta > 0
-                                  ? "bg-amber-100 text-amber-800"
-                                  : "bg-emerald-100 text-emerald-800"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-emerald-100 text-emerald-800"
                                 }`}
                             >
                               {delta > 0
@@ -10503,8 +10419,8 @@ export default function AdminDashboardPage() {
                 type="button"
                 onClick={() => setRestockMode("add")}
                 className={`py-1.5 px-2 rounded-lg transition text-center ${restockMode === "add"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
                   }`}
               >
                 Kirim ke Kedai
@@ -10513,8 +10429,8 @@ export default function AdminDashboardPage() {
                 type="button"
                 onClick={() => setRestockMode("return")}
                 className={`py-1.5 px-2 rounded-lg transition text-center ${restockMode === "return"
-                    ? "bg-amber-600 text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
+                  ? "bg-amber-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
                   }`}
               >
                 Retur ke Pusat
@@ -10523,8 +10439,8 @@ export default function AdminDashboardPage() {
                 type="button"
                 onClick={() => setRestockMode("central_in")}
                 className={`py-1.5 px-2 rounded-lg transition text-center ${restockMode === "central_in"
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
                   }`}
               >
                 Pasokan Masuk
@@ -10758,10 +10674,10 @@ export default function AdminDashboardPage() {
                 <button
                   type="submit"
                   className={`flex-1 py-2.5 rounded-xl text-white font-bold text-xs shadow-md transition cursor-pointer ${restockMode === "return"
-                      ? "bg-amber-600 hover:bg-amber-700"
-                      : restockMode === "central_in"
-                        ? "bg-blue-600 hover:bg-blue-700"
-                        : "bg-emerald-600 hover:bg-emerald-700"
+                    ? "bg-amber-600 hover:bg-amber-700"
+                    : restockMode === "central_in"
+                      ? "bg-blue-600 hover:bg-blue-700"
+                      : "bg-emerald-600 hover:bg-emerald-700"
                     }`}
                 >
                   {restockMode === "return"
@@ -11349,8 +11265,8 @@ export default function AdminDashboardPage() {
                     type="button"
                     onClick={() => setAssetForm({ ...assetForm, asset_type: "tidak_bergerak" })}
                     className={`p-2.5 rounded-xl border text-left transition ${assetForm.asset_type === "tidak_bergerak"
-                        ? "bg-emerald-50 border-emerald-300 ring-2 ring-emerald-500/20"
-                        : "bg-slate-50 border-slate-200 hover:bg-slate-100"
+                      ? "bg-emerald-50 border-emerald-300 ring-2 ring-emerald-500/20"
+                      : "bg-slate-50 border-slate-200 hover:bg-slate-100"
                       }`}
                   >
                     <p className="font-bold text-xs text-emerald-950 flex items-center gap-1">
@@ -11365,8 +11281,8 @@ export default function AdminDashboardPage() {
                     type="button"
                     onClick={() => setAssetForm({ ...assetForm, asset_type: "bergerak" })}
                     className={`p-2.5 rounded-xl border text-left transition ${assetForm.asset_type === "bergerak"
-                        ? "bg-amber-50 border-amber-300 ring-2 ring-amber-500/20"
-                        : "bg-slate-50 border-slate-200 hover:bg-slate-100"
+                      ? "bg-amber-50 border-amber-300 ring-2 ring-amber-500/20"
+                      : "bg-slate-50 border-slate-200 hover:bg-slate-100"
                       }`}
                   >
                     <p className="font-bold text-xs text-amber-950 flex items-center gap-1">
@@ -11752,8 +11668,8 @@ export default function AdminDashboardPage() {
               {/* Status Message */}
               {scanMessage && (
                 <div className={`p-3 rounded-xl text-xs font-bold ${scanMessage.includes("Berhasil") || scanMessage.includes("tersimpan")
-                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                    : "bg-rose-50 text-rose-700 border border-rose-200"
+                  ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                  : "bg-rose-50 text-rose-700 border border-rose-200"
                   }`}>
                   {scanMessage}
                 </div>
@@ -12165,8 +12081,8 @@ export default function AdminDashboardPage() {
                       type="button"
                       onClick={() => setCashFloatValue(amt)}
                       className={`py-1.5 px-2 rounded-lg text-[11px] font-bold border transition ${cashFloatValue === amt
-                          ? "bg-amber-500 border-amber-600 text-white shadow-xs"
-                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        ? "bg-amber-500 border-amber-600 text-white shadow-xs"
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                         }`}
                     >
                       {amt === 0 ? "Rp 0" : `Rp ${(amt / 1000).toLocaleString("id-ID")}rb`}
@@ -12299,8 +12215,8 @@ export default function AdminDashboardPage() {
                       type="button"
                       onClick={() => setCentralCashAmount(amt)}
                       className={`py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${centralCashAmount === amt
-                          ? "bg-emerald-600 border-emerald-700 text-white"
-                          : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                        ? "bg-emerald-600 border-emerald-700 text-white"
+                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                         }`}
                     >
                       +{amt >= 1000000 ? `${amt / 1000000}jt` : `${amt / 1000}rb`}
