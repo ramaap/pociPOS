@@ -221,6 +221,10 @@ export default function AdminDashboardPage() {
   const [socialSendTelegram, setSocialSendTelegram] = useState<boolean>(false);
   const [copiedSocialKey, setCopiedSocialKey] = useState<string | null>(null);
   const [hasSerperKey, setHasSerperKey] = useState<boolean>(false);
+  const [centralStockSearch, setCentralStockSearch] = useState<string>("");
+  const [centralStockSort, setCentralStockSort] = useState<"name_asc" | "stock_asc" | "stock_desc">("name_asc");
+  const [boothStockSearch, setBoothStockSearch] = useState<string>("");
+  const [boothStockSort, setBoothStockSort] = useState<"name_asc" | "stock_asc" | "stock_desc">("name_asc");
   const [ttsGeneratingId, setTtsGeneratingId] = useState<string | null>(null);
   const [draftVoiceMap, setDraftVoiceMap] = useState<Record<string, string>>({});
   const [draftScriptMap, setDraftScriptMap] = useState<Record<string, string>>({});
@@ -5886,9 +5890,42 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
+              {/* Search & Sort Stockist Pusat */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 mb-3">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={centralStockSearch}
+                    onChange={(e) => setCentralStockSearch(e.target.value)}
+                    placeholder="Cari bahan di gudang pusat..."
+                    className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-800/90 border border-slate-700 text-xs text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <select
+                  value={centralStockSort}
+                  onChange={(e) => setCentralStockSort(e.target.value as "name_asc" | "stock_asc" | "stock_desc")}
+                  className="px-3 py-2 rounded-xl bg-slate-800/90 border border-slate-700 text-xs font-bold text-slate-200 focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="name_asc">Urutkan: Nama (A-Z)</option>
+                  <option value="stock_asc">Urutkan: Stok Terdikit ↑</option>
+                  <option value="stock_desc">Urutkan: Stok Terbanyak ↓</option>
+                </select>
+              </div>
+
               {/* Master Stock Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {uniqueMaterials.map((mat: any) => {
+                {[...uniqueMaterials]
+                  .filter((mat: any) =>
+                    !centralStockSearch.trim() ||
+                    mat.name.toLowerCase().includes(centralStockSearch.trim().toLowerCase())
+                  )
+                  .sort((a: any, b: any) => {
+                    if (centralStockSort === "stock_asc") return (a.master_stock || 0) - (b.master_stock || 0);
+                    if (centralStockSort === "stock_desc") return (b.master_stock || 0) - (a.master_stock || 0);
+                    return String(a.name).localeCompare(String(b.name));
+                  })
+                  .map((mat: any) => {
                   const isGulaPasir = mat.name.toLowerCase().includes("gula pasir");
                   const isGulaCair = mat.name.toLowerCase().includes("gula cair");
                   const masterStock = mat.master_stock !== undefined ? mat.master_stock : 0;
@@ -6050,7 +6087,26 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={boothStockSearch}
+                      onChange={(e) => setBoothStockSearch(e.target.value)}
+                      placeholder="Cari bahan di kedai..."
+                      className="bg-slate-50 border border-slate-300 rounded-xl pl-8 pr-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:border-emerald-500 w-44"
+                    />
+                  </div>
+                  <select
+                    value={boothStockSort}
+                    onChange={(e) => setBoothStockSort(e.target.value as "name_asc" | "stock_asc" | "stock_desc")}
+                    className="bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none"
+                  >
+                    <option value="name_asc">Urutkan: Nama (A-Z)</option>
+                    <option value="stock_asc">Stok Terdikit ↑</option>
+                    <option value="stock_desc">Stok Terbanyak ↓</option>
+                  </select>
                   <span className="text-xs text-slate-500 font-medium">Filter Kedai:</span>
                   <select
                     value={selectedOutletFilter}
@@ -6186,7 +6242,17 @@ export default function AdminDashboardPage() {
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
-                          {outletStocks.map((stock) => {
+                          {[...outletStocks]
+                            .filter((stock) =>
+                              !boothStockSearch.trim() ||
+                              stock.raw_material.name.toLowerCase().includes(boothStockSearch.trim().toLowerCase())
+                            )
+                            .sort((a, b) => {
+                              if (boothStockSort === "stock_asc") return (a.current_stock || 0) - (b.current_stock || 0);
+                              if (boothStockSort === "stock_desc") return (b.current_stock || 0) - (a.current_stock || 0);
+                              return a.raw_material.name.localeCompare(b.raw_material.name);
+                            })
+                            .map((stock) => {
                             const isGulaPasir = stock.raw_material.name.toLowerCase().includes("gula pasir");
                             const isGulaCair = stock.raw_material.name.toLowerCase().includes("gula cair");
 
