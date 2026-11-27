@@ -31,6 +31,7 @@ prisma/*.db
 prisma/*.db-journal
 prisma/*.bak
 backups/*.sqlite
+backups/master/*.sqlite
 backups/*.db
 backups/*.json
 !backups/.gitkeep
@@ -46,3 +47,6 @@ error_crash.txt
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Agentic AI runtime state
+agents-state.json

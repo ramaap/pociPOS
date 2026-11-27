@@ -56,8 +56,10 @@ import {
   bluetoothPrinter,
   serialPrinter,
   encodeReceiptBase64,
+  encodeCashDrawerKickBase64,
   isAndroidDevice,
   printReceiptViaRawBT,
+  openCashDrawerViaRawBT,
   printReceiptViaBrowser,
 } from "@/lib/escpos-printer";
 
@@ -175,12 +177,7 @@ export default function PosTerminalPage() {
   // Pantun Semangat Gemini AI (Update Otomatis Tiap 15 Menit)
   const [pantunText, setPantunText] = useState<string>("");
   const [isPantunLoading, setIsPantunLoading] = useState<boolean>(false);
-  const [isPantunCollapsed, setIsPantunCollapsed] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("poci_pantun_collapsed") === "true";
-    }
-    return false;
-  });
+  const [isPantunCollapsed, setIsPantunCollapsed] = useState<boolean>(false);
 
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -227,15 +224,20 @@ export default function PosTerminalPage() {
     type: "success" | "warning" | "error";
   } | null>(null);
 
-  // Auto-Print & Auto-Close Timer State
-  const [autoPrintReceipt, setAutoPrintReceipt] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("poci_autoprint_receipt") !== "false";
-    }
-    return true;
-  });
+  // Auto-Print & Auto-Close Timer State (default false agar desktop tanpa printer tidak memblokir UI)
+  const [autoPrintReceipt, setAutoPrintReceipt] = useState<boolean>(false);
   const [autoCloseSeconds, setAutoCloseSeconds] = useState<number | null>(null);
   const [isTimerPaused, setIsTimerPaused] = useState<boolean>(false);
+
+  useEffect(() => {
+    setIsPantunCollapsed(localStorage.getItem("poci_pantun_collapsed") === "true");
+    const savedAutoPrint = localStorage.getItem("poci_autoprint_receipt");
+    if (savedAutoPrint !== null) {
+      setAutoPrintReceipt(savedAutoPrint === "true");
+    } else {
+      setAutoPrintReceipt(isAndroidDevice());
+    }
+  }, []);
 
   const toggleAutoPrint = () => {
     setAutoPrintReceipt((prev) => {
@@ -1068,6 +1070,8 @@ export default function PosTerminalPage() {
       // Jangan jadikan Kantong Teh / Premix Teh sebagai acuan disable pada kasir
       if (
         matNameLower.includes("kantong teh") ||
+        matNameLower.includes("teh jasmine") ||
+        matNameLower.includes("teh vanilla") ||
         matNameLower.includes("tea premix") ||
         matNameLower.includes("teh seduh") ||
         matNameLower.includes("liquid tea")
@@ -2196,15 +2200,61 @@ export default function PosTerminalPage() {
     return () => clearTimeout(timer);
   }, [checkoutSuccess, autoCloseSeconds, isTimerPaused]);
 
-  // Auto-print saat transaksi berhasil (jika toggle auto-print aktif)
+  // Memicu pembukaan Cash Drawer saja (tanpa cetak kertas) untuk pembayaran tunai
+  const triggerCashDrawerOnly = async () => {
+    try {
+      const savedComPort = typeof window !== "undefined" ? localStorage.getItem("poci_laptop_com_port") : null;
+      if (!isAndroidDevice() && savedComPort) {
+        const res = await fetch("/api/print/com", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ port: savedComPort, escposBase64: encodeCashDrawerKickBase64() }),
+        });
+        if (res.ok) {
+          setPrintStatusMessage({ text: `Laci kasir dibuka melalui ${savedComPort}.`, type: "success" });
+        }
+        return;
+      }
+      if (bluetoothPrinter.isConnected()) {
+        await bluetoothPrinter.openCashDrawer();
+        setPrintStatusMessage({ text: "Laci kasir dibuka via Bluetooth!", type: "success" });
+        return;
+      }
+      if (isAndroidDevice()) {
+        const opened = openCashDrawerViaRawBT();
+        if (opened) {
+          setPrintStatusMessage({ text: "Perintah buka laci kasir dikirim ke RawBT.", type: "success" });
+        }
+      }
+    } catch (err: any) {
+      console.warn("Gagal memicu buka laci kasir:", err);
+    }
+  };
+
+  // Auto-print saat transaksi berhasil (hanya jika toggle aktif DAN ada printer hardware/RawBT terhubung)
+  // Jika Auto-Cetak nonaktif namun pembayaran Cash, tetap picu pembukaan Cash Drawer saja tanpa cetak kertas
   useEffect(() => {
-    if (checkoutSuccess && completedReceipt && autoPrintReceipt) {
+    if (!checkoutSuccess || !completedReceipt) return;
+    const hasThermalTarget =
+      isAndroidDevice() ||
+      bluetoothPrinter.isConnected() ||
+      Boolean(typeof window !== "undefined" && localStorage.getItem("poci_laptop_com_port"));
+    if (!hasThermalTarget) return;
+
+    if (autoPrintReceipt) {
       const timer = setTimeout(() => {
         handlePrintReceipt(false);
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [checkoutSuccess, completedReceipt]);
+
+    if (completedReceipt.paymentMethod === "Cash") {
+      const timer = setTimeout(() => {
+        triggerCashDrawerOnly();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [checkoutSuccess, completedReceipt, autoPrintReceipt]);
 
   const handleFinishTransaction = () => {
     setIsCheckoutModalOpen(false);
@@ -2216,6 +2266,44 @@ export default function PosTerminalPage() {
     setIsMobileCartOpen(false); // Tutup accordion cart secara default setelah transaksi selesai
     setAutoCloseSeconds(null);
     setIsTimerPaused(false);
+  };
+
+  const renderPromoFulfillmentControls = (item: CartItem) => {
+    if (!item.isPromoFree) return null;
+    if (item.isRedeemedVoucher) {
+      return (
+        <div className="mt-1 p-1 bg-emerald-50 border border-emerald-300 rounded text-[9px] text-emerald-950 flex items-center justify-between gap-1">
+          <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong></span>
+          <span className="text-emerald-700 font-bold shrink-0">🥤 Disajikan Fisik</span>
+        </div>
+      );
+    }
+    if (item.isPromoVoucher) {
+      return (
+        <div className="mt-1 p-1 bg-amber-50 border border-amber-300 rounded text-[9px] text-amber-900 flex items-center justify-between gap-1">
+          <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong> (Struk)</span>
+          <button
+            type="button"
+            onClick={() => togglePromoVoucherMode(item.id)}
+            className="text-emerald-700 font-bold underline shrink-0 hover:text-emerald-900 cursor-pointer"
+          >
+            Sajikan Fisik?
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div className="mt-1 flex items-center justify-between text-[9px] text-emerald-800 gap-2">
+        <span>🥤 Disajikan fisik sekarang</span>
+        <button
+          type="button"
+          onClick={() => togglePromoVoucherMode(item.id)}
+          className="text-amber-800 font-bold underline shrink-0 hover:text-amber-950 cursor-pointer"
+        >
+          Ubah Jadi Voucher?
+        </button>
+      </div>
+    );
   };
 
   const formatRupiah = (val: number) => {
@@ -2528,7 +2616,7 @@ export default function PosTerminalPage() {
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm ${
                 currentOutletObj?.shift_status === "closed"
                   ? "bg-amber-400 hover:bg-amber-300 text-slate-950 ring-2 ring-amber-300 animate-pulse font-extrabold cursor-pointer"
-                  : "opacity-40 cursor-not-allowed bg-emerald-950/40 text-emerald-300/70 border border-emerald-800/40 shadow-none"
+                  : "opacity-60 cursor-not-allowed bg-slate-800/70 text-slate-200 border border-slate-700 shadow-none"
               }`}
               title={
                 currentOutletObj?.shift_status === "closed"
@@ -2543,7 +2631,7 @@ export default function PosTerminalPage() {
             {/* Tombol Pengeluaran Beban */}
             <button
               type="button"
-              disabled={currentOutletObj?.shift_status !== "closed"}
+              disabled={currentOutletObj?.shift_status === "closed"}
               onClick={() => {
                 setExpenseMessage(null);
                 setIsExpenseModalOpen(true);
@@ -2551,7 +2639,7 @@ export default function PosTerminalPage() {
               }}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm ${
                 currentOutletObj?.shift_status === "closed"
-                  ? "opacity-40 cursor-not-allowed bg-amber-950/40 text-amber-300/60 border border-amber-800/40 shadow-none"
+                  ? "opacity-60 cursor-not-allowed bg-slate-800/70 text-slate-200 border border-slate-700 shadow-none"
                   : "bg-amber-400 hover:bg-amber-300 text-slate-950 cursor-pointer"
               }`}
               title={
@@ -2569,7 +2657,7 @@ export default function PosTerminalPage() {
               <button
                 type="button"
                 disabled
-                className="opacity-40 cursor-not-allowed bg-emerald-950/40 text-emerald-300/60 border border-emerald-800/40 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1 shadow-none"
+                className="opacity-60 cursor-not-allowed bg-slate-800/70 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1 shadow-none"
                 title="Shift belum dibuka. Buka shift terlebih dahulu sebelum dapat menutup shift."
               >
                 <ClipboardList className="w-3.5 h-3.5" />
@@ -3335,8 +3423,10 @@ export default function PosTerminalPage() {
                                   : "bg-slate-50 hover:bg-emerald-600 hover:text-white text-slate-800 border-slate-200 shadow-2xs active:scale-95 cursor-pointer"
                               }`}
                             >
-                              <span className="text-[10px] sm:text-xs font-bold">{isDisabled ? (reguler.active_status === false ? "Nonaktif" : "Habis") : "Reguler"}</span>
-                              <span className={`text-[11px] sm:text-xs font-mono font-black ${isDisabled ? "text-slate-400 line-through" : "text-emerald-800 hover:text-white"}`}>
+                              <span className="text-[10px] sm:text-xs font-bold">
+                                {isShiftClosed ? "Reguler (Tutup)" : isDisabled ? (reguler.active_status === false ? "Nonaktif" : "Habis") : "Reguler"}
+                              </span>
+                              <span className={`text-[11px] sm:text-xs font-mono font-black ${isDisabled ? (isShiftClosed ? "text-slate-500" : "text-slate-400 line-through") : "text-emerald-800 hover:text-white"}`}>
                                 {formatRupiah(reguler.price)}
                               </span>
                             </button>
@@ -3361,8 +3451,10 @@ export default function PosTerminalPage() {
                                   : "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-xs active:scale-95 cursor-pointer"
                               }`}
                             >
-                              <span className="text-[10px] sm:text-xs font-bold">{isDisabled ? (jumbo.active_status === false ? "Nonaktif" : "Habis") : "Jumbo"}</span>
-                              <span className={`text-[11px] sm:text-xs font-mono font-black ${isDisabled ? "text-slate-300 line-through" : "text-white"}`}>
+                              <span className="text-[10px] sm:text-xs font-bold">
+                                {isShiftClosed ? "Jumbo (Tutup)" : isDisabled ? (jumbo.active_status === false ? "Nonaktif" : "Habis") : "Jumbo"}
+                              </span>
+                              <span className={`text-[11px] sm:text-xs font-mono font-black ${isDisabled ? (isShiftClosed ? "text-slate-500" : "text-slate-300 line-through") : "text-white"}`}>
                                 {formatRupiah(jumbo.price)}
                               </span>
                             </button>
@@ -3373,7 +3465,7 @@ export default function PosTerminalPage() {
                       // Single Size (Semua varian rasa jumbo & topping)
                       <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5">
                         <div>
-                          <span className={`text-xs xs:text-sm sm:text-base font-mono font-black ${!checkDefault.canAdd ? "text-slate-400 line-through" : "text-emerald-900"}`}>
+                          <span className={`text-xs xs:text-sm sm:text-base font-mono font-black ${!checkDefault.canAdd ? (isShiftClosed ? "text-slate-500" : "text-slate-400 line-through") : "text-emerald-900"}`}>
                             {defaultProd ? formatRupiah(defaultProd.price) : "-"}
                           </span>
                         </div>
@@ -3392,7 +3484,9 @@ export default function PosTerminalPage() {
                           }`}
                         >
                           <Plus className="w-3.5 h-3.5" />
-                          <span>{!checkDefault.canAdd ? (defaultProd?.active_status === false ? "Nonaktif" : "Habis") : "Pesan"}</span>
+                          <span>
+                            {isShiftClosed ? "Shift Tutup" : !checkDefault.canAdd ? (defaultProd?.active_status === false ? "Nonaktif" : "Habis") : "Pesan"}
+                          </span>
                         </button>
                       </div>
                     )}
@@ -3402,8 +3496,8 @@ export default function PosTerminalPage() {
             </div>
           )}
         </div>
-{/* Right Column: Active Cart & Checkout (Desktop Only - Dynamic Full Height) */}
-        <div className="hidden lg:flex lg:col-span-4 flex-col lg:sticky lg:top-14 lg:h-[calc(100vh-4.5rem)]">
+{/* Right Column: Active Cart & Checkout (Desktop Only - Fit 800px+ Viewport Without Clipping) */}
+        <div className="hidden lg:flex lg:col-span-4 flex-col lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)]">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3.5 sm:p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Header: Pesanan Aktif */}
             <div className="shrink-0 flex items-center justify-between pb-2.5 border-b border-slate-100">
@@ -3484,36 +3578,7 @@ export default function PosTerminalPage() {
                               <span className="text-emerald-700 font-semibold">{formatRupiah(item.product.price)}</span>
                             )}
                           </div>
-                          {item.isPromoFree && (
-                            item.isRedeemedVoucher ? (
-                              <div className="mt-1 p-1 bg-emerald-50 border border-emerald-300 rounded text-[9px] text-emerald-950 flex items-center justify-between gap-1">
-                                <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong></span>
-                                <span className="text-emerald-700 font-bold shrink-0">🥤 Disajikan Fisik</span>
-                              </div>
-                            ) : item.isPromoVoucher ? (
-                              <div className="mt-1 p-1 bg-amber-50 border border-amber-300 rounded text-[9px] text-amber-900 flex items-center justify-between gap-1">
-                                <span className="truncate">🎟️ Kode: <strong>{item.voucherCode}</strong> (Struk)</span>
-                                <button
-                                  type="button"
-                                  onClick={() => togglePromoVoucherMode(item.id)}
-                                  className="text-emerald-700 font-bold underline shrink-0 hover:text-emerald-900 cursor-pointer"
-                                >
-                                  Sajikan Fisik?
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="mt-1 flex items-center justify-between text-[9px] text-emerald-800">
-                                <span>🥤 Disajikan fisik sekarang</span>
-                                <button
-                                  type="button"
-                                  onClick={() => togglePromoVoucherMode(item.id)}
-                                  className="text-amber-800 font-bold underline shrink-0 hover:text-amber-950 cursor-pointer"
-                                >
-                                  Ubah Jadi Voucher?
-                                </button>
-                              </div>
-                            )
-                          )}
+                          {renderPromoFulfillmentControls(item)}
                         </div>
 
                         {/* Stepper Jumlah Cup & Tombol Hapus */}
@@ -3551,8 +3616,8 @@ export default function PosTerminalPage() {
                         </div>
                       </div>
 
-                      {/* Porsi Gula Segmented Toggle (Ultra Ringkas 1 Baris) */}
-                      {!item.product.name.includes("Topping") && !item.isPromoFree && (
+                      {/* Porsi Gula Segmented Toggle (Ultra Ringkas 1 Baris - termasuk bonus promo fisik) */}
+                      {!item.product.name.includes("Topping") && !item.isPromoVoucher && (
                         <div className="pt-1.5 border-t border-slate-100">
                           <div className="flex items-center justify-between text-[10px] mb-1">
                             <span className="text-slate-500 font-bold">Porsi Gula:</span>
@@ -3724,7 +3789,7 @@ export default function PosTerminalPage() {
             <div className="shrink-0 pt-2 border-t border-slate-100 space-y-1.5">
               {isPromoApplied ? (
                 <div className="p-2 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-900 font-bold shadow-2xs">
-                  <span className="flex items-center gap-1.5 truncate">
+                  <div className="flex items-center gap-1.5 truncate">
                     <span className="text-sm">🎉</span>
                     <div className="truncate">
                       <span className="truncate">
@@ -3736,7 +3801,7 @@ export default function PosTerminalPage() {
                         </span>
                       )}
                     </div>
-                  </span>
+                  </div>
                   <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black shrink-0">
                     Otomatis Aktif
                   </span>
@@ -4033,13 +4098,17 @@ export default function PosTerminalPage() {
                           </div>
                           <div className="text-[11px] font-mono mt-0.5">
                             {item.isPromoFree ? (
-                              <span className="text-emerald-700 font-black">
-                                {item.isPromoVoucher ? "Rp 0 (VOUCHER)" : item.isRedeemedVoucher ? "Rp 0 (KLAIM)" : "Rp 0 (GRATIS)"}
-                              </span>
+                              <>
+                                <span className="line-through text-slate-400 mr-1 text-[11px]">{formatRupiah(item.product.price)}</span>
+                                <span className="text-emerald-700 font-black">
+                                  {item.isPromoVoucher ? "Rp 0 (VOUCHER)" : item.isRedeemedVoucher ? "Rp 0 (KLAIM)" : "Rp 0 (GRATIS)"}
+                                </span>
+                              </>
                             ) : (
                               <span className="text-emerald-700 font-semibold">{formatRupiah(item.product.price)}</span>
                             )}
                           </div>
+                          {renderPromoFulfillmentControls(item)}
                         </div>
 
                         {/* Stepper Jumlah Cup & Tombol Hapus */}
@@ -4074,8 +4143,8 @@ export default function PosTerminalPage() {
                         </div>
                       </div>
 
-                      {/* Baris 2: Pemilih Level Gula */}
-                      {!item.product.name.includes("Topping") && !item.isPromoFree && (
+                      {/* Baris 2: Pemilih Level Gula (termasuk bonus promo fisik) */}
+                      {!item.product.name.includes("Topping") && !item.isPromoVoucher && (
                         <div className="pt-1.5 border-t border-slate-100">
                           <div className="flex items-center justify-between text-[10px] mb-1">
                             <span className="text-slate-500 font-bold">Porsi Gula:</span>
@@ -4322,10 +4391,11 @@ export default function PosTerminalPage() {
 
       {/* Modal QRIS Checkout */}
       {isCheckoutModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-center animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 text-center animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
             {checkoutSuccess ? (
-              <div className="py-2 space-y-4 max-h-[85vh] overflow-y-auto px-1">
+              <div className="flex flex-col flex-1 min-h-0">
+                <div className="py-1 space-y-4 flex-1 overflow-y-auto px-1">
                 {/* Header Status */}
                 <div className="text-center">
                   <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2 shadow-sm">
@@ -4508,12 +4578,13 @@ export default function PosTerminalPage() {
                   {/* Footer Struk */}
                   <div className="pt-2 border-t border-dashed border-slate-300 text-center text-[9px] text-slate-500 space-y-0.5">
                     <p className="font-medium">Terima Kasih Atas Kunjungan Anda! ^_^</p>
-                    <p className="text-[8px] text-slate-400">Follow IG: @estehpoci.id</p>
+                    <p className="text-[8px] text-slate-400">Follow IG: @yatehpoci</p>
                   </div>
                 </div>
+                </div>
 
-                {/* Tombol Aksi Cetak Tunggal & Transaksi Baru Otomatis */}
-                <div className="space-y-2 pt-1">
+                {/* Sticky Footer: Tombol Aksi Cetak Tunggal & Transaksi Baru Otomatis */}
+                <div className="shrink-0 space-y-2 pt-3 mt-3 border-t border-slate-100 bg-white">
                   <button
                     type="button"
                     onClick={() => handlePrintReceipt(false)}
@@ -4521,7 +4592,7 @@ export default function PosTerminalPage() {
                     className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] disabled:bg-slate-300 text-white font-extrabold rounded-xl shadow text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer"
                   >
                     <Printer className="w-4 h-4 shrink-0" />
-                    <span>{isPrintingBt ? "Menghubungkan Printer..." : "🖨️ Cetak Struk (Thermal 58mm)"}</span>
+                    <span>{isPrintingBt ? "Menghubungkan Printer..." : "Cetak Struk (Thermal 58mm)"}</span>
                   </button>
 
                   <button
@@ -4531,7 +4602,7 @@ export default function PosTerminalPage() {
                   >
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>
-                      ✓ Transaksi Baru Sekarang
+                      Transaksi Baru Sekarang
                       {autoCloseSeconds !== null && !isTimerPaused && (
                         <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-slate-700 text-emerald-300 text-[10px] font-mono">
                           {autoCloseSeconds}s
@@ -4575,6 +4646,18 @@ export default function PosTerminalPage() {
                         <span>Pair BT</span>
                       </button>
 
+                      {completedReceipt?.paymentMethod === "Cash" && (
+                        <button
+                          type="button"
+                          onClick={triggerCashDrawerOnly}
+                          className="text-amber-700 hover:text-amber-900 flex items-center gap-1 font-bold transition cursor-pointer"
+                          title="Kirim perintah buka laci kasir (ESC p) lewat printer thermal"
+                        >
+                          <Banknote className="w-3 h-3 shrink-0" />
+                          <span>Buka Laci</span>
+                        </button>
+                      )}
+
                       {!isAndroidDevice() && (
                         <button
                           type="button"
@@ -4591,7 +4674,7 @@ export default function PosTerminalPage() {
                 </div>
               </div>
             ) : (
-              <div>
+              <div className="overflow-y-auto pr-1">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                     Konfirmasi Pembayaran ({currentOutletObj?.code})
@@ -4903,6 +4986,7 @@ export default function PosTerminalPage() {
               </div>
               <button
                 type="button"
+                aria-label="Tutup modal pengeluaran"
                 onClick={() => setIsExpenseModalOpen(false)}
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold flex items-center justify-center transition"
               >
@@ -5017,10 +5101,12 @@ export default function PosTerminalPage() {
             {/* Form Input */}
             <form onSubmit={handleCreateExpense} className="space-y-3 mt-4">
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
+                <label htmlFor="expense-desc" className="text-xs font-bold text-slate-700 block mb-1">
                   Keterangan Pengeluaran *:
                 </label>
                 <input
+                  id="expense-desc"
+                  name="expenseDescription"
                   type="text"
                   required
                   placeholder="Contoh: Beli Es Batu 2 Bal"
@@ -5031,7 +5117,7 @@ export default function PosTerminalPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
+                <label htmlFor="expense-amount" className="text-xs font-bold text-slate-700 block mb-1">
                   Nominal Biaya (Rp) *:
                 </label>
                 <div className="relative">
@@ -5039,6 +5125,8 @@ export default function PosTerminalPage() {
                     Rp
                   </span>
                   <input
+                    id="expense-amount"
+                    name="expenseAmount"
                     type="number"
                     required
                     min="500"
@@ -5116,7 +5204,17 @@ export default function PosTerminalPage() {
                       <div>
                         <p className="font-bold text-slate-900">{exp.description}</p>
                         <p className="text-[10px] text-slate-400 font-mono">
-                          {new Date(exp.date).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} • <span className="capitalize">{exp.category}</span>
+                          {new Date(exp.date).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} •{" "}
+                          <span>
+                            {({
+                              es_batu: "Es Batu",
+                              gas: "Gas LPG",
+                              air_galon: "Air Galon",
+                              kemasan: "Sedotan/Kresek",
+                              kebersihan: "Kebersihan",
+                              lainnya: "Lainnya",
+                            } as Record<string, string>)[exp.category] || exp.category.replace(/_/g, " ")}
+                          </span>
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -5147,8 +5245,8 @@ export default function PosTerminalPage() {
       {/* MODAL: OPENING KEDAI / BUKA SHIFT BARU                         */}
       {/* ============================================================== */}
       {isOpeningModalOpen && currentOutletObj && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 my-8 animate-in fade-in zoom-in duration-150 max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-150 max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-400 text-slate-950 flex items-center justify-center font-black text-xl shadow-xs">
@@ -5163,6 +5261,7 @@ export default function PosTerminalPage() {
               </div>
               <button
                 type="button"
+                aria-label="Tutup modal opening shift"
                 onClick={() => setIsOpeningModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold p-1 rounded-lg hover:bg-slate-100"
               >
@@ -5170,7 +5269,8 @@ export default function PosTerminalPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveOpening} className="space-y-4 my-4 overflow-y-auto flex-1 pr-1">
+            <form onSubmit={handleSaveOpening} className="flex flex-col flex-1 min-h-0">
+              <div className="space-y-4 my-4 overflow-y-auto flex-1 pr-1">
               {/* Panduan Ringkas */}
               <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200 text-xs text-amber-900 space-y-1">
                 <p className="font-bold flex items-center gap-1.5">
@@ -5184,7 +5284,7 @@ export default function PosTerminalPage() {
               {/* BAGIAN 1: Uang Cash yang Dibawa Kasir */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <label htmlFor="opening-cash-float" className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <Coins className="w-4 h-4 text-amber-600" />
                     1. Uang Cash yang Dibawa (Modal Kas Awal)
                   </label>
@@ -5193,6 +5293,8 @@ export default function PosTerminalPage() {
                 <div className="relative">
                   <span className="absolute left-3.5 top-2.5 text-xs font-extrabold text-slate-400">Rp</span>
                   <input
+                    id="opening-cash-float"
+                    name="openingCashFloat"
                     type="number"
                     min="0"
                     step="1000"
@@ -5236,7 +5338,7 @@ export default function PosTerminalPage() {
                   <span className="text-[10px] text-slate-400 font-semibold">Bisa diedit bila ada restock</span>
                 </div>
 
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                <div className="space-y-2">
                   {rawMaterials.map((rm) => {
                     const currentVal = openingStockValues[rm.id] !== undefined
                       ? openingStockValues[rm.id]
@@ -5287,19 +5389,20 @@ export default function PosTerminalPage() {
               {openingMessage && (
                 <p className="text-xs font-bold text-center text-rose-600">{openingMessage}</p>
               )}
+              </div>
 
-              <div className="flex gap-2 pt-2 shrink-0">
+              <div className="flex gap-2 pt-3 border-t border-slate-100 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsOpeningModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50"
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={openingLoading}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold text-xs shadow-md transition flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   {openingLoading ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -5498,6 +5601,7 @@ export default function PosTerminalPage() {
               </div>
               <button
                 type="button"
+                aria-label="Tutup modal stok cairan gula"
                 onClick={() => setIsSugarModalOpen(false)}
                 className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
               >
@@ -6080,7 +6184,7 @@ export default function PosTerminalPage() {
 
           <div style={{ textAlign: "center", fontSize: "9px", marginTop: "4px" }}>
             <div>Terima Kasih Atas Kunjungan Anda!</div>
-            <div>Follow IG: @estehpoci.id</div>
+            <div>Follow IG: @yatehpoci</div>
           </div>
         </div>
       )}

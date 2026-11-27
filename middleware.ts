@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.png|logo.jpg|gate|api/gate).*)",
+    "/((?!_next/static|_next/image|favicon.ico|favicon.png|icon.png|icon-192.png|icon-512.png|logo.jpg|logo.png|logo-poci.jpg|logo-struk.png|manifest.json|images/|gate|api/gate).*)",
   ],
 };
 

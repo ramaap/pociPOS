@@ -310,4 +310,100 @@ model RndExpense {
   @@map("rnd_expenses")
 }
 
+model AgentEventLog {
+  id         String   @id @default(cuid())
+  agent_name String   // "watchdog" | "stock_manager" | "virtual_gm"
+  event_type String   // "red_alert" | "yellow_alert" | "stock_low" | "stock_zero" | "silent_lunch" | "pin_failed" | "morning_briefing" | "evening_report"
+  outlet_id  String?
+  summary    String
+  details    String?
+  created_at DateTime @default(now())
+
+  @@index([created_at])
+  @@index([agent_name, event_type])
+  @@map("agent_event_logs")
+}
+
+model OwnerChatMemory {
+  id         String   @id @default(cuid())
+  role       String   // "owner" | "assistant"
+  message    String
+  topic      String?
+  created_at DateTime @default(now())
+
+  @@index([created_at])
+  @@map("owner_chat_memories")
+}
+
+model OwnerBehaviorProfile {
+  id         String   @id @default(cuid())
+  key        String   @unique // e.g. "preferred_focus", "reporting_style", "recurring_requests"
+  value      String
+  updated_at DateTime @updatedAt
+
+  @@map("owner_behavior_profiles")
+}
+
+model Supplier {
+  id             String          @id @default(cuid())
+  name           String
+  phone          String?         // Nomor WhatsApp Supplier
+  category       String          @default("umum") // "packaging" | "teh_gula" | "bubuk" | "umum"
+  lead_time_days Int             @default(1)
+  notes          String?
+  purchaseOrders PurchaseOrder[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id              String    @id @default(cuid())
+  po_number       String    @unique
+  supplier_id     String?
+  status          String    @default("draft") // "draft" | "sent" | "received" | "cancelled"
+  created_by      String    @default("owner") // "owner" | "agent_draft"
+  items_json      String    // JSON array of predicted/ordered items
+  draft_message   String    // Pesan siap copy-paste untuk dikirim Owner ke WhatsApp Supplier
+  total_estimated Float     @default(0)
+  notes           String?
+  supplier        Supplier? @relation(fields: [supplier_id], references: [id], onDelete: SetNull)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status])
+  @@map("purchase_orders")
+}
+
+model SocialContentDraft {
+  id                  String   @id @default(cuid())
+  scheduled_date      String   // YYYY-MM-DD WIB
+  platform            String   // "Instagram Reels" | "Instagram Carousel" | "TikTok"
+  trend_topic         String   // Topik/tren viral 7 hari terakhir yang dijadikan pijakan
+  trend_sources_json  String   @default("[]") // URL sumber tren dari Google Search Grounding / Trends
+  post_idea           String   // Ringkasan ide + Hook 3 detik + angle
+  scenes_json         String   @default("[]") // Script Writer: array scene-by-scene (time_range, visual_action, on_screen_text, voiceover, camera_note)
+  voiceover_script    String   @default("")   // Naskah voiceover utuh siap TTS
+  editing_notes       String   @default("")   // Panduan Video Editor (cut rhythm, transisi, SFX, BGM, safe-zone teks)
+  voiceover_audio_url String?  // URL API/file audio TTS (.wav)
+  tts_voice           String   @default("Kore")
+  caption_ig          String
+  caption_tiktok      String
+  prompt_image_flow   String   // Prompt Imagen/Gemini siap paste (4:5 / 9:16)
+  prompt_video_flow   String   // Prompt Google Flow / Veo (9:16) siap paste
+  negative_prompt     String
+  image_search_query  String   // Query Google Images untuk referensi visual nyata
+  image_urls_json     String   @default("[]") // Real Google Image URLs (jika SERPER_API_KEY aktif)
+  status              String   @default("draft") // "draft" | "posted" | "skipped"
+  created_by          String   @default("agent_draft") // "agent_draft" | "manual_trigger"
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([status])
+  @@index([scheduled_date])
+  @@map("social_content_drafts")
+}
+
+
 

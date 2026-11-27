@@ -11,7 +11,8 @@
     "init-db": "prisma db push && tsx prisma/seed.ts",
     "setup": "prisma db push && tsx prisma/seed.ts && next build",
     "backup-db": "tsx scripts/backup-db.ts",
-    "restore-db": "tsx scripts/restore-db.ts"
+    "restore-db": "tsx scripts/restore-db.ts",
+    "test:kasir": "tsx scripts/test-kasir.ts"
   },
   "keywords": [],
   "type": "module",

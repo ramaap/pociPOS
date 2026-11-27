@@ -131,14 +131,24 @@ export async function GET(req: Request) {
       periodDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
     }
 
-    // 2. Query Transaksi dengan Filter
+    const LAUNCH_START_STR = "2026-12-01";
+    const LAUNCH_START_DATE = new Date("2026-12-01T00:00:00+07:00");
+    const effectiveOpStart =
+      dateFilter?.gte && dateFilter.gte > LAUNCH_START_DATE ? dateFilter.gte : LAUNCH_START_DATE;
+    const operationalPeriodDays =
+      now < LAUNCH_START_DATE
+        ? 0
+        : Math.min(periodDays, Math.max(1, Math.ceil((now.getTime() - LAUNCH_START_DATE.getTime()) / 86400000)));
+
+    // 2. Query Transaksi dengan Filter (mulai efektif 1 Desember 2026)
     const whereClause: any = {};
     if (outletId && outletId !== "all") {
       whereClause.outlet_id = outletId;
     }
-    if (dateFilter) {
-      whereClause.created_at = dateFilter;
-    }
+    whereClause.created_at = {
+      gte: effectiveOpStart,
+      ...(dateFilter?.lte ? { lte: dateFilter.lte } : {}),
+    };
 
     const transactions = await prisma.transaction.findMany({
       where: whereClause,
@@ -176,7 +186,9 @@ export async function GET(req: Request) {
       orderBy: { date: "desc" },
     });
 
-    const totalExpenseAmount = expensesList.reduce((acc, curr) => acc + curr.amount, 0);
+    // Pengeluaran sebelum 1 Desember tidak dihitung ke laporan operasional Arus Kas/Laba Rugi (tetap tampil di tabel Catatan Biaya & memotong Modal Awal)
+    const operationalExpensesList = expensesList.filter((e) => new Date(e.date) >= LAUNCH_START_DATE);
+    const totalExpenseAmount = operationalExpensesList.reduce((acc, curr) => acc + curr.amount, 0);
 
     // 3b. Query & Kalkulasi Beban Tetap Dinamis (Fixed Overhead Costs)
     const activeOutletsCount = outletId !== "all" ? 1 : Math.max(1, await prisma.outlet.count({ where: { active_status: true } }));
@@ -200,7 +212,7 @@ export async function GET(req: Request) {
         if (outletId !== "all" && fc.outlet_id === null) {
           allocatedMonthly = fc.amount / activeOutletsCount;
         }
-        const prorated = Math.round((allocatedMonthly * periodDays) / 30);
+        const prorated = Math.round((allocatedMonthly * operationalPeriodDays) / 30);
         totalMonthlyFixedCost += allocatedMonthly;
         totalFixedCostProrated += prorated;
 
@@ -468,15 +480,28 @@ export async function GET(req: Request) {
       .filter((a) => a.asset_type !== "tidak_bergerak")
       .reduce((acc, curr) => acc + curr.cost, 0);
     const totalRndExpenses = allRndExpenses.reduce((acc, curr) => acc + curr.amount, 0);
-    const remainingCapitalCash = totalInitialCapital - totalCapitalAssets - totalRndExpenses;
+    const aggAllOpex = await prisma.expense.aggregate({ _sum: { amount: true } });
+    const totalOperationalExpensesAllTime = aggAllOpex._sum.amount || 0;
+    const remainingCapitalCash =
+      totalInitialCapital - totalCapitalAssets - totalRndExpenses - totalOperationalExpensesAllTime;
 
-    // 7. Konstruksi Data Neraca Keuangan (Balance Sheet)
-    // - Aset Lancar: Kas Tunai + Kas Bank (QRIS) + Nilai Persediaan Bahan Baku + Sisa Kas Modal Usaha
-    // - Aset Tetap: Pembelian Aset Tetap (Dipisah: Aset Tidak Bergerak vs Aset Bergerak)
-    // - Liabilitas: Hutang/Piutang Selisih Closing + Beban Terutang
-    // - Ekuitas: Modal Disetor (Riil dari Initial Capital) - Biaya RnD + Laba Ditahan (Retained Net Profit)
+    const [aggQrisAllTime, centralVaultRow, openOutlets] = await Promise.all([
+      prisma.transaction.aggregate({ where: { payment_method: "QRIS" }, _sum: { total_amount: true } }),
+      prisma.centralVault.findUnique({ where: { id: "default" } }),
+      prisma.outlet.findMany({ where: { active_status: true, shift_status: { not: "closed" } }, select: { initial_cash: true } }),
+    ]);
+    const qrisRevenueAllTime = aggQrisAllTime._sum.total_amount || 0;
+    const brankasPusat = centralVaultRow?.cash_balance || 0;
+    const kasLaciKedai = openOutlets.reduce((s, o) => s + (o.initial_cash || 0), 0);
+    // Day-by-day QRIS masuk ke rekening bank payment terpisah (tidak bercampur dengan rekening Modal Usaha)
+    const kasDiBank = qrisRevenueAllTime;
+    const kasDiPetiCash = brankasPusat + kasLaciKedai;
+    const totalKas = kasDiBank + kasDiPetiCash;
+
+    // 7. Konstruksi Data Neraca Keuangan (Balance Sheet) - Double-Entry Seimbang
     const modalAwalFranchise = totalInitialCapital > 0 ? totalInitialCapital : activeOutletsCount * 5000000;
-    const sisaKasModal = Math.max(0, remainingCapitalCash);
+    const sisaKasModal = remainingCapitalCash;
+    const piutangKaryawan = totalEmployeeDebt;
 
     const grossProfit = totalRevenue - totalHPP;
     const netProfit = grossProfit - totalAllExpenses;
@@ -486,7 +511,13 @@ export async function GET(req: Request) {
       kasBankQRIS: qrisRevenue,
       persediaanBahanBaku: Math.round(totalInventoryValue),
       sisaKasModal: Math.round(sisaKasModal),
-      totalAktivaLancar: cashRevenue + qrisRevenue + Math.round(totalInventoryValue) + Math.round(sisaKasModal),
+      piutangKaryawan: Math.round(piutangKaryawan),
+      totalAktivaLancar:
+        cashRevenue +
+        qrisRevenue +
+        Math.round(totalInventoryValue) +
+        Math.round(sisaKasModal) +
+        Math.round(piutangKaryawan),
     };
 
     const aktivaTetap = {
@@ -498,19 +529,27 @@ export async function GET(req: Request) {
 
     const totalAktiva = aktivaLancar.totalAktivaLancar + aktivaTetap.totalAktivaTetap;
 
+    const bebanTetapTerutang = totalFixedExpenses;
+    const labaDitahanNeraca =
+      totalRevenue -
+      totalOperationalExpensesAllTime -
+      bebanTetapTerutang +
+      Math.round(totalInventoryValue) +
+      Math.round(piutangKaryawan);
+
     const pasiva = {
       kewajibanLancar: {
-        hutangSelisihCup: totalEmployeeDebt,
-        bebanOperasionalTerutang: totalAllExpenses,
-        totalKewajiban: totalEmployeeDebt + totalAllExpenses,
+        hutangSelisihCup: 0,
+        bebanOperasionalTerutang: bebanTetapTerutang,
+        totalKewajiban: bebanTetapTerutang,
       },
       ekuitas: {
         modalDisetor: modalAwalFranchise,
         bebanRnd: totalRndExpenses,
-        labaDitahan: netProfit,
-        totalEkuitas: modalAwalFranchise - totalRndExpenses + netProfit,
+        labaDitahan: labaDitahanNeraca,
+        totalEkuitas: modalAwalFranchise - totalRndExpenses + labaDitahanNeraca,
       },
-      totalPasiva: totalEmployeeDebt + totalAllExpenses + (modalAwalFranchise - totalRndExpenses) + netProfit,
+      totalPasiva: bebanTetapTerutang + (modalAwalFranchise - totalRndExpenses + labaDitahanNeraca),
     };
 
     // 8. Daily Timeline Generator untuk Chart Proyeksi & Arus Kas (Grafik seperti di gambar HashMicro)
@@ -535,6 +574,7 @@ export async function GET(req: Request) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
       const dayStr = d.toISOString().split("T")[0];
+      if (dayStr < LAUNCH_START_STR) continue;
       const displayLabel = d.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
 
       // Hitung transaksi penjualan (inflow) di hari tersebut
@@ -543,15 +583,16 @@ export async function GET(req: Request) {
         return txDate === dayStr;
       });
 
-      // Hitung pengeluaran operasional variabel di hari tersebut
-      const dayExps = expensesList.filter((e) => {
+      // Hitung pengeluaran operasional variabel di hari tersebut (>= 1 Des)
+      const dayExps = operationalExpensesList.filter((e) => {
         const expDate = new Date(e.date).toISOString().split("T")[0];
         return expDate === dayStr;
       });
 
       const dayRev = dayTxs.reduce((s, t) => s + t.total_amount, 0);
       const dayExpAmount = dayExps.reduce((s, e) => s + e.amount, 0);
-      const dayTotalOutflow = dayExpAmount + dailyFixedCostRate;
+      const effectiveFixedRate = dayStr >= LAUNCH_START_STR ? dailyFixedCostRate : 0;
+      const dayTotalOutflow = dayExpAmount + effectiveFixedRate;
       const dayCOGS = Math.round(dayRev * 0.42); // Rata-rata COGS ~42%
       const dayNet = dayRev - dayTotalOutflow; // Kas Masuk - Total Kas Keluar Riil (Variabel + Tetap)
 
@@ -573,7 +614,7 @@ export async function GET(req: Request) {
     }
 
     // 9. Target & Gap Calculation
-    const targetTotal = dailyTarget * (period === "today" ? 1 : period === "7d" ? 7 : 30);
+    const targetTotal = dailyTarget * operationalPeriodDays;
     const gapVsTargetPercent =
       targetTotal > 0 ? (((totalRevenue - targetTotal) / targetTotal) * 100).toFixed(1) : "0.0";
     const isAboveTarget = Number(gapVsTargetPercent) >= 0;
@@ -590,7 +631,7 @@ export async function GET(req: Request) {
       lainnya: { label: "Biaya Lain-lain", amount: 0, count: 0, color: "bg-slate-500", icon: "📦" },
     };
 
-    for (const exp of expensesList) {
+    for (const exp of operationalExpensesList) {
       const cat = exp.category || "operasional";
       if (!categoryBreakdownMap[cat]) {
         categoryBreakdownMap[cat] = { label: cat, amount: 0, count: 0, color: "bg-slate-500", icon: "💸" };
@@ -680,7 +721,10 @@ export async function GET(req: Request) {
         cashOnHand: cashRevenue,
         cashInBank: qrisRevenue,
         closingLiquidity: cashRevenue + qrisRevenue,
-        burnRateDaily: Math.round((totalVariableExpenses / (timelineDays || 1)) + dailyFixedCostRate),
+        burnRateDaily:
+          operationalPeriodDays > 0
+            ? Math.round(totalVariableExpenses / operationalPeriodDays + dailyFixedCostRate)
+            : 0,
         categories: expenseCategories,
       },
       aiInsight: aiInsightText,
@@ -691,7 +735,13 @@ export async function GET(req: Request) {
         totalAsetTidakBergerak,
         totalAsetBergerak,
         totalRndExpenses,
+        totalOperationalExpensesAllTime,
         remainingCapitalCash,
+      },
+      cashPosition: {
+        totalKas,
+        kasDiBank,
+        kasDiPetiCash,
       },
       capitals: allCapitals,
       capitalAssets: allAssets,
@@ -706,7 +756,7 @@ export async function GET(req: Request) {
         totalAktiva,
         pasiva,
         totalPasiva: pasiva.totalPasiva,
-        isBalanced: true,
+        isBalanced: totalAktiva === pasiva.totalPasiva,
       },
       expenses: expensesList,
       productSales,

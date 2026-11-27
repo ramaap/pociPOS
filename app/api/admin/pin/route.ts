@@ -26,10 +26,14 @@ export async function POST(req: Request) {
       if (pinToTest === activePin) {
         return NextResponse.json({ success: true, verified: true });
       }
+      const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+      import("@/lib/agents/dispatcher").then((d) => d.onPinFailed(ip)).catch(() => {});
       return NextResponse.json({ error: "PIN Admin salah. Akses ditolak." }, { status: 401 });
     }
 
     if (!currentPin || String(currentPin).trim() !== activePin) {
+      const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+      import("@/lib/agents/dispatcher").then((d) => d.onPinFailed(ip)).catch(() => {});
       return NextResponse.json(
         { error: "PIN Admin saat ini (lama) salah. Masukkan PIN yang benar." },
         { status: 401 }
