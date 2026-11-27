@@ -4,6 +4,7 @@ import path from "path";
 export interface AgentRuntimeState {
   lastMorningDate?: string;
   lastEveningDate?: string;
+  lastSocialDate?: string;
   lastTelegramOffset?: number;
 }
 

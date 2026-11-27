@@ -33,6 +33,11 @@ export const AGENT_CONFIG = {
   MORNING_BRIEFING_HOUR: 6, // 06:00 WIB
   EVENING_REPORT_HOUR: 20, // 20:00 WIB (setelah closing weekend jam 19:00)
 
+  // Social Media Strategist Agent: 3x seminggu (Senin=1, Rabu=3, Jumat=5) jam 09:00 WIB
+  SOCIAL_POST_DAYS: [1, 3, 5] as number[],
+  SOCIAL_POST_HOUR: 9,
+  SOCIAL_MAX_OUTPUT_TOKENS: 2400,
+
   // Anti-spam debounce
   ALERT_DEBOUNCE_MINUTES: 30,
 

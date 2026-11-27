@@ -9,7 +9,7 @@ import { askGemini } from "./gemini";
  */
 
 export async function logAgentEvent(params: {
-  agentName: "watchdog" | "stock_manager" | "virtual_gm";
+  agentName: "watchdog" | "stock_manager" | "virtual_gm" | "social_media";
   eventType: string;
   outletId?: string | null;
   summary: string;

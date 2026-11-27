@@ -208,8 +208,18 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedOutletFilter, setSelectedOutletFilter] = useState<string>("all");
 
-  // Admin Navigation Tabs: "financial" | "stocks" | "outlets" | "master_menus" | "outlet_menus" | "vouchers" | "purchase_orders"
-  const [activeAdminTab, setActiveAdminTab] = useState<"financial" | "stocks" | "outlets" | "master_menus" | "outlet_menus" | "vouchers" | "purchase_orders">("financial");
+  // Admin Navigation Tabs: "financial" | "stocks" | "outlets" | "master_menus" | "outlet_menus" | "vouchers" | "purchase_orders" | "social_media"
+  const [activeAdminTab, setActiveAdminTab] = useState<"financial" | "stocks" | "outlets" | "master_menus" | "outlet_menus" | "vouchers" | "purchase_orders" | "social_media">("financial");
+
+  // ================= TAB 8: SOCIAL MEDIA STRATEGIST STATE =================
+  const [socialDrafts, setSocialDrafts] = useState<any[]>([]);
+  const [socialLoading, setSocialLoading] = useState<boolean>(false);
+  const [socialMessage, setSocialMessage] = useState<{ text: string; isError: boolean } | null>(null);
+  const [socialPlatformHint, setSocialPlatformHint] = useState<string>("");
+  const [socialCustomTopic, setSocialCustomTopic] = useState<string>("");
+  const [socialSendTelegram, setSocialSendTelegram] = useState<boolean>(false);
+  const [copiedSocialKey, setCopiedSocialKey] = useState<string | null>(null);
+  const [hasSerperKey, setHasSerperKey] = useState<boolean>(false);
 
   // ================= TAB 7: PO & PREDIKSI STOK STATE =================
   const [poForecast, setPoForecast] = useState<any[]>([]);
@@ -1924,6 +1934,88 @@ export default function AdminDashboardPage() {
     }
   }, [activeAdminTab, isAuthenticated]);
 
+  const loadSocialDrafts = async () => {
+    setSocialLoading(true);
+    try {
+      const res = await fetch("/api/admin/social-content");
+      const json = await res.json();
+      if (res.ok) {
+        setSocialDrafts(json.drafts || []);
+        setHasSerperKey(Boolean(json.hasSerperKey));
+      }
+    } catch {
+      // ignore
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
+  const handleGenerateSocialDraft = async () => {
+    setSocialLoading(true);
+    setSocialMessage(null);
+    try {
+      const res = await fetch("/api/admin/social-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platformHint: socialPlatformHint || undefined,
+          customTopic: socialCustomTopic || undefined,
+          notifyTelegram: socialSendTelegram,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setSocialCustomTopic("");
+        setSocialMessage({
+          text: `Ide konten baru untuk ${json.draft?.platform || "Sosmed"} berhasil dibuat (anti-AI slop & grounded ke tren 7 hari terakhir).`,
+          isError: false,
+        });
+        await loadSocialDrafts();
+      } else {
+        setSocialMessage({ text: json.error || "Gagal membuat ide konten", isError: true });
+      }
+    } catch {
+      setSocialMessage({ text: "Gagal terhubung ke server saat membuat konten sosmed", isError: true });
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
+  const handleUpdateSocialStatus = async (id: string, status: "draft" | "posted" | "skipped") => {
+    try {
+      const res = await fetch("/api/admin/social-content", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      if (res.ok) await loadSocialDrafts();
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleDeleteSocialDraft = async (id: string) => {
+    if (!confirm("Hapus draft konten sosmed ini?")) return;
+    try {
+      const res = await fetch(`/api/admin/social-content?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (res.ok) await loadSocialDrafts();
+    } catch {
+      // ignore
+    }
+  };
+
+  const copySocialText = (key: string, text: string) => {
+    navigator.clipboard.writeText(text || "");
+    setCopiedSocialKey(key);
+    setTimeout(() => setCopiedSocialKey(null), 2000);
+  };
+
+  useEffect(() => {
+    if (activeAdminTab === "social_media" && isAuthenticated) {
+      loadSocialDrafts();
+    }
+  }, [activeAdminTab, isAuthenticated]);
+
   // ================= REAL-TIME AUTO SYNC (BROADCAST, STORAGE & HEARTBEAT POLLING) =================
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -3150,6 +3242,21 @@ export default function AdminDashboardPage() {
           >
             <ShoppingBag className="w-4 h-4" />
             <span>📋 PO &amp; Prediksi Stok</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveAdminTab("social_media");
+              loadSocialDrafts();
+            }}
+            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${
+              activeAdminTab === "social_media"
+                ? "bg-emerald-600 text-white shadow-md"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>📱 Konten Sosmed</span>
           </button>
         </div>
 
@@ -7899,6 +8006,347 @@ export default function AdminDashboardPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* TAB 8: SOCIAL MEDIA STRATEGIST (IG & TIKTOK + GOOGLE FLOW)     */}
+        {/* ============================================================== */}
+        {activeAdminTab === "social_media" && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-emerald-600" />
+                    Social Media Strategist (Instagram &amp; TikTok)
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Jadwal otomatis <b>3x seminggu (Senin, Rabu, Jumat pukul 09:00 WIB — 1 ide/hari)</b>. Meriset tren viral 7 hari terakhir + data menu &amp; promo POS nyata, bebas AI slop, dengan prompt siap paste ke <b>Gemini / Google Flow</b>.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => loadSocialDrafts()}
+                  disabled={socialLoading}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer self-start md:self-auto"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${socialLoading ? "animate-spin" : ""}`} />
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 pt-2 border-t border-slate-100 items-center">
+                <select
+                  value={socialPlatformHint}
+                  onChange={(e) => setSocialPlatformHint(e.target.value)}
+                  className="md:col-span-3 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white"
+                >
+                  <option value="">Platform: Otomatis (Rotasi IG/TikTok)</option>
+                  <option value="Instagram Reels">Instagram Reels (9:16)</option>
+                  <option value="Instagram Carousel">Instagram Carousel (4:5)</option>
+                  <option value="TikTok">TikTok (9:16)</option>
+                </select>
+                <input
+                  type="text"
+                  value={socialCustomTopic}
+                  onChange={(e) => setSocialCustomTopic(e.target.value)}
+                  placeholder="Arahan topik opsional (mis. cuaca panas / promo payday / varian thai tea)..."
+                  className="md:col-span-5 px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700"
+                />
+                <label className="md:col-span-2 flex items-center gap-1.5 text-xs text-slate-600 font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={socialSendTelegram}
+                    onChange={(e) => setSocialSendTelegram(e.target.checked)}
+                    className="rounded border-slate-300"
+                  />
+                  <span>Kirim ke Telegram</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleGenerateSocialDraft}
+                  disabled={socialLoading}
+                  className="md:col-span-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer disabled:opacity-50"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{socialLoading ? "Meriset Tren..." : "Buat Ide Baru"}</span>
+                </button>
+              </div>
+
+              {!hasSerperKey && (
+                <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                  ℹ️ Mode Real Google Image saat ini memakai link pencarian Google Images langsung. Jika ingin thumbnail gambar otomatis ditarik ke sini, isi <code className="font-mono font-bold">SERPER_API_KEY</code> di <code className="font-mono font-bold">.env</code>.
+                </p>
+              )}
+            </div>
+
+            {socialMessage && (
+              <div
+                className={`p-3.5 rounded-xl border text-xs font-bold flex items-center justify-between ${
+                  socialMessage.isError
+                    ? "bg-rose-50 border-rose-200 text-rose-700"
+                    : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                }`}
+              >
+                <span>{socialMessage.text}</span>
+                <button type="button" onClick={() => setSocialMessage(null)} className="ml-3 underline text-[11px]">
+                  Tutup
+                </button>
+              </div>
+            )}
+
+            {socialDrafts.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center text-xs text-slate-400">
+                Belum ada draft konten sosmed. Klik <b>&ldquo;Buat Ide Baru&rdquo;</b> di atas atau tunggu jadwal otomatis Senin/Rabu/Jumat pukul 09:00 WIB.
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {socialDrafts.map((d) => {
+                  let sources: Array<{ title: string; uri: string }> = [];
+                  let realImages: Array<{ title: string; imageUrl: string; link: string }> = [];
+                  try {
+                    sources = JSON.parse(d.trend_sources_json || "[]");
+                  } catch {}
+                  try {
+                    realImages = JSON.parse(d.image_urls_json || "[]");
+                  } catch {}
+                  const googleImagesUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(
+                    d.image_search_query || "es teh poci"
+                  )}`;
+
+                  return (
+                    <div key={d.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2.5 py-1 rounded-full bg-slate-900 text-white text-[11px] font-bold">
+                            {d.platform}
+                          </span>
+                          <span className="text-xs font-mono font-bold text-slate-600">{d.scheduled_date}</span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              d.status === "posted"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : d.status === "skipped"
+                                ? "bg-slate-200 text-slate-600"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {d.status === "posted" ? "Sudah Diposting" : d.status === "skipped" ? "Dilewati" : "Draft"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {d.status !== "posted" && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateSocialStatus(d.id, "posted")}
+                              className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer"
+                            >
+                              ✅ Tandai Sudah Diposting
+                            </button>
+                          )}
+                          {d.status === "draft" && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateSocialStatus(d.id, "skipped")}
+                              className="px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold cursor-pointer"
+                            >
+                              Lewati
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSocialDraft(d.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 cursor-pointer"
+                            title="Hapus Draft"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {/* Kolom Kiri: Tren, Ide & Captions */}
+                        <div className="space-y-3">
+                          <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3">
+                            <p className="text-[10px] font-extrabold uppercase text-amber-800 mb-1">
+                              🔥 Tren Viral 7 Hari Terakhir
+                            </p>
+                            <p className="text-xs font-bold text-slate-800">{d.trend_topic}</p>
+                            {sources.length > 0 && (
+                              <div className="mt-1.5 flex flex-wrap gap-2">
+                                {sources.map((s, idx) => (
+                                  <a
+                                    key={idx}
+                                    href={s.uri}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[10px] text-amber-700 underline hover:text-amber-900"
+                                  >
+                                    {s.title || "Sumber Tren"}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                            <p className="text-[10px] font-extrabold uppercase text-slate-500 mb-1">
+                              💡 Ide Post &amp; Hook
+                            </p>
+                            <p className="text-xs text-slate-800 whitespace-pre-line leading-relaxed">{d.post_idea}</p>
+                          </div>
+
+                          <div className="border border-slate-200 rounded-xl p-3 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-extrabold uppercase text-slate-500">
+                                ✍️ Caption Instagram
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => copySocialText(`${d.id}-ig`, d.caption_ig)}
+                                className="px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                              >
+                                <Copy className="w-3 h-3" />
+                                <span>{copiedSocialKey === `${d.id}-ig` ? "Tersalin!" : "Copy IG"}</span>
+                              </button>
+                            </div>
+                            <textarea
+                              readOnly
+                              rows={3}
+                              value={d.caption_ig}
+                              className="w-full text-xs text-slate-700 bg-slate-50 rounded-lg p-2 border border-slate-200 focus:outline-none"
+                            />
+                          </div>
+
+                          <div className="border border-slate-200 rounded-xl p-3 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-extrabold uppercase text-slate-500">
+                                🎵 Caption TikTok
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => copySocialText(`${d.id}-tt`, d.caption_tiktok)}
+                                className="px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                              >
+                                <Copy className="w-3 h-3" />
+                                <span>{copiedSocialKey === `${d.id}-tt` ? "Tersalin!" : "Copy TikTok"}</span>
+                              </button>
+                            </div>
+                            <textarea
+                              readOnly
+                              rows={2}
+                              value={d.caption_tiktok}
+                              className="w-full text-xs text-slate-700 bg-slate-50 rounded-lg p-2 border border-slate-200 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Kolom Kanan: Prompts Gemini / Google Flow & Real Google Image */}
+                        <div className="space-y-3">
+                          <div className="border border-emerald-200 bg-emerald-50/30 rounded-xl p-3 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-extrabold uppercase text-emerald-800">
+                                🖼️ Prompt Image — Gemini / Google Flow
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => copySocialText(`${d.id}-img`, d.prompt_image_flow)}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-700 text-white text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                              >
+                                <Copy className="w-3 h-3" />
+                                <span>{copiedSocialKey === `${d.id}-img` ? "Tersalin!" : "Copy Prompt"}</span>
+                              </button>
+                            </div>
+                            <textarea
+                              readOnly
+                              rows={4}
+                              value={d.prompt_image_flow}
+                              className="w-full text-[11px] font-mono text-slate-700 bg-white rounded-lg p-2 border border-emerald-200 focus:outline-none"
+                            />
+                          </div>
+
+                          <div className="border border-blue-200 bg-blue-50/30 rounded-xl p-3 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-extrabold uppercase text-blue-800">
+                                🎬 Prompt Video 9:16 — Google Flow / Veo
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => copySocialText(`${d.id}-vid`, d.prompt_video_flow)}
+                                className="px-2.5 py-1 rounded-lg bg-blue-700 text-white text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                              >
+                                <Copy className="w-3 h-3" />
+                                <span>{copiedSocialKey === `${d.id}-vid` ? "Tersalin!" : "Copy Prompt"}</span>
+                              </button>
+                            </div>
+                            <textarea
+                              readOnly
+                              rows={4}
+                              value={d.prompt_video_flow}
+                              className="w-full text-[11px] font-mono text-slate-700 bg-white rounded-lg p-2 border border-blue-200 focus:outline-none"
+                            />
+                          </div>
+
+                          <div className="border border-slate-200 rounded-xl p-3 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-extrabold uppercase text-slate-500">
+                                🚫 Negative Prompt (Anti-AI Slop)
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => copySocialText(`${d.id}-neg`, d.negative_prompt)}
+                                className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-bold cursor-pointer"
+                              >
+                                {copiedSocialKey === `${d.id}-neg` ? "Tersalin!" : "Copy"}
+                              </button>
+                            </div>
+                            <p className="text-[11px] font-mono text-slate-600">{d.negative_prompt}</p>
+                          </div>
+
+                          <div className="border border-slate-200 rounded-xl p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <span className="text-[10px] font-extrabold uppercase text-slate-500">
+                                🔍 Referensi Real Google Image
+                              </span>
+                              <a
+                                href={googleImagesUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold"
+                              >
+                                🌐 Buka Google Images: &ldquo;{d.image_search_query}&rdquo;
+                              </a>
+                            </div>
+                            {realImages.length > 0 && (
+                              <div className="grid grid-cols-4 gap-2 pt-1">
+                                {realImages.map((img, idx) => (
+                                  <a
+                                    key={idx}
+                                    href={img.link || img.imageUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="block rounded-lg overflow-hidden border border-slate-200 hover:opacity-80"
+                                    title={img.title}
+                                  >
+                                    <img
+                                      src={img.imageUrl}
+                                      alt={img.title}
+                                      className="w-full h-16 object-cover bg-slate-100"
+                                    />
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </main>

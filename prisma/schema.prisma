@@ -376,5 +376,29 @@ model PurchaseOrder {
   @@map("purchase_orders")
 }
 
+model SocialContentDraft {
+  id                  String   @id @default(cuid())
+  scheduled_date      String   // YYYY-MM-DD WIB
+  platform            String   // "Instagram Reels" | "Instagram Carousel" | "TikTok"
+  trend_topic         String   // Topik/tren viral 7 hari terakhir yang dijadikan pijakan
+  trend_sources_json  String   @default("[]") // URL sumber tren dari Google Search Grounding / Trends
+  post_idea           String   // Ringkasan ide + Hook 3 detik + angle
+  caption_ig          String
+  caption_tiktok      String
+  prompt_image_flow   String   // Prompt Imagen/Gemini siap paste (4:5 / 9:16)
+  prompt_video_flow   String   // Prompt Google Flow / Veo (9:16) siap paste
+  negative_prompt     String
+  image_search_query  String   // Query Google Images untuk referensi visual nyata
+  image_urls_json     String   @default("[]") // Real Google Image URLs (jika SERPER_API_KEY aktif)
+  status              String   @default("draft") // "draft" | "posted" | "skipped"
+  created_by          String   @default("agent_draft") // "agent_draft" | "manual_trigger"
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([status])
+  @@index([scheduled_date])
+  @@map("social_content_drafts")
+}
+
 
 

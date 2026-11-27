@@ -10,6 +10,7 @@ import {
   saveOwnerChat,
 } from "./memory";
 import { calculateDemandForecast, createDraftPurchaseOrder } from "./po-planner";
+import { generateAndSendSocialIdea } from "./social-media";
 
 interface PendingAdminAction {
   id: string;
@@ -365,6 +366,19 @@ ATURAN KETAT:
 
     // Belajar preferensi/kebiasaan Owner di latar belakang
     learnFromOwnerMessage(cleanText).catch(() => {});
+
+    if (
+      /\b(sosmed|social\s*media|konten|content|instagram|reels|tiktok|caption|ide\s*post|viral|flow)\b/i.test(
+        cleanText
+      )
+    ) {
+      await sendMessage("🎨 <i>Sebentar, Social Media Agent sedang riset tren 7 hari terakhir &amp; menyiapkan ide konten anti-slop...</i>");
+      await generateAndSendSocialIdea({
+        customTopic: cleanText,
+        createdBy: "manual_trigger",
+        notifyTelegram: true,
+      });
+    }
   } catch (err) {
     console.warn("[Agent:VirtualGM] Error handleOwnerMessage:", err);
   }
