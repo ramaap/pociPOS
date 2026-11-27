@@ -3628,22 +3628,22 @@ export default function AdminDashboardPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
                 <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-xs flex flex-col justify-between">
                   <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider">
-                    💰 1. Total Kas Keseluruhan
+                    💰 1. Total Kas (Day-by-Day)
                   </span>
                   <h3 className="text-2xl font-black font-mono mt-1.5">
                     {formatRupiah(financeData?.cashPosition?.totalKas ?? 0)}
                   </h3>
-                  <p className="text-[11px] text-slate-400 mt-1">Gabungan Kas di Bank + Kas di Peti Cash</p>
+                  <p className="text-[11px] text-slate-400 mt-1">Kas Bank (QRIS) + Peti Cash (terpisah dari Modal)</p>
                 </div>
 
                 <div className="bg-white rounded-2xl p-4 border border-blue-200 shadow-xs flex flex-col justify-between">
                   <span className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider">
-                    🏦 2. Kas di Bank (Payment)
+                    🏦 2. Kas di Bank (Payment QRIS)
                   </span>
                   <h3 className="text-2xl font-black text-blue-900 font-mono mt-1.5">
                     {formatRupiah(financeData?.cashPosition?.kasDiBank ?? 0)}
                   </h3>
-                  <p className="text-[11px] text-slate-500 mt-1">Sisa Kas Modal Awal + Penjualan QRIS</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Rekening khusus akumulasi QRIS (bukan rekening modal)</p>
                 </div>
 
                 <div className="bg-white rounded-2xl p-4 border border-amber-200 shadow-xs flex flex-col justify-between">

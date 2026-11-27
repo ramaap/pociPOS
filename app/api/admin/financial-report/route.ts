@@ -481,7 +481,8 @@ export async function GET(req: Request) {
     const qrisRevenueAllTime = aggQrisAllTime._sum.total_amount || 0;
     const brankasPusat = centralVaultRow?.cash_balance || 0;
     const kasLaciKedai = openOutlets.reduce((s, o) => s + (o.initial_cash || 0), 0);
-    const kasDiBank = remainingCapitalCash + qrisRevenueAllTime;
+    // Day-by-day QRIS masuk ke rekening bank payment terpisah (tidak bercampur dengan rekening Modal Usaha)
+    const kasDiBank = qrisRevenueAllTime;
     const kasDiPetiCash = brankasPusat + kasLaciKedai;
     const totalKas = kasDiBank + kasDiPetiCash;
 

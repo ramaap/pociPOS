@@ -147,7 +147,7 @@ export async function sendEveningReport(targetWibDateStr?: string): Promise<void
       (aggAsset._sum.cost || 0) -
       (aggRnd._sum.amount || 0) -
       (aggOpex._sum.amount || 0);
-    const kasDiBank = sisaModal + (aggQris._sum.total_amount || 0);
+    const kasDiBank = aggQris._sum.total_amount || 0;
     const kasDiPetiCash =
       (centralVaultRow?.cash_balance || 0) +
       openOutlets.reduce((s, o) => s + (o.initial_cash || 0), 0);
@@ -158,10 +158,11 @@ export async function sendEveningReport(targetWibDateStr?: string): Promise<void
       ``,
       `💰 <b>Total Omzet:</b> Rp ${totalRevenue.toLocaleString("id-ID")} (${totalCups} cup)`,
       ``,
-      `🏦 <b>Posisi Kas Hari Ini:</b>`,
+      `🏦 <b>Posisi Kas Operasional (Day-by-Day):</b>`,
       `• Total Kas: <b>Rp ${totalKas.toLocaleString("id-ID")}</b>`,
-      `• Kas di Bank (Payment): Rp ${kasDiBank.toLocaleString("id-ID")}`,
+      `• Kas di Bank (Payment QRIS): Rp ${kasDiBank.toLocaleString("id-ID")}`,
       `• Kas di Peti Cash: Rp ${kasDiPetiCash.toLocaleString("id-ID")}`,
+      `• Sisa Kas Rekening Modal Usaha: Rp ${sisaModal.toLocaleString("id-ID")}`,
       ``,
       `🏪 <b>Rincian Per Kedai:</b>`,
       ...(outletLines.length > 0 ? outletLines : ["• Belum ada outlet aktif"]),
@@ -263,7 +264,7 @@ export async function handleOwnerMessage(text: string): Promise<void> {
     const totalRnd = aggRnd._sum.amount || 0;
     const totalOpexAllTime = aggOpex._sum.amount || 0;
     const sisaKasModalAwal = totalModalDisetor - totalCapex - totalRnd - totalOpexAllTime;
-    const kasDiBank = sisaKasModalAwal + (aggQris._sum.total_amount || 0);
+    const kasDiBank = aggQris._sum.total_amount || 0;
     const kasDiPetiCash =
       (centralVaultRow?.cash_balance || 0) +
       outlets.filter((o) => o.shift_status !== "closed").reduce((s, o) => s + (o.initial_cash || 0), 0);
@@ -370,9 +371,9 @@ Ringkasan Keuangan & Modal Usaha (Real-time):
 - Total Pembelian Aset (CAPEX): Rp ${totalCapex.toLocaleString("id-ID")}
 - Total Pengeluaran Riset (RnD): Rp ${totalRnd.toLocaleString("id-ID")}
 - Total Pengeluaran Harian (Variable OPEX All-Time): Rp ${totalOpexAllTime.toLocaleString("id-ID")}
-- Sisa Kas Modal Awal (Bank): Rp ${sisaKasModalAwal.toLocaleString("id-ID")}
-- Total Kas Keseluruhan: Rp ${totalKas.toLocaleString("id-ID")}
-- Kas di Bank (Payment): Rp ${kasDiBank.toLocaleString("id-ID")}
+- Sisa Kas Rekening Modal Usaha: Rp ${sisaKasModalAwal.toLocaleString("id-ID")}
+- Total Kas Operasional (Day-by-Day): Rp ${totalKas.toLocaleString("id-ID")}
+- Kas di Bank (Payment QRIS - terpisah dari modal): Rp ${kasDiBank.toLocaleString("id-ID")}
 - Kas di Peti Cash: Rp ${kasDiPetiCash.toLocaleString("id-ID")}
 
 Pengeluaran Harian Terbaru (7 Hari Terakhir):
